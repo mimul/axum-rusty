@@ -1,6 +1,5 @@
 use serde::Serialize;
 use todo_usecase::model::todo::status::TodoStatusView;
-// use validator::Validate;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

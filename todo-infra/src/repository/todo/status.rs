@@ -11,14 +11,9 @@ impl TodoStatusRepository for DatabaseRepositoryImpl<TodoStatus> {
     async fn get_by_code(&self, code: &str) -> anyhow::Result<TodoStatus> {
         let pool = self.db.0.clone();
         let sql = r#"
-            select
-                id,
-                code,
-                name
-            from
-                todo_statuses
-            where
-                code = $1
+            select id, code, name
+            from todo_statuses
+            where code = $1
         "#;
 
         let stored_todo_status = query_as::<_, StoredTodoStatus>(sql)

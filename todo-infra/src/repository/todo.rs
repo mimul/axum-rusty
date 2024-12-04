@@ -14,22 +14,11 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
     async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
         let pool = self.db.0.clone();
         let sql = r#"
-            select
-                t.id as id,
-                t.title as title,
-                t.description as description,
-                ts.id as status_id,
-                ts.code as status_code,
-                ts.name as status_name,
-                t.created_at as created_at,
-                t.updated_at as updated_at
-            from
-                todos as t
-                inner join
-                    todo_statuses as ts
-                    on ts.id = t.status_id
-            where
-                t.id = $1
+            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
+                t.created_at as created_at, t.updated_at as updated_at
+            from  todos as t
+            inner join todo_statuses as ts on ts.id = t.status_id
+            where t.id = $1
         "#;
         let stored_todo = query_as::<_, StoredTodo>(sql)
             .bind(id.value.to_string())
@@ -52,20 +41,10 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
         };
 
         let mut sql = r#"
-            select
-                t.id as id,
-                t.title as title,
-                t.description as description,
-                ts.id as status_id,
-                ts.code as status_code,
-                ts.name as status_name,
-                t.created_at as created_at,
+            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name, t.created_at as created_at,
                 t.updated_at as updated_at
-            from
-                todos as t
-                inner join
-                    todo_statuses as ts
-                    on ts.id = t.status_id
+            from  todos as t
+            inner join todo_statuses as ts on ts.id = t.status_id
             where t.status_id in ($1)
             order by t.created_at asc
         "#
@@ -103,22 +82,11 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
             .await?;
 
         let sql = r#"
-            select
-                t.id as id,
-                t.title as title,
-                t.description as description,
-                ts.id as status_id,
-                ts.code as status_code,
-                ts.name as status_name,
-                t.created_at as created_at,
+            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name, t.created_at as created_at,
                 t.updated_at as updated_at
-            from
-                todos as t
-                inner join
-                    todo_statuses as ts
-                    on ts.id = t.status_id
-            where
-                t.id = $1
+            from  todos as t
+            inner join todo_statuses as ts on ts.id = t.status_id
+            where t.id = $1
         "#;
 
         let stored_todo = query_as::<_, StoredTodo>(sql)
@@ -134,17 +102,13 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
         let id = todo.id.clone();
 
         let update_sql = r#"
-            update
-                todos as target
-            set
+            update todos as target set
                 title = case when $2 is not null then $2 else current_todo.title end,
                 description = case when $3 is not null then $3 else current_todo.description end,
                 status_id = case when $4 is not null then $4 else current_todo.status_id end,
                 updated_at = current_timestamp
-            from
-                (select * from todos where id = $1) as current_todo
-            where
-                target.id = $1
+            from  (select * from todos where id = $1) as current_todo
+            where target.id = $1
         "#;
 
         let _ = query(update_sql)
@@ -156,22 +120,11 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
             .await?;
 
         let sql = r#"
-            select
-                t.id as id,
-                t.title as title,
-                t.description as description,
-                ts.id as status_id,
-                ts.code as status_code,
-                ts.name as status_name,
-                t.created_at as created_at,
-                t.updated_at as updated_at
-            from
-                todos as t
-                inner join
-                    todo_statuses as ts
-                    on ts.id = t.status_id
-            where
-                t.id = $1
+            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code,
+                ts.name as status_name, t.created_at as created_at, t.updated_at as updated_at
+            from todos as t
+            inner join todo_statuses as ts on ts.id = t.status_id
+            where t.id = $1
         "#;
 
         let stored_todo = query_as::<_, StoredTodo>(sql)
@@ -201,22 +154,11 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
             .await?;
 
         let sql = r#"
-            select
-                t.id as id,
-                t.title as title,
-                t.description as description,
-                ts.id as status_id,
-                ts.code as status_code,
-                ts.name as status_name,
-                t.created_at as created_at,
-                t.updated_at as updated_at
-            from
-                todos as t
-                inner join
-                    todo_statuses as ts
-                    on ts.id = t.status_id
-            where
-                t.id = $1
+            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code,
+                ts.name as status_name, t.created_at as created_at, t.updated_at as updated_at
+            from  todos as t
+            inner join todo_statuses as ts on ts.id = t.status_id
+            where t.id = $1
         "#;
 
         let stored_todo = query_as::<_, StoredTodo>(sql)
@@ -230,22 +172,11 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
         let pool = self.db.0.clone();
 
         let sql = r#"
-            select
-                t.id as id,
-                t.title as title,
-                t.description as description,
-                ts.id as status_id,
-                ts.code as status_code,
-                ts.name as status_name,
-                t.created_at as created_at,
-                t.updated_at as updated_at
-            from
-                todos as t
-                inner join
-                    todo_statuses as ts
-                    on ts.id = t.status_id
-            where
-                t.id = $1
+            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code,
+                ts.name as status_name, t.created_at as created_at, t.updated_at as updated_at
+            from  todos as t
+            inner join todo_statuses as ts on ts.id = t.status_id
+            where t.id = $1
         "#;
 
         let stored_todo = query_as::<_, StoredTodo>(sql)
