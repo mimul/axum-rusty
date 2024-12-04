@@ -10,7 +10,7 @@ use crate::context::errors::AppError;
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiResponse<Data> {
-    pub success: bool,
+    pub result: bool,
     pub message: String,
     pub data: Option<Data>,
 }
@@ -51,7 +51,7 @@ impl IntoResponse for AppError {
             }
         };
         let response: ApiResponse<String> = ApiResponse::<String> {
-            success: false,
+            result: false,
             message: error_message,
             data: None,
         };

@@ -31,7 +31,7 @@ pub async fn get_todo(
             info!("Found todo `{}`.", tv.id);
             let json: JsonTodo = tv.into();
             let response: ApiResponse<Value> = ApiResponse::<Value> {
-                success: true,
+                result: true,
                 message: "success".to_string(),
                 data: Some(json!({
                     "todoView": json,
@@ -61,7 +61,7 @@ pub async fn find_todo(
                 let todos = tv.into_iter().map(|t| t.into()).collect();
                 let json = JsonTodoList::new(todos);
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    success: true,
+                    result: true,
                     message: "success".to_string(),
                     data: Some(json!({
                         "todoView": json,
@@ -72,7 +72,7 @@ pub async fn find_todo(
             None => {
                 let json = JsonTodoList::new(vec![]);
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    success: true,
+                    result: true,
                     message: "data is not found.".to_string(),
                     data: Some(json!({
                         "todoView": json,
@@ -98,7 +98,7 @@ pub async fn create_todo(
         info!("Created todo: {}", tv.id);
         let json: JsonTodo = tv.into();
         let response: ApiResponse<Value> = ApiResponse::<Value> {
-            success: true,
+            result: true,
             message: "success".to_string(),
             data: Some(json!({
                 "todoView": json,
@@ -125,7 +125,7 @@ pub async fn update_todo(
                 info!("Updated todo {}", tv.id);
                 let json: JsonTodo = tv.into();
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    success: true,
+                    result: true,
                     message: "success".to_string(),
                     data: Some(json!({
                         "todoView": json,
@@ -158,7 +158,7 @@ pub async fn upsert_todo(
         info!("Created or Updated todo {}", tv.id);
         let json: JsonTodo = tv.into();
         let response: ApiResponse<Value> = ApiResponse::<Value> {
-            success: true,
+            result: true,
             message: "success".to_string(),
             data: Some(json!({
                 "todoView": json,
@@ -184,7 +184,7 @@ pub async fn delete_todo(
                 info!("Deleted todo `{}`.", tv.id);
                 let json: JsonTodo = tv.into();
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    success: true,
+                    result: true,
                     message: "success".to_string(),
                     data: Some(json!({
                         "todoView": json,
