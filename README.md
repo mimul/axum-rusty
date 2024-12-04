@@ -1,10 +1,10 @@
 # Rust 환경에서 Axum과 Clean Architecture 맛보기
 
-Rust와 Axum을 활용해 웹 API 만들어 본다.
+Rust와 Axum을 활용한 웹 API를 만들어 본다.
 
 ## Docker 시작하기
 
-**1. Docker에서 Postgresql 설치 및 구동 **
+**1. Docker에서 Postgresql 설치 및 구동**
 
 ```shell
 docker compose up -d
@@ -40,13 +40,11 @@ cp local.env .env
 cargo run
 ```
 
-#### Exec
-
-Execute a command in a running container.
+#### 컨테이너에서 명형어 실행
 
 ```shell
-docker-compose exec app bash
-docker-compose exec db bash
+docker compose exec app bash
+docker compose exec db bash
 ```
 
 ## 개발 환경
