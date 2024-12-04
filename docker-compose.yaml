@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+    app:
+        container_name: app
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: "development"
+        ports:
+            -   "8080:8080"
+        depends_on:
+            db:
+                condition: service_healthy
+        volumes:
+            -   ./todo-infra:/app/todo-infra
+            -   ./todo-usecase:/app/todo-usecase
+            -   ./todo-controller:/app/todo-controller
+            -   ./todo-domain:/app/todo-domain
+            -   ./migrations:/app/migrations
+            -   ./Cargo.toml:/app/Cargo.toml
+            -   ./docker-app.env:/app/.env
+        stdin_open: true
+        tty: true
+#        command:
+#            -   bash -c "sqlx database create"
+    db:
+        container_name: postgres
+        build:
+            context: ./database
+            dockerfile: Dockerfile
+            target: "database"
+        ports:
+            -   "5432:5432"
+        volumes:
+            -   ./database/pg-data:/var/lib/postgresql/data
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: postgres
+        restart: always
+        healthcheck:
+            test: pg_isready -U postgres
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+volumes:
+    pg-data:

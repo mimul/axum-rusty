@@ -1,0 +1,24 @@
+[package]
+name = "todo-controller"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+todo-domain = { path = "../todo-domain" }
+todo-usecase = { path = "../todo-usecase" }
+todo-infra = { path = "../todo-infra" }
+anyhow = "1.0.86"
+axum = "0.7.5"
+dotenv = "0.15.0"
+http-body = "1.0.0"
+serde = { version = "1.0.203", features = ["derive"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tokio = { version = "1.38.0", features = ["full"] }
+tower = "0.4.13"
+tower-http = { version = "0.5.2", features = ["cors"] }
+thiserror = "1.0.61"
+validator = { version = "0.18.1", features = ["derive"] }
+serde_json = "1.0.133"
