@@ -1,8 +1,6 @@
 use crate::module::Modules;
 use crate::routes::health_check::{hc, hc_postgres};
-use crate::routes::todo::{
-    create_todo, delete_todo, find_todo, get_todo, update_todo, upsert_todo,
-};
+use crate::routes::todo::{create_todo, delete_todo, error_handler, find_todo, get_todo, update_todo, upsert_todo};
 use axum::routing::get;
 use axum::{Extension, Router};
 use dotenv::dotenv;
@@ -10,6 +8,7 @@ use std::env;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use tokio::net::TcpListener;
+use tower_http::cors::{Any, Cors, CorsLayer};
 
 pub async fn startup(modules: Arc<Modules>) {
     let hc_router = Router::new()
@@ -21,23 +20,27 @@ pub async fn startup(modules: Arc<Modules>) {
         .route(
             "/:id", get(get_todo).patch(update_todo).put(upsert_todo).delete(delete_todo),
         );
-
+    let cors = CorsLayer::new().allow_origin(Any);
     let app = Router::new()
         .nest("/:v/hc", hc_router)
         .nest("/:v/todos", todo_router)
-        //.layer(Extension(modules));
+        .fallback(error_handler)
+        .layer(cors)
         .with_state(modules);
 
     let addr = SocketAddr::from(init_addr());
-    let listener = TcpListener::bind(&addr).await.unwrap_or_else(|_| panic!("TcpListener cannot bind."));
+    let listener = TcpListener::bind(&addr).await
+        .unwrap_or_else(|_| panic!("TcpListener cannot bind."));
     tracing::info!("Server listening on {}", addr);
 
-    axum::serve(listener, app).await.unwrap_or_else(|_| panic!("Server cannot launch."));
+    axum::serve(listener, app)
+        .await
+        .unwrap_or_else(|_| panic!("Server cannot launch."));
 }
 
 pub fn init_app() {
     dotenv().ok();
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
 }
 
 fn init_addr() -> (IpAddr, u16) {
@@ -55,6 +58,6 @@ fn init_addr() -> (IpAddr, u16) {
         .parse::<u16>()
         .expect("PORT is invalid.");
 
-    tracing::debug!("Init ip address.");
+    tracing::info!("Init ip address.");
     (ip_addr, port)
 }

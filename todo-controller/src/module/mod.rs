@@ -32,9 +32,7 @@ impl ModulesExt for Modules {
 impl Modules {
     pub async fn new() -> Self {
         let db = Db::new().await;
-
         let repositories_module = Arc::new(RepositoriesModule::new(db.clone()));
-
         let health_check_use_case = HealthCheckUseCase::new(HealthCheckRepository::new(db));
         let todo_use_case = TodoUseCase::new(repositories_module.clone());
 

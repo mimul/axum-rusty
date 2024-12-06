@@ -1,47 +1,56 @@
+use crate::context::api_response::ApiResponse;
 use crate::context::api_version::ApiVersion;
+use crate::context::errors::AppError;
 use crate::context::validate::ValidatedRequest;
+use crate::model::todo;
 use crate::model::todo::{
     JsonCreateTodo, JsonTodo, JsonTodoList, JsonUpdateTodoContents, JsonUpsertTodoContents,
     TodoQuery,
 };
 use crate::module::{Modules, ModulesExt};
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
+use axum::http::{StatusCode, Uri};
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
-use std::sync::Arc;
 use serde::de::Unexpected::Option;
-use tracing::log::{error, info};
-use todo_usecase::model::todo::TodoView;
-use crate::context::api_response::{ApiResponse};
-use crate::context::errors::AppError;
 use serde_json::{json, Value};
-use todo_usecase::model::todo::status::TodoStatusView;
+use std::sync::Arc;
 use todo_domain::model::todo::Todo;
-use crate::model::todo;
+use todo_usecase::model::todo::status::TodoStatusView;
+use todo_usecase::model::todo::TodoView;
+use tracing::log::{error, info};
+
+pub async fn error_handler (
+    uri: Uri,
+) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
+    Err(AppError::Error("abnormal uri".to_string()))
+}
 
 pub async fn get_todo(
     _: ApiVersion,
     Path((_v, id)): Path<(ApiVersion, String)>,
     modules: State<Arc<Modules>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
+    info!("get_todo: id={}", id);
     let resp = modules.todo_use_case().get_todo(id).await;
     match resp {
-        Ok(tv) => tv.map(|tv| {
-            info!("Found todo `{}`.", tv.id);
-            let json: JsonTodo = tv.into();
-            let response: ApiResponse<Value> = ApiResponse::<Value> {
-                result: true,
-                message: "success".to_string(),
-                data: Some(json!({
-                    "todoView": json,
-                })),
-            };
-            (StatusCode::OK, Json(response))
-        }).ok_or_else(|| {
-            error!("Todo is not found.");
-            AppError::Error("data not found".to_string())
-        }),
+        Ok(tv) => tv
+            .map(|tv| {
+                info!("found todo `{}`.", tv.id);
+                let json: JsonTodo = tv.into();
+                let response: ApiResponse<Value> = ApiResponse::<Value> {
+                    result: true,
+                    message: "success".to_string(),
+                    data: Some(json!({
+                        "todoView": json,
+                    })),
+                };
+                (StatusCode::OK, Json(response))
+            })
+            .ok_or_else(|| {
+                error!("todo is not found.");
+                AppError::Error("data not found".to_string())
+            }),
         Err(err) => {
             error!("Unexpected error: {:?}", err);
             Err(AppError::Error(err.to_string()))
@@ -54,6 +63,11 @@ pub async fn find_todo(
     Query(query): Query<TodoQuery>,
     modules: State<Arc<Modules>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
+    info!("find_todo: id={:?}", query);
+    if query.status.is_none() {
+        info!("status is none. id={:?}", query);
+        return Err(AppError::Error("status is none".to_string()));
+    }
     let resp = modules.todo_use_case().find_todo(query.into()).await;
     match resp {
         Ok(tv_list) => match tv_list {
@@ -93,9 +107,10 @@ pub async fn create_todo(
     modules: State<Arc<Modules>>,
     ValidatedRequest(source): ValidatedRequest<JsonCreateTodo>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
+    info!("create_todo: {:?}", source);
     let resp = modules.todo_use_case().register_todo(source.into()).await;
     resp.map(|tv| {
-        info!("Created todo: {}", tv.id);
+        info!("created todo: {}", tv.id);
         let json: JsonTodo = tv.into();
         let response: ApiResponse<Value> = ApiResponse::<Value> {
             result: true,
@@ -118,11 +133,12 @@ pub async fn update_todo(
     modules: State<Arc<Modules>>,
     ValidatedRequest(source): ValidatedRequest<JsonUpdateTodoContents>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
+    info!("update_todo: {:?}", source);
     match source.validate(id) {
         Ok(todo) => {
             let resp = modules.todo_use_case().update_todo(todo).await;
             resp.map(|tv| {
-                info!("Updated todo {}", tv.id);
+                info!("updated todo {}", tv.id);
                 let json: JsonTodo = tv.into();
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
                     result: true,
@@ -138,9 +154,7 @@ pub async fn update_todo(
                 AppError::Error(err.to_string())
             })
         }
-        Err(errors) => {
-            Err(AppError::Error("invalid_request".to_string()))
-        }
+        Err(errors) => Err(AppError::Error("invalid_request".to_string())),
     }
 }
 
@@ -150,12 +164,13 @@ pub async fn upsert_todo(
     modules: State<Arc<Modules>>,
     ValidatedRequest(source): ValidatedRequest<JsonUpsertTodoContents>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
+    info!("upsert_todo: {:?}", source);
     let resp = modules
         .todo_use_case()
         .upsert_todo(source.to_view(id))
         .await;
     resp.map(|tv| {
-        info!("Created or Updated todo {}", tv.id);
+        info!("created or updated todo {}", tv.id);
         let json: JsonTodo = tv.into();
         let response: ApiResponse<Value> = ApiResponse::<Value> {
             result: true,
@@ -177,6 +192,7 @@ pub async fn delete_todo(
     Path((_v, id)): Path<(ApiVersion, String)>,
     modules: State<Arc<Modules>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
+    info!("delete_todo: id={}", id);
     let resp = modules.todo_use_case().delete_todo(id).await;
     match resp {
         Ok(tv) => tv
@@ -193,7 +209,7 @@ pub async fn delete_todo(
                 (StatusCode::OK, Json(response))
             })
             .ok_or_else(|| {
-                error!("Todo is not found.");
+                error!("todo is not found.");
                 AppError::Error("data not found".to_string())
             }),
         Err(err) => {

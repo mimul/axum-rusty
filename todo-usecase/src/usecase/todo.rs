@@ -3,10 +3,10 @@ use crate::model::todo::{
 };
 use anyhow::anyhow;
 use std::sync::Arc;
-use todo_infra::modules::RepositoriesModuleExt;
 use todo_domain::model::todo::{UpdateTodo, UpsertTodo};
 use todo_domain::repository::todo::status::TodoStatusRepository;
 use todo_domain::repository::todo::TodoRepository;
+use todo_infra::modules::RepositoriesModuleExt;
 
 pub struct TodoUseCase<R: RepositoriesModuleExt> {
     repositories: Arc<R>,
@@ -51,7 +51,6 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
         };
 
         let resp = self.repositories.todo_repository().find(status).await?;
-
         match resp {
             Some(todos) => {
                 let tv_list = todos.into_iter().map(|t| t.into()).collect();

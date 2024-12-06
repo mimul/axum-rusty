@@ -1,11 +1,11 @@
+use crate::context::errors::AppError;
 use axum::http::StatusCode;
-use axum::Json;
 use axum::response::{IntoResponse, Response};
+use axum::Json;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::log::error;
-use crate::context::errors::AppError;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,7 +29,14 @@ impl IntoResponse for AppError {
                         }
                     }
                 }
-                (StatusCode::BAD_REQUEST, messages.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(","))
+                (
+                    StatusCode::BAD_REQUEST,
+                    messages
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>()
+                        .join(","),
+                )
             }
             AppError::JsonRejection(rejection) => {
                 error!("{:?}", rejection);

@@ -1,8 +1,8 @@
 pub mod status;
 
-use serde::{Deserialize, Serialize};
 use crate::model::todo::status::TodoStatusView;
 use crate::model::DateTimeRfc3339;
+use serde::{Deserialize, Serialize};
 use todo_domain::model::todo::{NewTodo, Todo};
 use todo_domain::model::Id;
 

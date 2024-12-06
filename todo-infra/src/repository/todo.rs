@@ -41,8 +41,8 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
         };
 
         let mut sql = r#"
-            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name, t.created_at as created_at,
-                t.updated_at as updated_at
+            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
+            t.created_at as created_at, t.updated_at as updated_at
             from  todos as t
             inner join todo_statuses as ts on ts.id = t.status_id
             where t.status_id in ($1)
@@ -82,8 +82,8 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
             .await?;
 
         let sql = r#"
-            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name, t.created_at as created_at,
-                t.updated_at as updated_at
+            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
+            t.created_at as created_at, t.updated_at as updated_at
             from  todos as t
             inner join todo_statuses as ts on ts.id = t.status_id
             where t.id = $1
@@ -120,8 +120,8 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
             .await?;
 
         let sql = r#"
-            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code,
-                ts.name as status_name, t.created_at as created_at, t.updated_at as updated_at
+            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
+                t.created_at as created_at, t.updated_at as updated_at
             from todos as t
             inner join todo_statuses as ts on ts.id = t.status_id
             where t.id = $1
@@ -154,8 +154,8 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
             .await?;
 
         let sql = r#"
-            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code,
-                ts.name as status_name, t.created_at as created_at, t.updated_at as updated_at
+            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
+                t.created_at as created_at, t.updated_at as updated_at
             from  todos as t
             inner join todo_statuses as ts on ts.id = t.status_id
             where t.id = $1
@@ -172,8 +172,8 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
         let pool = self.db.0.clone();
 
         let sql = r#"
-            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code,
-                ts.name as status_name, t.created_at as created_at, t.updated_at as updated_at
+            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
+                t.created_at as created_at, t.updated_at as updated_at
             from  todos as t
             inner join todo_statuses as ts on ts.id = t.status_id
             where t.id = $1
