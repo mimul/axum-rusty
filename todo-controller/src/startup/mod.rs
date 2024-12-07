@@ -7,8 +7,15 @@ use dotenv::dotenv;
 use std::env;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
+use std::time::Duration;
+use axum::error_handling::HandleErrorLayer;
+use axum::handler::Handler;
+use axum::http::StatusCode;
 use tokio::net::TcpListener;
+use tower::{BoxError, ServiceBuilder};
+use tower_http::trace::TraceLayer;
 use tower_http::cors::{Any, Cors, CorsLayer};
+use crate::context::errors::AppError;
 
 pub async fn startup(modules: Arc<Modules>) {
     let hc_router = Router::new()
@@ -26,6 +33,18 @@ pub async fn startup(modules: Arc<Modules>) {
         .nest("/:v/todos", todo_router)
         .fallback(error_handler)
         .layer(cors)
+        .layer(ServiceBuilder::new()
+           .layer(HandleErrorLayer::new(|error: BoxError| async move {
+               if error.is::<tower::timeout::error::Elapsed>() {
+                   AppError::Error("time out.".to_string())
+               } else {
+                   AppError::Error(format!("Unhandled internal error: {error}"))
+               }
+           }))
+           .timeout(Duration::from_secs(10))
+           .layer(TraceLayer::new_for_http())
+           .into_inner(),
+        )
         .with_state(modules);
 
     let addr = SocketAddr::from(init_addr());
