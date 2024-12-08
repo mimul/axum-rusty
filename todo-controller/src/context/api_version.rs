@@ -4,8 +4,9 @@ use axum::http::request::Parts;
 use axum::{async_trait, RequestPartsExt};
 use serde::Deserialize;
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ApiVersion {
     V1,

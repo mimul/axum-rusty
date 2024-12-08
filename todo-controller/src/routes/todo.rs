@@ -20,12 +20,29 @@ use todo_usecase::model::todo::status::TodoStatusView;
 use todo_usecase::model::todo::TodoView;
 use tracing::log::{error, info};
 
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    paths(get_todo, find_todo, create_todo, update_todo, upsert_todo),
+    components(schemas(JsonCreateTodo, TodoQuery, JsonUpdateTodoContents, JsonUpsertTodoContents, ApiResponse<Value>)),
+    tags((name = "Todo"))
+)]
+pub struct TodoOpenApi;
+
 pub async fn error_handler (
     uri: Uri,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     Err(AppError::Error("abnormal uri".to_string()))
 }
 
+#[utoipa::path(
+    get,
+    path = "/v1/todos/{id}",
+    operation_id = stringify!(get_todo),
+    responses(
+        (status = OK, description = "Get one todo successfully", body = ApiResponse<Value>)
+    ),
+    tag = "Todo",
+)]
 pub async fn get_todo(
     _: ApiVersion,
     Path((_v, id)): Path<(ApiVersion, String)>,
@@ -58,12 +75,22 @@ pub async fn get_todo(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/v1/todos",
+    params(TodoQuery),
+    operation_id = stringify!(find_todo),
+    responses(
+        (status = OK, description = "find all todos successfully", body = ApiResponse<Value>)
+    ),
+    tag = "Todo",
+)]
 pub async fn find_todo(
     _: ApiVersion,
     Query(query): Query<TodoQuery>,
     modules: State<Arc<Modules>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("find_todo: id={:?}", query);
+    info!("find_todo: param={:?}", query);
     if query.status.is_none() {
         info!("status is none. id={:?}", query);
         return Err(AppError::Error("status is none".to_string()));
@@ -102,6 +129,16 @@ pub async fn find_todo(
     }
 }
 
+#[utoipa::path(
+    post,
+    path = "/v1/todos",
+    request_body = JsonCreateTodo,
+    operation_id = stringify!(create_todo),
+    responses(
+        (status = OK, description = "Todo item created successfully", body = ApiResponse<Value>)
+    ),
+    tag = "Todo",
+)]
 pub async fn create_todo(
     _: ApiVersion,
     modules: State<Arc<Modules>>,
@@ -127,6 +164,16 @@ pub async fn create_todo(
     })
 }
 
+#[utoipa::path(
+    patch,
+    path = "/v1/todos/{id}",
+    request_body = JsonUpdateTodoContents,
+    operation_id = stringify!(update_todo),
+    responses(
+        (status = OK, description = "Todo item updated successfully", body = ApiResponse<Value>)
+    ),
+    tag = "Todo",
+)]
 pub async fn update_todo(
     _: ApiVersion,
     Path((_v, id)): Path<(ApiVersion, String)>,
@@ -158,6 +205,16 @@ pub async fn update_todo(
     }
 }
 
+#[utoipa::path(
+    put,
+    path = "/v1/todos/{id}",
+    request_body = JsonUpsertTodoContents,
+    operation_id = stringify!(upsert_todo),
+    responses(
+        (status = OK, description = "Todo item upserted successfully", body = ApiResponse<Value>)
+    ),
+    tag = "Todo",
+)]
 pub async fn upsert_todo(
     _: ApiVersion,
     Path((_v, id)): Path<(ApiVersion, String)>,
@@ -187,6 +244,15 @@ pub async fn upsert_todo(
     })
 }
 
+#[utoipa::path(
+    delete,
+    path = "/v1/todos/{id}",
+    operation_id = stringify!(delete_todo),
+    responses(
+        (status = OK, description = "Todo item created successfully", body = ApiResponse<Value>)
+    ),
+    tag = "Todo",
+)]
 pub async fn delete_todo(
     _: ApiVersion,
     Path((_v, id)): Path<(ApiVersion, String)>,

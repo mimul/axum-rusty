@@ -1,6 +1,6 @@
 use crate::module::Modules;
 use crate::routes::health_check::{hc, hc_postgres};
-use crate::routes::todo::{create_todo, delete_todo, error_handler, find_todo, get_todo, update_todo, upsert_todo};
+use crate::routes::todo::{create_todo, delete_todo, error_handler, find_todo, get_todo, update_todo, upsert_todo, TodoOpenApi};
 use axum::routing::get;
 use axum::{Extension, Router};
 use dotenv::dotenv;
@@ -15,9 +15,17 @@ use tokio::net::TcpListener;
 use tower::{BoxError, ServiceBuilder};
 use tower_http::trace::TraceLayer;
 use tower_http::cors::{Any, Cors, CorsLayer};
+use utoipa::OpenApi;
+use utoipa::openapi::{Info, OpenApiBuilder};
+use utoipa_swagger_ui::SwaggerUi;
 use crate::context::errors::AppError;
 
 pub async fn startup(modules: Arc<Modules>) {
+    let mut openapi = OpenApiBuilder::default()
+        .info(Info::new("axum-rusty API", "1.0.0"))
+        .build();
+    openapi.merge(TodoOpenApi::openapi());
+
     let hc_router = Router::new()
         .route("/", get(hc))
         .route("/postgres", get(hc_postgres));
@@ -29,6 +37,7 @@ pub async fn startup(modules: Arc<Modules>) {
         );
     let cors = CorsLayer::new().allow_origin(Any);
     let app = Router::new()
+        .merge(SwaggerUi::new("/swagger").url("/swagger.json", openapi))
         .nest("/:v/hc", hc_router)
         .nest("/:v/todos", todo_router)
         .fallback(error_handler)

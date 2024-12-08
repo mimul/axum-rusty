@@ -2,6 +2,7 @@ pub mod status;
 
 use crate::model::todo::status::JsonTodoStatus;
 use serde::{Deserialize, Serialize};
+use utoipa::{IntoParams, ToSchema};
 use todo_usecase::model::todo::{
     CreateTodo, SearchTodoCondition, TodoView, UpdateTodoView, UpsertTodoView,
 };
@@ -43,7 +44,7 @@ impl JsonTodoList {
     }
 }
 
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Deserialize, Debug, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonCreateTodo {
     #[validate(
@@ -64,7 +65,7 @@ impl From<JsonCreateTodo> for CreateTodo {
     }
 }
 
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Deserialize, Debug, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonUpdateTodoContents {
     pub title: Option<String>,
@@ -101,7 +102,7 @@ impl JsonUpdateTodoContents {
     }
 }
 
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Deserialize, Debug, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonUpsertTodoContents {
     #[validate(
@@ -129,7 +130,7 @@ impl JsonUpsertTodoContents {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema, IntoParams)]
 #[serde(rename_all = "camelCase")]
 pub struct TodoQuery {
     pub status: Option<String>,
