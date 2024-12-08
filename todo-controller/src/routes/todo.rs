@@ -132,7 +132,10 @@ pub async fn find_todo(
 #[utoipa::path(
     post,
     path = "/v1/todos",
-    request_body = JsonCreateTodo,
+    request_body(
+        content = JsonCreateTodo,
+        content_type = "application/json"
+    ),
     operation_id = stringify!(create_todo),
     responses(
         (status = OK, description = "Todo item created successfully", body = ApiResponse<Value>)
@@ -167,7 +170,10 @@ pub async fn create_todo(
 #[utoipa::path(
     patch,
     path = "/v1/todos/{id}",
-    request_body = JsonUpdateTodoContents,
+    request_body(
+        content = JsonUpdateTodoContents,
+        content_type = "application/json"
+    ),
     operation_id = stringify!(update_todo),
     responses(
         (status = OK, description = "Todo item updated successfully", body = ApiResponse<Value>)
@@ -208,7 +214,10 @@ pub async fn update_todo(
 #[utoipa::path(
     put,
     path = "/v1/todos/{id}",
-    request_body = JsonUpsertTodoContents,
+    request_body(
+        content = JsonUpsertTodoContents,
+        content_type = "application/json"
+    ),
     operation_id = stringify!(upsert_todo),
     responses(
         (status = OK, description = "Todo item upserted successfully", body = ApiResponse<Value>)
