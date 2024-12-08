@@ -37,7 +37,7 @@ pub async fn startup(modules: Arc<Modules>) {
         );
     let cors = CorsLayer::new().allow_origin(Any);
     let app = Router::new()
-        .merge(SwaggerUi::new("/swagger").url("/swagger.json", openapi))
+        .merge(SwaggerUi::new("/swagger-ui").url("/swagger.json", openapi))
         .nest("/:v/hc", hc_router)
         .nest("/:v/todos", todo_router)
         .fallback(error_handler)
