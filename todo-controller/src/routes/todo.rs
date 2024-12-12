@@ -36,7 +36,7 @@ pub async fn error_handler (
 
 #[utoipa::path(
     get,
-    path = "/v1/todos/{id}",
+    path = "/v1/todo/{id}",
     operation_id = stringify!(get_todo),
     responses(
         (status = OK, description = "Get one todo successfully", body = ApiResponse<Value>)
@@ -51,8 +51,7 @@ pub async fn get_todo(
     info!("get_todo: id={}", id);
     let resp = modules.todo_use_case().get_todo(id).await;
     match resp {
-        Ok(tv) => tv
-            .map(|tv| {
+        Ok(tv) => tv.map(|tv| {
                 info!("found todo `{}`.", tv.id);
                 let json: JsonTodo = tv.into();
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
@@ -77,7 +76,7 @@ pub async fn get_todo(
 
 #[utoipa::path(
     get,
-    path = "/v1/todos",
+    path = "/v1/todo",
     params(TodoQuery),
     operation_id = stringify!(find_todo),
     responses(
@@ -114,7 +113,7 @@ pub async fn find_todo(
                 let json = JsonTodoList::new(vec![]);
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
                     result: true,
-                    message: "data is not found.".to_string(),
+                    message: "todo not found.".to_string(),
                     data: Some(json!({
                         "todoView": json,
                     })),
@@ -131,7 +130,7 @@ pub async fn find_todo(
 
 #[utoipa::path(
     post,
-    path = "/v1/todos",
+    path = "/v1/todo",
     request_body(
         content = JsonCreateTodo,
         content_type = "application/json"
@@ -148,7 +147,7 @@ pub async fn create_todo(
     ValidatedRequest(source): ValidatedRequest<JsonCreateTodo>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("create_todo: {:?}", source);
-    let resp = modules.todo_use_case().register_todo(source.into()).await;
+    let resp = modules.todo_use_case().create_todo(source.into()).await;
     resp.map(|tv| {
         info!("created todo: {}", tv.id);
         let json: JsonTodo = tv.into();
@@ -169,7 +168,7 @@ pub async fn create_todo(
 
 #[utoipa::path(
     patch,
-    path = "/v1/todos/{id}",
+    path = "/v1/todo/{id}",
     request_body(
         content = JsonUpdateTodoContents,
         content_type = "application/json"
@@ -213,7 +212,7 @@ pub async fn update_todo(
 
 #[utoipa::path(
     put,
-    path = "/v1/todos/{id}",
+    path = "/v1/todo/{id}",
     request_body(
         content = JsonUpsertTodoContents,
         content_type = "application/json"
@@ -255,7 +254,7 @@ pub async fn upsert_todo(
 
 #[utoipa::path(
     delete,
-    path = "/v1/todos/{id}",
+    path = "/v1/todo/{id}",
     operation_id = stringify!(delete_todo),
     responses(
         (status = OK, description = "Todo item created successfully", body = ApiResponse<Value>)

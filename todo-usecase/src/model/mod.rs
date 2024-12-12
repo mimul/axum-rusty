@@ -3,6 +3,7 @@ use std::fmt;
 use std::fmt::Formatter;
 
 pub mod todo;
+pub mod user;
 
 pub struct DateTimeRfc3339(pub String);
 

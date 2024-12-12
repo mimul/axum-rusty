@@ -18,11 +18,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
     }
 
     pub async fn get_todo(&self, id: String) -> anyhow::Result<Option<TodoView>> {
-        let resp = self
-            .repositories
-            .todo_repository()
-            .get(&id.try_into()?)
-            .await?;
+        let resp = self.repositories.todo_repository().get(&id.try_into()?).await?;
 
         match resp {
             Some(t) => Ok(Some(t.into())),
@@ -35,11 +31,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
         condition: SearchTodoCondition,
     ) -> anyhow::Result<Option<Vec<TodoView>>> {
         let status = if let Some(code) = &condition.status_code {
-            match self
-                .repositories
-                .todo_status_repository()
-                .get_by_code(code.as_str())
-                .await
+            match self.repositories.todo_status_repository().get_by_code(code.as_str()).await
             {
                 Ok(status) => Some(status),
                 Err(err) => {
@@ -60,11 +52,8 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
         }
     }
 
-    pub async fn register_todo(&self, source: CreateTodo) -> anyhow::Result<TodoView> {
-        let todo_view = self
-            .repositories
-            .todo_repository()
-            .insert(source.try_into()?)
+    pub async fn create_todo(&self, source: CreateTodo) -> anyhow::Result<TodoView> {
+        let todo_view = self.repositories.todo_repository().insert(source.try_into()?)
             .await?;
 
         Ok(todo_view.into())
@@ -72,11 +61,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
 
     pub async fn update_todo(&self, source: UpdateTodoView) -> anyhow::Result<TodoView> {
         let status = if let Some(code) = &source.status_code {
-            match self
-                .repositories
-                .todo_status_repository()
-                .get_by_code(code.as_str())
-                .await
+            match self.repositories.todo_status_repository().get_by_code(code.as_str()).await
             {
                 Ok(status) => Some(status),
                 Err(err) => {
@@ -94,21 +79,13 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
             status,
         );
 
-        let todo_view = self
-            .repositories
-            .todo_repository()
-            .update(update_todo)
-            .await?;
+        let todo_view = self.repositories.todo_repository().update(update_todo).await?;
 
         Ok(todo_view.into())
     }
 
     pub async fn upsert_todo(&self, source: UpsertTodoView) -> anyhow::Result<TodoView> {
-        let status = match self
-            .repositories
-            .todo_status_repository()
-            .get_by_code(&source.status_code)
-            .await
+        let status = match self.repositories.todo_status_repository().get_by_code(&source.status_code).await
         {
             Ok(status) => status,
             Err(err) => {
@@ -123,21 +100,13 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
             status,
         );
 
-        let todo_view = self
-            .repositories
-            .todo_repository()
-            .upsert(upsert_todo)
-            .await?;
+        let todo_view = self.repositories.todo_repository().upsert(upsert_todo).await?;
 
         Ok(todo_view.into())
     }
 
     pub async fn delete_todo(&self, id: String) -> anyhow::Result<Option<TodoView>> {
-        let resp = self
-            .repositories
-            .todo_repository()
-            .delete(&id.try_into()?)
-            .await?;
+        let resp = self.repositories.todo_repository().delete(&id.try_into()?).await?;
 
         match resp {
             Some(t) => Ok(Some(t.into())),

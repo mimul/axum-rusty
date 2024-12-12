@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 
 pub mod health_check;
 pub mod todo;
+pub mod user;
 
 pub struct DatabaseRepositoryImpl<T> {
     db: Db,

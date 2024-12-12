@@ -19,6 +19,7 @@ use utoipa::OpenApi;
 use utoipa::openapi::{Info, OpenApiBuilder};
 use utoipa_swagger_ui::SwaggerUi;
 use crate::context::errors::AppError;
+use crate::routes::user::{create_user, get_user, get_user_by_username};
 
 pub async fn startup(modules: Arc<Modules>) {
     let mut openapi = OpenApiBuilder::default()
@@ -35,11 +36,15 @@ pub async fn startup(modules: Arc<Modules>) {
         .route(
             "/:id", get(get_todo).patch(update_todo).put(upsert_todo).delete(delete_todo),
         );
+    let user_router = Router::new()
+        .route("/", get(get_user_by_username).post(create_user))
+        .route("/:id", get(get_user));
     let cors = CorsLayer::new().allow_origin(Any);
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/swagger.json", openapi))
         .nest("/:v/hc", hc_router)
-        .nest("/:v/todos", todo_router)
+        .nest("/:v/todo", todo_router)
+        .nest("/:v/user", user_router)
         .fallback(error_handler)
         .layer(cors)
         .layer(ServiceBuilder::new()
