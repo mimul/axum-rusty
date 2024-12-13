@@ -1,10 +1,9 @@
 pub mod status;
 
-use anyhow::anyhow;
 use crate::model::todo::{InsertTodo, StoredTodo, UpdateStoredTodo, UpsertStoredTodo};
 use crate::repository::DatabaseRepositoryImpl;
 use async_trait::async_trait;
-use sqlx::{query, query_as, Acquire};
+use sqlx::{query, query_as};
 use todo_domain::model::todo::status::TodoStatus;
 use todo_domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use todo_domain::model::Id;
@@ -211,8 +210,8 @@ mod test {
     use todo_domain::repository::todo::TodoRepository;
     use ulid::Ulid;
 
-    use crate::persistence::postgres::Db;
     use super::DatabaseRepositoryImpl;
+    use crate::persistence::postgres::Db;
 
     #[ignore]
     #[tokio::test]
@@ -221,10 +220,11 @@ mod test {
         let repository = DatabaseRepositoryImpl::new(db);
         db.clone().0.acquire().await.unwrap();
         let id = Ulid::new();
-        let _ = repository.insert(NewTodo::new(
+        let _ = repository
+            .insert(NewTodo::new(
                 Id::new(id),
                 "재미있는 일".to_string(),
-                "RUST 공부 및 아키텍처 연구좀 하자.".to_string()
+                "RUST 공부 및 아키텍처 연구좀 하자.".to_string(),
             ))
             .await
             .unwrap();

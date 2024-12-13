@@ -1,10 +1,8 @@
-use std::sync::Arc;
+use crate::model::user::{CreateUser, SearchUserCondition, UserView};
 use anyhow::anyhow;
-use tracing::log::{error, info};
-use todo_domain::model::user::User;
+use std::sync::Arc;
 use todo_domain::repository::user::UserRepository;
 use todo_infra::modules::RepositoriesModuleExt;
-use crate::model::user::{CreateUser, SearchUserCondition, UserView};
 
 pub struct UserUseCase<R: RepositoriesModuleExt> {
     repositories: Arc<R>,
@@ -16,7 +14,11 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
     }
 
     pub async fn get_user(&self, id: String) -> anyhow::Result<Option<UserView>> {
-        let resp = self.repositories.user_repository().get_user(&id.try_into()?).await?;
+        let resp = self
+            .repositories
+            .user_repository()
+            .get_user(&id.try_into()?)
+            .await?;
 
         match resp {
             Some(user) => Ok(Some(user.into())),
@@ -24,13 +26,20 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
         }
     }
 
-    pub async fn get_user_by_username(&self, condition: SearchUserCondition,) -> anyhow::Result<Option<UserView>> {
+    pub async fn get_user_by_username(
+        &self,
+        condition: SearchUserCondition,
+    ) -> anyhow::Result<Option<UserView>> {
         let username = if let Some(u) = &condition.username {
             u.as_str()
         } else {
             return Err(anyhow!("username is empty".to_string()));
         };
-        let resp = self.repositories.user_repository().get_user_by_username(username).await?;
+        let resp = self
+            .repositories
+            .user_repository()
+            .get_user_by_username(username)
+            .await?;
 
         match resp {
             Some(user) => Ok(Some(user.into())),
@@ -45,7 +54,11 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
             return Err(anyhow!("hashed password is empty"));
         }
         let user = CreateUser::new(source.username, hashed_password);
-        let user_view = self.repositories.user_repository().insert(user.try_into()?).await?;
+        let user_view = self
+            .repositories
+            .user_repository()
+            .insert(user.try_into()?)
+            .await?;
 
         Ok(user_view.into())
     }

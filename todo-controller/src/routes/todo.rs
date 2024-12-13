@@ -2,22 +2,16 @@ use crate::context::api_response::ApiResponse;
 use crate::context::api_version::ApiVersion;
 use crate::context::errors::AppError;
 use crate::context::validate::ValidatedRequest;
-use crate::model::todo;
 use crate::model::todo::{
     JsonCreateTodo, JsonTodo, JsonTodoList, JsonUpdateTodoContents, JsonUpsertTodoContents,
     TodoQuery,
 };
 use crate::module::{Modules, ModulesExt};
 use axum::extract::{Path, Query, State};
-use axum::http::{StatusCode, Uri};
-use axum::response::IntoResponse;
-use axum::{Extension, Json};
-use serde::de::Unexpected::Option;
+use axum::http::StatusCode;
+use axum::Json;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use todo_domain::model::todo::Todo;
-use todo_usecase::model::todo::status::TodoStatusView;
-use todo_usecase::model::todo::TodoView;
 use tracing::log::{error, info};
 
 #[derive(utoipa::OpenApi)]
@@ -28,9 +22,7 @@ use tracing::log::{error, info};
 )]
 pub struct TodoOpenApi;
 
-pub async fn error_handler (
-    uri: Uri,
-) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
+pub async fn error_handler() -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     Err(AppError::Error("abnormal uri".to_string()))
 }
 
@@ -51,7 +43,8 @@ pub async fn get_todo(
     info!("get_todo: id={}", id);
     let resp = modules.todo_use_case().get_todo(id).await;
     match resp {
-        Ok(tv) => tv.map(|tv| {
+        Ok(tv) => tv
+            .map(|tv| {
                 info!("found todo `{}`.", tv.id);
                 let json: JsonTodo = tv.into();
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
@@ -137,7 +130,7 @@ pub async fn find_todo(
     ),
     operation_id = stringify!(create_todo),
     responses(
-        (status = OK, description = "Todo item created successfully", body = ApiResponse<Value>)
+        (status = OK, description = "todo created successfully", body = ApiResponse<Value>)
     ),
     tag = "Todo",
 )]
@@ -206,7 +199,13 @@ pub async fn update_todo(
                 AppError::Error(err.to_string())
             })
         }
-        Err(errors) => Err(AppError::Error("invalid_request".to_string())),
+        Err(errors) => Err(AppError::Error(
+            errors
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+        )),
     }
 }
 

@@ -1,11 +1,10 @@
-use anyhow::anyhow;
-use async_trait::async_trait;
-use sqlx::{query, query_as};
-use todo_domain::model::Id;
-use todo_domain::model::user::{NewUser, User};
-use todo_domain::repository::user::UserRepository;
 use crate::model::user::{InsertUser, StoredUser};
 use crate::repository::DatabaseRepositoryImpl;
+use async_trait::async_trait;
+use sqlx::{query, query_as};
+use todo_domain::model::user::{NewUser, User};
+use todo_domain::model::Id;
+use todo_domain::repository::user::UserRepository;
 
 #[async_trait]
 impl UserRepository for DatabaseRepositoryImpl<User> {
@@ -47,11 +46,12 @@ impl UserRepository for DatabaseRepositoryImpl<User> {
         let pool = self.db.0.clone();
         let user: InsertUser = source.into();
         let id = user.id.clone();
+        let username = user.username.clone();
 
         let _ = query("insert into users (id, username, email, password) values ($1, $2, $3, $4)")
             .bind(user.id)
-            .bind(&user.username)
-            .bind(&user.username)
+            .bind(user.username)
+            .bind(username)
             .bind(user.password)
             .execute(&*pool)
             .await?;
@@ -61,7 +61,6 @@ impl UserRepository for DatabaseRepositoryImpl<User> {
             from  users as u
             where u.id = $1
         "#;
-
         let result = query_as::<_, StoredUser>(sql)
             .bind(id)
             .fetch_one(&*pool)

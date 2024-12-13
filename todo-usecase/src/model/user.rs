@@ -1,5 +1,5 @@
-use todo_domain::model::Id;
 use todo_domain::model::user::{NewUser, User};
+use todo_domain::model::Id;
 
 pub struct UserView {
     pub id: String,

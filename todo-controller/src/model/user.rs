@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
+use todo_usecase::model::user::{CreateUser, SearchUserCondition, UserView};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
-use todo_usecase::model::user::{CreateUser, SearchUserCondition, UserView};
 
 #[derive(Deserialize, Debug, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]

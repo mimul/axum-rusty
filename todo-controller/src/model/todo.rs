@@ -2,10 +2,10 @@ pub mod status;
 
 use crate::model::todo::status::JsonTodoStatus;
 use serde::{Deserialize, Serialize};
-use utoipa::{IntoParams, ToSchema};
 use todo_usecase::model::todo::{
     CreateTodo, SearchTodoCondition, TodoView, UpdateTodoView, UpsertTodoView,
 };
+use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
 
 #[derive(Debug, Serialize)]

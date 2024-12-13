@@ -10,7 +10,9 @@ impl Db {
     pub async fn new() -> Db {
         let pool = PgPoolOptions::new()
             .max_connections(10)
-            .connect(&env::var("DATABASE_URL").unwrap_or_else(|_| panic!("DATABASE_URL must be set!")), )
+            .connect(
+                &env::var("DATABASE_URL").unwrap_or_else(|_| panic!("DATABASE_URL must be set!")),
+            )
             .await
             .unwrap_or_else(|_| {
                 panic!("Cannot connect to the database. Please check your configuration.")
