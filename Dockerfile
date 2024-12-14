@@ -2,10 +2,10 @@ FROM rust:1.82.0 as development
 
 WORKDIR /app
 
-COPY todo-infra ./todo-infra
-COPY todo-usecase ./todo-usecase
-COPY todo-controller ./todo-controller
-COPY todo-domain ./todo-domain
+COPY infra ./infra
+COPY usecase ./usecase
+COPY controller ./controller
+COPY domain ./domain
 COPY ./migrations ./migrations
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./docker-app.env ./.env

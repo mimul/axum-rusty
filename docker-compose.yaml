@@ -13,10 +13,10 @@ services:
             db:
                 condition: service_healthy
         volumes:
-            -   ./todo-infra:/app/todo-infra
-            -   ./todo-usecase:/app/todo-usecase
-            -   ./todo-controller:/app/todo-controller
-            -   ./todo-domain:/app/todo-domain
+            -   ./infra:/app/infra
+            -   ./usecase:/app/usecase
+            -   ./controller:/app/controller
+            -   ./domain:/app/domain
             -   ./migrations:/app/migrations
             -   ./Cargo.toml:/app/Cargo.toml
             -   ./docker-app.env:/app/.env

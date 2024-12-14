@@ -1,0 +1,32 @@
+[package]
+name = "controller"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+domain = { path = "../domain" }
+usecase = { path = "../usecase" }
+infra = { path = "../infra" }
+anyhow = "1.0.86"
+axum = "0.7.5"
+dotenv = "0.15.0"
+http-body = "1.0.0"
+serde = { version = "1.0.203", features = ["derive"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tokio = { version = "1.38.0", features = ["full"] }
+tower = { version = "0.4.13", features = ["timeout"] }
+tower-http = { version = "0.5.2", features = ["cors", "trace"] }
+thiserror = "1.0.61"
+validator = { version = "0.18.1", features = ["derive"] }
+serde_json = "1.0.133"
+utoipa = { version = "5.2.0", features = ["axum_extras", "openapi_extensions", "time"] }
+utoipa-axum = "0.1.2"
+utoipa-swagger-ui = { version = "8.0.3", features = ["axum"] }
+lazy_static = "1.5.0"
+fancy-regex = "0.13.0"
+chrono = "0.4.38"
+jsonwebtoken = "9.2.0"
+http = "1.1.0"

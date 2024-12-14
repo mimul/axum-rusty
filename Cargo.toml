@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "todo-infra",
-    "todo-usecase",
-    "todo-controller",
-    "todo-domain",
+    "infra",
+    "usecase",
+    "controller",
+    "domain",
 ]
 resolver = "2"
