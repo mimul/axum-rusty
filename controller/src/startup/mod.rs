@@ -1,5 +1,6 @@
+use crate::context::auth_resolver::auth;
 use crate::context::errors::AppError;
-use crate::module::{Modules};
+use crate::module::Modules;
 use crate::routes::health_check::{hc, hc_postgres};
 use crate::routes::todo::{
     create_todo, delete_todo, error_handler, find_todo, get_todo, update_todo, upsert_todo,
@@ -21,7 +22,6 @@ use tower_http::trace::TraceLayer;
 use utoipa::openapi::{Info, OpenApiBuilder};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use crate::context::auth_resolver::auth;
 
 pub async fn startup(modules: Arc<Modules>) {
     let mut openapi = OpenApiBuilder::default()
@@ -39,12 +39,31 @@ pub async fn startup(modules: Arc<Modules>) {
         .route("/login", post(login_user));
 
     let todo_router = Router::new()
-        .route("/", get(find_todo).post(create_todo).route_layer(middleware::from_fn_with_state(modules.clone(), auth)))
-        .route("/:id", get(get_todo).patch(update_todo).put(upsert_todo).delete(delete_todo).route_layer(middleware::from_fn_with_state(modules.clone(), auth)));
+        .route(
+            "/",
+            get(find_todo)
+                .post(create_todo)
+                .route_layer(middleware::from_fn_with_state(modules.clone(), auth)),
+        )
+        .route(
+            "/:id",
+            get(get_todo)
+                .patch(update_todo)
+                .put(upsert_todo)
+                .delete(delete_todo)
+                .route_layer(middleware::from_fn_with_state(modules.clone(), auth)),
+        );
 
     let user_router = Router::new()
-        .route("/", get(get_user_by_username).route_layer(middleware::from_fn_with_state(modules.clone(), auth)))
-        .route("/:id", get(get_user).route_layer(middleware::from_fn_with_state(modules.clone(), auth)));
+        .route(
+            "/",
+            get(get_user_by_username)
+                .route_layer(middleware::from_fn_with_state(modules.clone(), auth)),
+        )
+        .route(
+            "/:id",
+            get(get_user).route_layer(middleware::from_fn_with_state(modules.clone(), auth)),
+        );
 
     let cors = CorsLayer::new().allow_origin(Any);
     let app = Router::new()
@@ -71,7 +90,8 @@ pub async fn startup(modules: Arc<Modules>) {
         .with_state(modules);
 
     let addr = SocketAddr::from(init_addr());
-    let listener = TcpListener::bind(&addr).await
+    let listener = TcpListener::bind(&addr)
+        .await
         .unwrap_or_else(|_| panic!("TcpListener cannot bind."));
     tracing::info!("Server listening on {}", addr);
 

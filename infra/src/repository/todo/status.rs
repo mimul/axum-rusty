@@ -2,9 +2,9 @@ use crate::model::todo::status::StoredTodoStatus;
 use crate::repository::DatabaseRepositoryImpl;
 use anyhow::anyhow;
 use async_trait::async_trait;
-use sqlx::query_as;
 use domain::model::todo::status::TodoStatus;
 use domain::repository::todo::status::TodoStatusRepository;
+use sqlx::query_as;
 
 #[async_trait]
 impl TodoStatusRepository for DatabaseRepositoryImpl<TodoStatus> {

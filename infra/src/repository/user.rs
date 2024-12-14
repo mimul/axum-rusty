@@ -1,10 +1,10 @@
 use crate::model::user::{InsertUser, StoredUser};
 use crate::repository::DatabaseRepositoryImpl;
 use async_trait::async_trait;
-use sqlx::{query, query_as};
 use domain::model::user::{NewUser, User};
 use domain::model::Id;
 use domain::repository::user::UserRepository;
+use sqlx::{query, query_as};
 
 #[async_trait]
 impl UserRepository for DatabaseRepositoryImpl<User> {

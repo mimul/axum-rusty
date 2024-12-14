@@ -1,5 +1,5 @@
-use sqlx::FromRow;
 use domain::model::todo::status::TodoStatus;
+use sqlx::FromRow;
 
 #[derive(FromRow, Debug)]
 pub struct StoredTodoStatus {

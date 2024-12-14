@@ -1,9 +1,9 @@
 pub mod status;
 
 use chrono::{DateTime, Utc};
-use sqlx::FromRow;
 use domain::model::todo::status::TodoStatus;
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
+use sqlx::FromRow;
 
 #[derive(FromRow, Debug)]
 pub struct StoredTodo {

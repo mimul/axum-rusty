@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use infra::repository::health_check::HealthCheckRepository;
+use std::sync::Arc;
 
 pub struct HealthCheckUseCase {
     repository: Arc<HealthCheckRepository>,

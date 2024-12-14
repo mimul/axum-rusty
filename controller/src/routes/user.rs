@@ -7,10 +7,10 @@ use crate::module::{Modules, ModulesExt};
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::{Extension, Json};
-use serde_json::{json, Value};
-use std::sync::Arc;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, EncodingKey, Header};
+use serde_json::{json, Value};
+use std::sync::Arc;
 use tracing::log::{error, info};
 use usecase::model::user::UserView;
 
@@ -23,7 +23,7 @@ use usecase::model::user::UserView;
 pub struct UserOpenApi;
 #[utoipa::path(
     post,
-    path = "/v1/user",
+    path = "/v1/user/create",
     request_body(
         content = JsonCreateUser,
         content_type = "application/json"
@@ -77,7 +77,8 @@ pub async fn get_user(
     info!("get_user: id={}, current_user={:?}", id, current_user);
     let resp = modules.user_use_case().get_user(id).await;
     match resp {
-        Ok(uv) => uv.map(|uv| {
+        Ok(uv) => uv
+            .map(|uv| {
                 info!("found user `{:?}`.", uv);
                 let json: JsonUser = uv.into();
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
@@ -87,7 +88,7 @@ pub async fn get_user(
                         "userView": json,
                     })),
                 };
-                return (StatusCode::OK, Json(response))
+                return (StatusCode::OK, Json(response));
             })
             .ok_or_else(|| {
                 error!("user is not found.");
@@ -116,7 +117,10 @@ pub async fn get_user_by_username(
     modules: State<Arc<Modules>>,
     Extension(current_user): Extension<UserView>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("get_user_by_username: param={:?}, current_user={:?}", query, current_user);
+    info!(
+        "get_user_by_username: param={:?}, current_user={:?}",
+        query, current_user
+    );
     if query.username.is_empty() {
         info!("get_user_by_username: username is empty. id={:?}", query);
         return Err(AppError::Error("username is empty".to_string()));
@@ -154,24 +158,32 @@ pub async fn get_user_by_username(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/v1/user/login",
+    params(JsonCreateUser),
+    operation_id = stringify!(login_user),
+    responses(
+        (status = OK, description = "login one user successfully", body = ApiResponse<Value>)
+    ),
+    tag = "User",
+)]
 pub async fn login_user(
     _: ApiVersion,
     modules: State<Arc<Modules>>,
     ValidatedRequest(source): ValidatedRequest<JsonCreateUser>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("login_user {:?}", source);
-    let user_view = modules
-        .user_use_case()
-        .login_user(source.into())
-        .await;
+    let user_view = modules.user_use_case().login_user(source.into()).await;
     match user_view {
         Ok(user_view) => match user_view {
             uv => {
-                let exp = (Utc::now() + Duration::minutes(modules.constants.jwt_duration.parse().unwrap()))
-                    .timestamp() as usize;
+                let exp = (Utc::now()
+                    + Duration::minutes(modules.constants.jwt_duration.parse().unwrap()))
+                .timestamp() as usize;
                 let claims: TokenClaims = TokenClaims {
-                    sub: uv.id.to_string(),
-                    username: uv.username,
+                    sub: uv.id.clone().to_string(),
+                    username: uv.username.clone(),
                     exp,
                 };
 
@@ -180,70 +192,22 @@ pub async fn login_user(
                     &claims,
                     &EncodingKey::from_secret(modules.constants.jwt_key.as_ref()),
                 )
-                    .map_err(|_| AppError::InvalidJwt("token encoding error".to_string()));
-
-                // let mut response = Response::new(json!({}).to_string());
-                // response.headers_mut().insert(
-                //     "Authorization",
-                //     HeaderValue::from_str(format!("Bearer {}", &token).as_str())
-                //         .map_err(|_| AppError::InvalidJwt("auth_header add error".to_string())),
-                // );
+                .map_err(|_| AppError::InvalidJwt("token encoding error".to_string()));
+                let json_user: JsonUser = uv.into();
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
                     result: true,
                     message: "success.".to_string(),
                     data: Some(json!({
+                        "userView": json_user,
                         "token": token?,
                     })),
                 };
                 Ok((StatusCode::OK, Json(response)))
             }
-            // None => {
-            //     let response: ApiResponse<Value> = ApiResponse::<Value> {
-            //         result: true,
-            //         message: "user not found.".to_string(),
-            //         data: None,
-            //     };
-            //     Ok((StatusCode::OK, Json(response)))
-            // }
         },
         Err(err) => {
             error!("Unexpected error: {:?}", err);
             Err(AppError::Error(err.to_string()))
         }
     }
-
-    // let resp = modules
-    //     .user_use_case()
-    //     .login_user(source.into())
-    //     .await;
-    // resp.map(|user| {
-    //         let exp = (Utc::now() + Duration::minutes(modules.constants.jwt_duration.parse().unwrap()))
-    //             .timestamp() as usize;
-    //         let claims: TokenClaims = TokenClaims {
-    //             sub: user.id.to_string(),
-    //             username: user.username,
-    //             exp,
-    //         };
-    //
-    //         let token = encode(
-    //             &Header::default(),
-    //             &claims,
-    //             &EncodingKey::from_secret(modules.constants.jwt_key.as_ref()),
-    //         )
-    //             .map_err(|_| AppError::InvalidJwt("token encoding error".to_string()));
-    //
-    //         let mut response = Response::new(json!({}).to_string());
-    //         response.headers_mut().insert(
-    //             "Authorization",
-    //             HeaderValue::from_str(format!("Bearer {}", &token).as_str())
-    //                 .map_err(|_| AppError::InvalidJwt("auth_header add error".to_string())),
-    //         );
-    //
-    //     (StatusCode::OK, Json(response))
-    //     })
-    //     .map_err(|err| {
-    //         error!("{:?}", err);
-    //         Err(AppError::Error(err.to_string()))
-    //     });
-
 }

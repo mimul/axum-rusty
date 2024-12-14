@@ -1,10 +1,10 @@
 use crate::model::user::{CreateUser, SearchUserCondition, UserView};
 use anyhow::anyhow;
-use std::sync::Arc;
-use tracing::log::{error, info};
 use domain::model::user::User;
 use domain::repository::user::UserRepository;
 use infra::modules::RepositoriesModuleExt;
+use std::sync::Arc;
+use tracing::log::{error, info};
 
 pub struct UserUseCase<R: RepositoriesModuleExt> {
     repositories: Arc<R>,
@@ -51,7 +51,8 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
 
     pub async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
         let username = source.username.clone();
-        match self.repositories
+        match self
+            .repositories
             .user_repository()
             .get_user_by_username(username.as_str())
             .await
@@ -87,7 +88,12 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
 
     pub async fn login_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
         let username = source.username.clone();
-        let user_view: User = match self.repositories.user_repository().get_user_by_username(username.as_str()).await {
+        let user_view: User = match self
+            .repositories
+            .user_repository()
+            .get_user_by_username(username.as_str())
+            .await
+        {
             Ok(Some(user_view)) => user_view,
             _ => {
                 error!("username {} is not registered.", username);

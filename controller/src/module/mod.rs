@@ -1,8 +1,8 @@
-use std::env;
-use std::sync::Arc;
 use infra::modules::{RepositoriesModule, RepositoriesModuleExt};
 use infra::persistence::postgres::Db;
 use infra::repository::health_check::HealthCheckRepository;
+use std::env;
+use std::sync::Arc;
 use usecase::usecase::health_check::HealthCheckUseCase;
 use usecase::usecase::todo::TodoUseCase;
 use usecase::usecase::user::UserUseCase;
@@ -16,8 +16,10 @@ pub struct Constants {
 impl Constants {
     pub async fn new() -> Self {
         let jwt_key = env::var("JWT_KEY").unwrap_or_else(|_| panic!("JWT_KEY must be set!"));
-        let allowed_origin = env::var("ALLOWED_ORIGIN").unwrap_or_else(|_| panic!("ALLOWED_ORIGIN must be set!"));
-        let jwt_duration = env::var("JWT_DURATION_MINUTES").unwrap_or_else(|_| panic!("JWT_DURATION_MINUTES must be set!"));
+        let allowed_origin =
+            env::var("ALLOWED_ORIGIN").unwrap_or_else(|_| panic!("ALLOWED_ORIGIN must be set!"));
+        let jwt_duration = env::var("JWT_DURATION_MINUTES")
+            .unwrap_or_else(|_| panic!("JWT_DURATION_MINUTES must be set!"));
 
         Self {
             jwt_key,

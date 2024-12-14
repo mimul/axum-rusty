@@ -1,5 +1,5 @@
-use lazy_static::lazy_static;
 use fancy_regex::Regex;
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use usecase::model::user::{CreateUser, SearchUserCondition, UserView};
 use utoipa::{IntoParams, ToSchema};
@@ -13,22 +13,25 @@ lazy_static! {
 }
 
 fn validate_password(value: &str) -> Result<(), ValidationError> {
-    if DIGIT_REGEX.is_match(value).unwrap() && SPECIAL_REGEX.is_match(value).unwrap() && LENGTH_REGEX.is_match(value).unwrap()
+    if DIGIT_REGEX.is_match(value).unwrap()
+        && SPECIAL_REGEX.is_match(value).unwrap()
+        && LENGTH_REGEX.is_match(value).unwrap()
     {
         Ok(())
     } else {
-        Err(ValidationError::new(
-            "",
-        ))
+        Err(ValidationError::new(""))
     }
 }
 
-#[derive(Deserialize, Debug, Validate, ToSchema)]
+#[derive(Deserialize, Debug, Validate, ToSchema, IntoParams)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonCreateUser {
     #[validate(email(message = "invalid email"))]
     pub username: Option<String>,
-    #[validate(custom(function = "validate_password", message = "password must contain one digit, one special character and must be at least 8 characters long"))]
+    #[validate(custom(
+        function = "validate_password",
+        message = "password must contain one digit, one special character and must be at least 8 characters long"
+    ))]
     pub password: Option<String>,
 }
 

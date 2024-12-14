@@ -3,11 +3,11 @@ pub mod status;
 use crate::model::todo::{InsertTodo, StoredTodo, UpdateStoredTodo, UpsertStoredTodo};
 use crate::repository::DatabaseRepositoryImpl;
 use async_trait::async_trait;
-use sqlx::{query, query_as};
 use domain::model::todo::status::TodoStatus;
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use domain::model::Id;
 use domain::repository::todo::TodoRepository;
+use sqlx::{query, query_as};
 
 #[async_trait]
 impl TodoRepository for DatabaseRepositoryImpl<Todo> {

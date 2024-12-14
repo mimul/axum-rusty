@@ -1,5 +1,5 @@
-use sqlx::FromRow;
 use domain::model::user::{NewUser, User};
+use sqlx::FromRow;
 
 #[derive(FromRow, Debug)]
 pub struct StoredUser {

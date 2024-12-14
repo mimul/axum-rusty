@@ -8,8 +8,8 @@ use crate::model::todo::{
 };
 use crate::module::{Modules, ModulesExt};
 use axum::extract::{Path, Query, State};
-use axum::http::{StatusCode};
-use axum::{Json};
+use axum::http::StatusCode;
+use axum::Json;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tracing::log::{error, info};
@@ -199,7 +199,13 @@ pub async fn update_todo(
                 AppError::Error(err.to_string())
             })
         }
-        Err(errors) => Err(AppError::Error(errors.iter().map(|s| s.to_string()).collect::<Vec<String>>().join(" or "))),
+        Err(errors) => Err(AppError::Error(
+            errors
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+                .join(" or "),
+        )),
     }
 }
 

@@ -2,11 +2,11 @@ use crate::model::todo::{
     CreateTodo, SearchTodoCondition, TodoView, UpdateTodoView, UpsertTodoView,
 };
 use anyhow::anyhow;
-use std::sync::Arc;
 use domain::model::todo::{UpdateTodo, UpsertTodo};
 use domain::repository::todo::status::TodoStatusRepository;
 use domain::repository::todo::TodoRepository;
 use infra::modules::RepositoriesModuleExt;
+use std::sync::Arc;
 
 pub struct TodoUseCase<R: RepositoriesModuleExt> {
     repositories: Arc<R>,

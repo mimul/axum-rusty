@@ -12,7 +12,8 @@ impl Db {
             .max_connections(10)
             .connect(
                 &env::var("DATABASE_URL").unwrap_or_else(|_| panic!("DATABASE_URL must be set!")),
-            ).await
+            )
+            .await
             .unwrap_or_else(|_| {
                 panic!("Cannot connect to the database. Please check your configuration.")
             });
