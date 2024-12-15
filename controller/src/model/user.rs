@@ -1,7 +1,7 @@
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use usecase::model::user::{CreateUser, SearchUserCondition, UserView};
+use usecase::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView};
 use utoipa::{IntoParams, ToSchema};
 use validator::{Validate, ValidationError};
 
@@ -13,9 +13,7 @@ lazy_static! {
 }
 
 fn validate_password(value: &str) -> Result<(), ValidationError> {
-    if DIGIT_REGEX.is_match(value).unwrap()
-        && SPECIAL_REGEX.is_match(value).unwrap()
-        && LENGTH_REGEX.is_match(value).unwrap()
+    if DIGIT_REGEX.is_match(value).unwrap() && SPECIAL_REGEX.is_match(value).unwrap() && LENGTH_REGEX.is_match(value).unwrap()
     {
         Ok(())
     } else {
@@ -33,6 +31,12 @@ pub struct JsonCreateUser {
         message = "password must contain one digit, one special character and must be at least 8 characters long"
     ))]
     pub password: Option<String>,
+    #[validate(length(
+        min = 2,
+        max = 30,
+        message = "fullname must be between 3 and 30 characters"
+    ), required(message = "fullname is null"))]
+    pub fullname: Option<String>,
 }
 
 impl From<JsonCreateUser> for CreateUser {
@@ -40,6 +44,7 @@ impl From<JsonCreateUser> for CreateUser {
         CreateUser {
             username: jcu.username.unwrap(),
             password: jcu.password.unwrap(),
+            fullname: jcu.fullname.unwrap(),
         }
     }
 }
@@ -51,6 +56,7 @@ pub struct JsonUser {
     pub username: String,
     pub email: String,
     pub password: String,
+    pub fullname: String,
 }
 
 impl From<UserView> for JsonUser {
@@ -60,6 +66,7 @@ impl From<UserView> for JsonUser {
             username: uv.username,
             email: uv.email,
             password: uv.password,
+            fullname: uv.fullname,
         }
     }
 }
@@ -83,4 +90,25 @@ pub struct TokenClaims {
     pub exp: usize,
     pub sub: String,
     pub username: String,
+}
+
+#[derive(Deserialize, Debug, Validate, ToSchema, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct JsonLoginUser {
+    #[validate(email(message = "invalid email"))]
+    pub username: Option<String>,
+    #[validate(custom(
+        function = "validate_password",
+        message = "password must contain one digit, one special character and must be at least 8 characters long"
+    ))]
+    pub password: Option<String>,
+}
+
+impl From<JsonLoginUser> for LoginUser {
+    fn from(jcu: JsonLoginUser) -> Self {
+        LoginUser {
+            username: jcu.username.unwrap(),
+            password: jcu.password.unwrap(),
+        }
+    }
 }

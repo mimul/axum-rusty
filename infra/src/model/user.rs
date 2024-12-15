@@ -7,6 +7,7 @@ pub struct StoredUser {
     pub username: String,
     pub email: String,
     pub password: String,
+    pub fullname: String,
 }
 
 impl TryFrom<StoredUser> for User {
@@ -18,6 +19,7 @@ impl TryFrom<StoredUser> for User {
             username: u.username,
             email: u.email,
             password: u.password,
+            fullname: u.fullname,
         })
     }
 }
@@ -27,6 +29,7 @@ pub struct InsertUser {
     pub id: String,
     pub username: String,
     pub password: String,
+    pub fullname: String,
 }
 
 impl From<NewUser> for InsertUser {
@@ -35,6 +38,7 @@ impl From<NewUser> for InsertUser {
             id: nu.id.value.to_string(),
             username: nu.username,
             password: nu.password,
+            fullname: nu.fullname,
         }
     }
 }

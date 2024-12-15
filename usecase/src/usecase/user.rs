@@ -1,4 +1,4 @@
-use crate::model::user::{CreateUser, SearchUserCondition, UserView};
+use crate::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView};
 use anyhow::anyhow;
 use domain::model::user::User;
 use domain::repository::user::UserRepository;
@@ -72,11 +72,7 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
         if hashed_password.is_empty() {
             return Err(anyhow!("hashed password is empty"));
         }
-        // let hashed_password = bcrypt::hash(source.password.clone(), 12).map_err(|_| {
-        //     error!("Failed to hash password");
-        //     None
-        // });
-        let user = CreateUser::new(source.username, hashed_password);
+        let user = CreateUser::new(source.username, hashed_password, source.fullname);
         let user_view = self
             .repositories
             .user_repository()
@@ -86,7 +82,7 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
         Ok(user_view.into())
     }
 
-    pub async fn login_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
+    pub async fn login_user(&self, source: LoginUser) -> anyhow::Result<UserView> {
         let username = source.username.clone();
         let user_view: User = match self
             .repositories
@@ -101,11 +97,6 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
             }
         };
         let login_result = bcrypt::verify(source.password.clone(), user_view.password.as_str())?;
-        // let login_result =
-        //     bcrypt::verify(source.password.clone(), user_view.password.as_str()).map_err(|_| {
-        //         error!("failed to hash password");
-        //         return Err(anyhow!("failed to hash password."));
-        //     });
         match login_result {
             true => {
                 info!("login succeeded!");

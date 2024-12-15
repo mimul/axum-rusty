@@ -2,7 +2,7 @@ use crate::context::api_response::ApiResponse;
 use crate::context::api_version::ApiVersion;
 use crate::context::errors::AppError;
 use crate::context::validate::ValidatedRequest;
-use crate::model::user::{JsonCreateUser, JsonUser, TokenClaims, UserQuery};
+use crate::model::user::{JsonCreateUser, JsonLoginUser, JsonUser, TokenClaims, UserQuery};
 use crate::module::{Modules, ModulesExt};
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -16,11 +16,12 @@ use usecase::model::user::UserView;
 
 #[derive(utoipa::OpenApi)]
 #[openapi(
-    paths(create_user, get_user, get_user_by_username),
+    paths(create_user, get_user, get_user_by_username, login_user),
     components(schemas(JsonCreateUser, UserQuery, ApiResponse<Value>)),
     tags((name = "User"))
 )]
 pub struct UserOpenApi;
+
 #[utoipa::path(
     post,
     path = "/v1/user/create",
@@ -171,7 +172,7 @@ pub async fn get_user_by_username(
 pub async fn login_user(
     _: ApiVersion,
     modules: State<Arc<Modules>>,
-    ValidatedRequest(source): ValidatedRequest<JsonCreateUser>,
+    ValidatedRequest(source): ValidatedRequest<JsonLoginUser>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("login_user {:?}", source);
     let user_view = modules.user_use_case().login_user(source.into()).await;

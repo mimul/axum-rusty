@@ -22,10 +22,6 @@ use tracing::log::{error, info};
 )]
 pub struct TodoOpenApi;
 
-pub async fn error_handler() -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    Err(AppError::Error("abnormal uri".to_string()))
-}
-
 #[utoipa::path(
     get,
     path = "/v1/todo/{id}",
