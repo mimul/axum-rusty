@@ -105,13 +105,11 @@ pub async fn startup(modules: Arc<Modules>) {
         );
 
     let addr = SocketAddr::from(init_addr());
-    let listener = TcpListener::bind(&addr)
-        .await
+    let listener = TcpListener::bind(&addr).await
         .unwrap_or_else(|_| panic!("TcpListener cannot bind."));
     tracing::info!("Server listening on {}", addr);
 
-    axum::serve(listener, app)
-        .await
+    axum::serve(listener, app).await
         .unwrap_or_else(|_| panic!("Server cannot launch."));
 }
 
