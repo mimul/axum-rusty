@@ -205,19 +205,19 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
 
 #[cfg(test)]
 mod test {
-    use todo_domain::model::todo::NewTodo;
-    use todo_domain::model::Id;
-    use todo_domain::repository::todo::TodoRepository;
+    use domain::model::todo::NewTodo;
+    use domain::model::Id;
+    use domain::repository::todo::TodoRepository;
     use ulid::Ulid;
-
+    use crate::persistence::config::Config;
     use super::DatabaseRepositoryImpl;
     use crate::persistence::postgres::Db;
 
     #[ignore]
     #[tokio::test]
     async fn test_insert_todo() {
-        let db = Db::new().await;
-        let repository = DatabaseRepositoryImpl::new(db);
+        let db = Db::new(Config::init()).await;
+        let repository = DatabaseRepositoryImpl::new(db.clone());
         db.clone().0.acquire().await.unwrap();
         let id = Ulid::new();
         let _ = repository

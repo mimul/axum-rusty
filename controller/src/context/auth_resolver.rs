@@ -1,17 +1,16 @@
 use crate::context::errors::AppError;
 use crate::context::errors::AppError::InvalidJwt;
 use crate::model::user::TokenClaims;
-use crate::module::{Modules, ModulesExt};
-use axum::extract::{Request, State};
-use axum::middleware::Next;
-use axum::response::IntoResponse;
-use jsonwebtoken::decode;
+use crate::module::{AppState, ModulesExt};
+use axum::{extract::State, middleware::Next, response::IntoResponse};
+use jsonwebtoken::{decode, DecodingKey, Validation};
 use std::sync::Arc;
+use axum::extract::Request;
 use tracing::log::error;
 use usecase::model::user::UserView;
 
 pub async fn auth(
-    modules: State<Arc<Modules>>,
+    State(state): State<Arc<AppState>>,
     mut req: Request,
     next: Next,
 ) -> Result<impl IntoResponse, AppError> {
@@ -32,10 +31,10 @@ pub async fn auth(
         None => return Err(InvalidJwt("auth_header not found".to_string())),
     };
 
-    match authorize_current_user(auth_header, &modules).await {
+    match authorize_current_user(auth_header, &state).await {
         Ok(current_user) => {
             req.extensions_mut().insert(current_user);
-            return Ok(next.run(req).await);
+            return Ok(next.run(req).await)
         }
         Err(err) => {
             error!("error authorizing user: {:?}", err);
@@ -45,18 +44,19 @@ pub async fn auth(
 
     async fn authorize_current_user(
         auth_token: &str,
-        modules: &Modules,
+        //modules: &Modules,
+        state: &AppState,
     ) -> Result<UserView, AppError> {
         let claims = decode::<TokenClaims>(
             auth_token,
-            &jsonwebtoken::DecodingKey::from_secret(modules.constants.jwt_key.as_ref()),
-            &jsonwebtoken::Validation::default(),
+            &DecodingKey::from_secret(state.config.jwt_secret.as_ref()),
+            &Validation::default(),
         );
 
         match claims {
             Ok(claims) => {
                 let user_id = claims.claims.sub;
-                let user_view = modules.user_use_case().get_user(user_id).await;
+                let user_view = state.modules.user_use_case().get_user(user_id).await;
                 match user_view {
                     Ok(user_view) => match user_view {
                         Some(uv) => Ok(uv.into()),

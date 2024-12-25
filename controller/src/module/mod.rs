@@ -1,36 +1,13 @@
 use infra::modules::{RepositoriesModule, RepositoriesModuleExt};
 use infra::persistence::postgres::Db;
 use infra::repository::health_check::HealthCheckRepository;
-use std::env;
 use std::sync::Arc;
 use usecase::usecase::health_check::HealthCheckUseCase;
 use usecase::usecase::todo::TodoUseCase;
 use usecase::usecase::user::UserUseCase;
-
-pub struct Constants {
-    pub jwt_key: String,
-    pub allowed_origin: String,
-    pub jwt_duration: String,
-}
-
-impl Constants {
-    pub async fn new() -> Self {
-        let jwt_key = env::var("JWT_KEY").unwrap_or_else(|_| panic!("JWT_KEY must be set!"));
-        let allowed_origin =
-            env::var("ALLOWED_ORIGIN").unwrap_or_else(|_| panic!("ALLOWED_ORIGIN must be set!"));
-        let jwt_duration = env::var("JWT_DURATION_MINUTES")
-            .unwrap_or_else(|_| panic!("JWT_DURATION_MINUTES must be set!"));
-
-        Self {
-            jwt_key,
-            allowed_origin,
-            jwt_duration,
-        }
-    }
-}
+use infra::persistence::config::Config;
 
 pub struct Modules {
-    pub(crate) constants: Constants,
     user_use_case: UserUseCase<RepositoriesModule>,
     health_check_use_case: HealthCheckUseCase,
     todo_use_case: TodoUseCase<RepositoriesModule>,
@@ -59,19 +36,31 @@ impl ModulesExt for Modules {
 }
 
 impl Modules {
-    pub async fn new() -> Self {
-        let db = Db::new().await;
-        let constants = Constants::new().await;
+    pub fn new(db: Db) -> Self {
         let repositories_module = Arc::new(RepositoriesModule::new(db.clone()));
         let user_use_case = UserUseCase::new(repositories_module.clone());
         let health_check_use_case = HealthCheckUseCase::new(HealthCheckRepository::new(db));
         let todo_use_case = TodoUseCase::new(repositories_module.clone());
 
         Self {
-            constants,
             user_use_case,
             health_check_use_case,
             todo_use_case,
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct AppState {
+    pub modules: Arc<Modules>,
+    pub config: Arc<Config>,
+}
+
+impl AppState {
+    pub fn new(db: Db, config: Config) -> Self {
+        let modules = Arc::new(Modules::new(db.clone()));
+        let config = Arc::new(config);
+
+        Self { modules, config }
     }
 }

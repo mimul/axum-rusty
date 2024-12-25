@@ -36,7 +36,7 @@ cargo run
 프로젝트 디렉토리에서 환경 설정파일 .env 파일을 만들고 서버 구동한다.
 
 ```shell
-cp local.env .env
+cp docker-app.env .env
 cargo run
 ```
 

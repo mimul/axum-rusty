@@ -8,7 +8,5 @@ domain = { path = "../domain" }
 infra = { path = "../infra" }
 anyhow = "1.0.86"
 chrono = "0.4.38"
-tokio = { version = "1.38.0", features = ["full"] }
-serde = { version = "1.0.215", features = ["derive"] }
 tracing = "0.1.41"
 bcrypt = "0.15.1"

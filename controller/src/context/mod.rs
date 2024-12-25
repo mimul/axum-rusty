@@ -4,3 +4,4 @@ pub mod api_version;
 pub(crate) mod auth_resolver;
 pub mod errors;
 pub mod validate;
+pub(crate) mod api_doc;

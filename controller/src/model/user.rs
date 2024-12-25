@@ -87,9 +87,10 @@ impl From<UserQuery> for SearchUserCondition {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TokenClaims {
-    pub exp: usize,
     pub sub: String,
     pub username: String,
+    pub exp: usize,
+    pub iat: usize,
 }
 
 #[derive(Deserialize, Debug, Validate, ToSchema, IntoParams)]

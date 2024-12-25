@@ -6,21 +6,13 @@ use crate::model::todo::{
     JsonCreateTodo, JsonTodo, JsonTodoList, JsonUpdateTodoContents, JsonUpsertTodoContents,
     TodoQuery,
 };
-use crate::module::{Modules, ModulesExt};
+use crate::module::{AppState, ModulesExt};
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tracing::log::{error, info};
-
-#[derive(utoipa::OpenApi)]
-#[openapi(
-    paths(get_todo, find_todo, create_todo, update_todo, upsert_todo),
-    components(schemas(JsonCreateTodo, TodoQuery, JsonUpdateTodoContents, JsonUpsertTodoContents, ApiResponse<Value>)),
-    tags((name = "Todo"))
-)]
-pub struct TodoOpenApi;
 
 #[utoipa::path(
     get,
@@ -29,15 +21,15 @@ pub struct TodoOpenApi;
     responses(
         (status = OK, description = "Get one todo successfully", body = ApiResponse<Value>)
     ),
-    tag = "Todo",
+    tag = "todo",
 )]
 pub async fn get_todo(
     _: ApiVersion,
     Path((_v, id)): Path<(ApiVersion, String)>,
-    modules: State<Arc<Modules>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("get_todo: id={}", id);
-    let resp = modules.todo_use_case().get_todo(id).await;
+    let resp = state.modules.todo_use_case().get_todo(id).await;
     match resp {
         Ok(tv) => tv
             .map(|tv| {
@@ -71,19 +63,19 @@ pub async fn get_todo(
     responses(
         (status = OK, description = "find all todos successfully", body = ApiResponse<Value>)
     ),
-    tag = "Todo",
+    tag = "todo",
 )]
 pub async fn find_todo(
     _: ApiVersion,
     Query(query): Query<TodoQuery>,
-    modules: State<Arc<Modules>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("find_todo: param={:?}", query);
     if query.status.is_none() {
         info!("status is none. id={:?}", query);
         return Err(AppError::Error("status is none".to_string()));
     }
-    let resp = modules.todo_use_case().find_todo(query.into()).await;
+    let resp = state.modules.todo_use_case().find_todo(query.into()).await;
     match resp {
         Ok(tv_list) => match tv_list {
             Some(tv) => {
@@ -128,15 +120,15 @@ pub async fn find_todo(
     responses(
         (status = OK, description = "todo created successfully", body = ApiResponse<Value>)
     ),
-    tag = "Todo",
+    tag = "todo",
 )]
 pub async fn create_todo(
     _: ApiVersion,
-    modules: State<Arc<Modules>>,
+    State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonCreateTodo>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("create_todo: {:?}", source);
-    let resp = modules.todo_use_case().create_todo(source.into()).await;
+    let resp = state.modules.todo_use_case().create_todo(source.into()).await;
     resp.map(|tv| {
         info!("created todo: {}", tv.id);
         let json: JsonTodo = tv.into();
@@ -166,18 +158,18 @@ pub async fn create_todo(
     responses(
         (status = OK, description = "Todo item updated successfully", body = ApiResponse<Value>)
     ),
-    tag = "Todo",
+    tag = "todo",
 )]
 pub async fn update_todo(
     _: ApiVersion,
     Path((_v, id)): Path<(ApiVersion, String)>,
-    modules: State<Arc<Modules>>,
+    State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonUpdateTodoContents>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("update_todo: {:?}", source);
     match source.validate(id) {
         Ok(todo) => {
-            let resp = modules.todo_use_case().update_todo(todo).await;
+            let resp = state.modules.todo_use_case().update_todo(todo).await;
             resp.map(|tv| {
                 info!("updated todo {}", tv.id);
                 let json: JsonTodo = tv.into();
@@ -216,19 +208,16 @@ pub async fn update_todo(
     responses(
         (status = OK, description = "Todo item upserted successfully", body = ApiResponse<Value>)
     ),
-    tag = "Todo",
+    tag = "todo",
 )]
 pub async fn upsert_todo(
     _: ApiVersion,
     Path((_v, id)): Path<(ApiVersion, String)>,
-    modules: State<Arc<Modules>>,
+    State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonUpsertTodoContents>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("upsert_todo: {:?}", source);
-    let resp = modules
-        .todo_use_case()
-        .upsert_todo(source.to_view(id))
-        .await;
+    let resp = state.modules.todo_use_case().upsert_todo(source.to_view(id)).await;
     resp.map(|tv| {
         info!("created or updated todo {}", tv.id);
         let json: JsonTodo = tv.into();
@@ -254,15 +243,15 @@ pub async fn upsert_todo(
     responses(
         (status = OK, description = "Todo item created successfully", body = ApiResponse<Value>)
     ),
-    tag = "Todo",
+    tag = "todo",
 )]
 pub async fn delete_todo(
     _: ApiVersion,
     Path((_v, id)): Path<(ApiVersion, String)>,
-    modules: State<Arc<Modules>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("delete_todo: id={}", id);
-    let resp = modules.todo_use_case().delete_todo(id).await;
+    let resp = state.modules.todo_use_case().delete_todo(id).await;
     match resp {
         Ok(tv) => tv
             .map(|tv| {

@@ -1,26 +1,23 @@
 use crate::context::api_version::ApiVersion;
-use crate::module::{Modules, ModulesExt};
+use crate::module::{AppState, ModulesExt};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use std::sync::Arc;
-use tracing::error;
+use tracing::{debug, error};
 
 pub async fn hc(_: ApiVersion) -> impl IntoResponse {
-    tracing::debug!("Access health check endpoint.");
+    debug!("Access health check endpoint.");
     StatusCode::NO_CONTENT
 }
 
 pub async fn hc_postgres(
     _: ApiVersion,
-    modules: State<Arc<Modules>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    modules
-        .health_check_use_case()
-        .diagnose_db_conn()
-        .await
+    state.modules.health_check_use_case().diagnose_db_conn().await
         .map(|_| {
-            tracing::debug!("Access postgres health check endpoint.");
+            debug!("Access postgres health check endpoint.");
             StatusCode::NO_CONTENT
         })
         .map_err(|err| {

@@ -1,6 +1,4 @@
-pub mod status;
-
-use crate::model::todo::status::JsonTodoStatus;
+use crate::model::status::JsonTodoStatus;
 use serde::{Deserialize, Serialize};
 use usecase::model::todo::{
     CreateTodo, SearchTodoCondition, TodoView, UpdateTodoView, UpsertTodoView,
