@@ -40,7 +40,7 @@ cp docker-app.env .env
 cargo run
 ```
 
-#### 컨테이너에서 명형어 실행
+## 컨테이너에서 명형어 실행
 
 ```shell
 docker compose exec app bash

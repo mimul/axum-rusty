@@ -1,4 +1,5 @@
 use std::env;
+use tracing::info;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -11,6 +12,7 @@ pub struct Config {
 
 impl Config {
     pub fn init() -> Config {
+        info!("Config::init() called.");
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set!");
         let jwt_secret = env::var("JWT_SECRET").unwrap_or_else(|_| panic!("JWT_SECRET must be set!"));
         let allowed_origin = env::var("ALLOWED_ORIGIN").unwrap_or_else(|_| panic!("ALLOWED_ORIGIN must be set!"));
