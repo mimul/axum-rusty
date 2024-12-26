@@ -1,16 +1,13 @@
 use fancy_regex::Regex;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use usecase::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView};
 use utoipa::{IntoParams, ToSchema};
 use validator::{Validate, ValidationError};
 
-lazy_static! {
-    //static ref EMAIL_REGEX: Regex = Regex::new(r"^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,4}$").unwrap();
-    static ref DIGIT_REGEX: Regex = Regex::new(r"\d").unwrap();
-    static ref SPECIAL_REGEX: Regex = Regex::new(r"[^\da-zA-Z]").unwrap();
-    static ref LENGTH_REGEX: Regex = Regex::new(r".{7,}").unwrap();
-}
+static DIGIT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d").unwrap());
+static SPECIAL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"[^\da-zA-Z]").unwrap());
+static LENGTH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r".{7,}").unwrap());
 
 fn validate_password(value: &str) -> Result<(), ValidationError> {
     if DIGIT_REGEX.is_match(value).unwrap() && SPECIAL_REGEX.is_match(value).unwrap() && LENGTH_REGEX.is_match(value).unwrap()
