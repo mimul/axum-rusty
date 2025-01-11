@@ -1,8 +1,8 @@
 use crate::context::errors::AppError;
 use crate::context::validate::ValidatedRequest;
-use axum::extract::rejection::JsonRejection;
 use axum::extract::{FromRequest, Request};
 use axum::{async_trait, Json};
+use axum::extract::rejection::JsonRejection;
 use serde::de::DeserializeOwned;
 use validator::Validate;
 

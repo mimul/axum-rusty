@@ -2,36 +2,31 @@ use crate::context::errors::AppError;
 use crate::context::errors::AppError::InvalidJwt;
 use crate::model::user::TokenClaims;
 use crate::module::{AppState, ModulesExt};
-use axum::{extract::State, middleware::Next, response::IntoResponse};
+use axum::{middleware::Next, response::IntoResponse};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use std::sync::Arc;
-use axum::extract::Request;
+use axum::extract::{Request, State};
+use tracing::info;
 use tracing::log::error;
 use usecase::model::user::UserView;
+use crate::context::webs::{get_auth_header, get_cookie_from_headers};
 
 pub async fn auth(
     State(state): State<Arc<AppState>>,
     mut req: Request,
     next: Next,
 ) -> Result<impl IntoResponse, AppError> {
-    let auth_header = req
-        .headers()
-        .get(http::header::AUTHORIZATION)
-        .and_then(|header| header.to_str().ok())
-        .and_then(|header| {
-            if header.starts_with("Bearer ") {
-                header.strip_prefix("Bearer ")
-            } else {
-                error!("auth_header not found");
-                None
-            }
-        });
-    let auth_header = match auth_header {
-        Some(header) => header,
-        None => return Err(InvalidJwt("auth_header not found".to_string())),
-    };
 
-    match authorize_current_user(auth_header, &state).await {
+    let access_token = get_cookie_from_headers("access_token", req.headers())
+        .unwrap_or_else(|| {
+            get_auth_header(req.headers()).unwrap().to_string()
+        });
+    info!("auth: access_token={:?}", access_token);
+    if access_token.is_empty() {
+        return Err(InvalidJwt("auth_header not found".to_string()));
+    }
+
+    match authorize_current_user(access_token, &state).await {
         Ok(current_user) => {
             req.extensions_mut().insert(current_user);
             return Ok(next.run(req).await)
@@ -43,12 +38,11 @@ pub async fn auth(
     }
 
     async fn authorize_current_user(
-        auth_token: &str,
-        //modules: &Modules,
+        access_token: String,
         state: &AppState,
     ) -> Result<UserView, AppError> {
         let claims = decode::<TokenClaims>(
-            auth_token,
+            access_token.as_str(),
             &DecodingKey::from_secret(state.config.jwt_secret.as_ref()),
             &Validation::default(),
         );

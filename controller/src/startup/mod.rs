@@ -90,16 +90,16 @@ pub async fn startup(app_state: Arc<AppState>) {
         .with_state(app_state)
         .layer(cors)
         .layer(ServiceBuilder::new()
-                .layer(HandleErrorLayer::new(|error: BoxError| async move {
-                    if error.is::<tower::timeout::error::Elapsed>() {
-                        AppError::Error("time out.".to_string())
-                    } else {
-                        AppError::Error(format!("Unhandled internal error: {error}"))
-                    }
-                }))
-                .timeout(Duration::from_secs(10))
-                .layer(TraceLayer::new_for_http())
-                .into_inner(),
+            .layer(HandleErrorLayer::new(|error: BoxError| async move {
+                if error.is::<tower::timeout::error::Elapsed>() {
+                    AppError::Error("time out.".to_string())
+                } else {
+                    AppError::Error(format!("Unhandled internal error: {error}"))
+                }
+            }))
+            .timeout(Duration::from_secs(10))
+            .layer(TraceLayer::new_for_http())
+            .into_inner(),
         );
 
     let addr = SocketAddr::from(init_addr());
