@@ -5,11 +5,12 @@ use async_trait::async_trait;
 use domain::model::todo::status::TodoStatus;
 use domain::repository::todo::status::TodoStatusRepository;
 use sqlx::query_as;
+use domain::transaction::PostgresAcquire;
 
 #[async_trait]
 impl TodoStatusRepository for DatabaseRepositoryImpl<TodoStatus> {
-    async fn get_by_code(&self, code: &str) -> anyhow::Result<TodoStatus> {
-        let pool = self.db.0.clone();
+    async fn get_by_code(&self, code: &str, executor: impl PostgresAcquire<'_>) -> anyhow::Result<TodoStatus> {
+        let mut conn = executor.acquire().await?;
         let sql = r#"
             select id, code, name
             from todo_statuses
@@ -18,7 +19,7 @@ impl TodoStatusRepository for DatabaseRepositoryImpl<TodoStatus> {
 
         let stored_todo_status = query_as::<_, StoredTodoStatus>(sql)
             .bind(code.to_string())
-            .fetch_one(&*pool)
+            .fetch_one(&mut *conn)
             .await
             .ok();
 

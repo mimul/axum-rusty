@@ -1,21 +1,22 @@
+use async_trait::async_trait;
 use crate::model::user::{InsertUser, StoredUser};
 use crate::repository::DatabaseRepositoryImpl;
-use async_trait::async_trait;
 use domain::model::user::{NewUser, User};
 use domain::model::Id;
 use domain::repository::user::UserRepository;
 use sqlx::{query, query_as};
+use domain::transaction::PostgresAcquire;
 
 #[async_trait]
 impl UserRepository for DatabaseRepositoryImpl<User> {
-    async fn get_user(&self, id: &Id<User>) -> anyhow::Result<Option<User>> {
-        let pool = self.db.0.clone();
+    async fn get_user(&self, id: &Id<User>, executor: impl PostgresAcquire<'_>) -> anyhow::Result<Option<User>> {
+        let mut conn = executor.acquire().await?;
         let sql = r#"
             select u.id, u.username, u.email, u.password, u.fullname from users as u where u.id = $1
         "#;
         let result = query_as::<_, StoredUser>(sql)
             .bind(id.value.to_string())
-            .fetch_one(&*pool)
+            .fetch_one(&mut *conn)
             .await
             .ok();
 
@@ -25,14 +26,14 @@ impl UserRepository for DatabaseRepositoryImpl<User> {
         }
     }
 
-    async fn get_user_by_username(&self, username: &str) -> anyhow::Result<Option<User>> {
-        let pool = self.db.0.clone();
+    async fn get_user_by_username(&self, username: &str, executor: impl PostgresAcquire<'_>) -> anyhow::Result<Option<User>> {
+        let mut conn = executor.acquire().await?;
         let sql = r#"
             select u.id, u.username, u.email, u.password, u.fullname from users as u where u.username = $1
         "#;
         let result = query_as::<_, StoredUser>(sql)
             .bind(username.to_string())
-            .fetch_one(&*pool)
+            .fetch_one(&mut *conn)
             .await
             .ok();
 
@@ -42,8 +43,8 @@ impl UserRepository for DatabaseRepositoryImpl<User> {
         }
     }
 
-    async fn insert(&self, source: NewUser) -> anyhow::Result<User> {
-        let pool = self.db.0.clone();
+    async fn insert(&self, source: NewUser, executor: impl PostgresAcquire<'_>) -> anyhow::Result<User> {
+        let mut conn = executor.acquire().await?;
         let user: InsertUser = source.into();
         let id = user.id.clone();
         let username = user.username.clone();
@@ -54,7 +55,7 @@ impl UserRepository for DatabaseRepositoryImpl<User> {
             .bind(username)
             .bind(user.password)
             .bind(user.fullname)
-            .execute(&*pool)
+            .execute(&mut *conn)
             .await?;
 
         let sql = r#"
@@ -64,7 +65,7 @@ impl UserRepository for DatabaseRepositoryImpl<User> {
         "#;
         let result = query_as::<_, StoredUser>(sql)
             .bind(id)
-            .fetch_one(&*pool)
+            .fetch_one(&mut *conn)
             .await?;
         Ok(result.try_into()?)
     }

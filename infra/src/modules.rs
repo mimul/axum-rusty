@@ -1,4 +1,3 @@
-use crate::persistence::postgres::Db;
 use crate::repository::DatabaseRepositoryImpl;
 use domain::model::todo::status::TodoStatus;
 use domain::model::todo::Todo;
@@ -41,10 +40,10 @@ impl RepositoriesModuleExt for RepositoriesModule {
 }
 
 impl RepositoriesModule {
-    pub fn new(db: Db) -> Self {
-        let user_repository = DatabaseRepositoryImpl::new(db.clone());
-        let todo_repository = DatabaseRepositoryImpl::new(db.clone());
-        let todo_status_repository = DatabaseRepositoryImpl::new(db.clone());
+    pub fn new() -> Self {
+        let user_repository = DatabaseRepositoryImpl::new();
+        let todo_repository = DatabaseRepositoryImpl::new();
+        let todo_status_repository = DatabaseRepositoryImpl::new();
         Self {
             user_repository,
             todo_repository,

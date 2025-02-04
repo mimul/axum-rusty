@@ -7,7 +7,7 @@ use tracing::log::LevelFilter;
 use crate::persistence::config::Config;
 
 #[derive(Clone)]
-pub struct Db(pub(crate) Arc<Pool<Postgres>>);
+pub struct Db(pub Arc<Pool<Postgres>>);
 
 impl Db {
     pub async fn new(config: Config) -> Db {

@@ -37,10 +37,10 @@ impl ModulesExt for Modules {
 
 impl Modules {
     pub fn new(db: Db) -> Self {
-        let repositories_module = Arc::new(RepositoriesModule::new(db.clone()));
-        let user_use_case = UserUseCase::new(repositories_module.clone());
-        let health_check_use_case = HealthCheckUseCase::new(HealthCheckRepository::new(db));
-        let todo_use_case = TodoUseCase::new(repositories_module.clone());
+        let repositories_module = Arc::new(RepositoriesModule::new());
+        let user_use_case = UserUseCase::new(db.clone(), repositories_module.clone());
+        let health_check_use_case = HealthCheckUseCase::new(HealthCheckRepository::new(db.clone()));
+        let todo_use_case = TodoUseCase::new(db.clone(), repositories_module.clone());
 
         Self {
             user_use_case,
