@@ -21,6 +21,9 @@ use tracing::log::{error, info};
     responses(
         (status = OK, description = "Get one todo successfully", body = ApiResponse<Value>)
     ),
+    security(
+        ("Authorization" = [])
+    ),
     tag = "todo",
 )]
 pub async fn get_todo(
@@ -62,6 +65,9 @@ pub async fn get_todo(
     operation_id = stringify!(find_todo),
     responses(
         (status = OK, description = "find all todos successfully", body = ApiResponse<Value>)
+    ),
+    security(
+        ("Authorization" = [])
     ),
     tag = "todo",
 )]
@@ -120,6 +126,9 @@ pub async fn find_todo(
     responses(
         (status = OK, description = "todo created successfully", body = ApiResponse<Value>)
     ),
+    security(
+        ("Authorization" = [])
+    ),
     tag = "todo",
 )]
 pub async fn create_todo(
@@ -157,6 +166,9 @@ pub async fn create_todo(
     operation_id = stringify!(update_todo),
     responses(
         (status = OK, description = "Todo item updated successfully", body = ApiResponse<Value>)
+    ),
+    security(
+        ("Authorization" = [])
     ),
     tag = "todo",
 )]
@@ -208,6 +220,9 @@ pub async fn update_todo(
     responses(
         (status = OK, description = "Todo item upserted successfully", body = ApiResponse<Value>)
     ),
+    security(
+        ("Authorization" = [])
+    ),
     tag = "todo",
 )]
 pub async fn upsert_todo(
@@ -242,6 +257,9 @@ pub async fn upsert_todo(
     operation_id = stringify!(delete_todo),
     responses(
         (status = OK, description = "Todo item created successfully", body = ApiResponse<Value>)
+    ),
+    security(
+        ("Authorization" = [])
     ),
     tag = "todo",
 )]

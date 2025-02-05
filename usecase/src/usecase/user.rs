@@ -5,21 +5,24 @@ use domain::repository::user::UserRepository;
 use infra::modules::RepositoriesModuleExt;
 use std::sync::Arc;
 use tracing::log::{error, info};
+use infra::persistence::postgres::Db;
 
 pub struct UserUseCase<R: RepositoriesModuleExt> {
+    db: Db,
     repositories: Arc<R>,
 }
 
-impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
-    pub fn new(repositories: Arc<R>) -> Self {
-        Self { repositories }
+impl<R: RepositoriesModuleExt> UserUseCase<R> {
+    pub fn new(db: Db, repositories: Arc<R>) -> Self {
+        Self { db, repositories }
     }
 
     pub async fn get_user(&self, id: String) -> anyhow::Result<Option<UserView>> {
+        let mut tx = self.db.0.clone().begin().await?;
         let resp = self
             .repositories
             .user_repository()
-            .get_user(&id.try_into()?)
+            .get_user(&id.try_into()?, &mut tx)
             .await?;
 
         match resp {
@@ -32,6 +35,7 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
         &self,
         condition: SearchUserCondition,
     ) -> anyhow::Result<Option<UserView>> {
+        let mut tx = self.db.0.clone().begin().await?;
         let username = if let Some(u) = &condition.username {
             u.as_str()
         } else {
@@ -40,7 +44,7 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
         let resp = self
             .repositories
             .user_repository()
-            .get_user_by_username(username)
+            .get_user_by_username(username, &mut tx)
             .await?;
 
         match resp {
@@ -51,10 +55,11 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
 
     pub async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
         let username = source.username.clone();
+        let mut tx = self.db.0.clone().begin().await?;
         match self
             .repositories
             .user_repository()
-            .get_user_by_username(username.as_str())
+            .get_user_by_username(username.as_str(), &mut tx)
             .await
         {
             Ok(Some(_)) => {
@@ -76,18 +81,19 @@ impl<R: RepositoriesModuleExt> crate::usecase::user::UserUseCase<R> {
         let user_view = self
             .repositories
             .user_repository()
-            .insert(user.try_into()?)
+            .insert(user.try_into()?, &mut tx)
             .await?;
-
+        tx.commit().await?;
         Ok(user_view.into())
     }
 
     pub async fn login_user(&self, source: LoginUser) -> anyhow::Result<UserView> {
         let username = source.username.clone();
+        let mut tx = self.db.0.clone().begin().await?;
         let user_view: User = match self
             .repositories
             .user_repository()
-            .get_user_by_username(username.as_str())
+            .get_user_by_username(username.as_str(), &mut tx)
             .await
         {
             Ok(Some(user_view)) => user_view,
