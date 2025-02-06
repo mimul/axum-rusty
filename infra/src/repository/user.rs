@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use crate::model::user::{InsertUser, StoredUser};
 use crate::repository::DatabaseRepositoryImpl;
@@ -5,12 +6,12 @@ use domain::model::user::{NewUser, User};
 use domain::model::Id;
 use domain::repository::user::UserRepository;
 use sqlx::{query, query_as};
-use domain::transaction::PostgresAcquire;
+use domain::transaction::PgAcquire;
 
 #[async_trait]
 impl UserRepository for DatabaseRepositoryImpl<User> {
-    async fn get_user(&self, id: &Id<User>, executor: impl PostgresAcquire<'_>) -> anyhow::Result<Option<User>> {
-        let mut conn = executor.acquire().await?;
+    async fn get_user(&self, id: &Id<User>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<User>> {
+        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let sql = r#"
             select u.id, u.username, u.email, u.password, u.fullname from users as u where u.id = $1
         "#;
@@ -26,8 +27,8 @@ impl UserRepository for DatabaseRepositoryImpl<User> {
         }
     }
 
-    async fn get_user_by_username(&self, username: &str, executor: impl PostgresAcquire<'_>) -> anyhow::Result<Option<User>> {
-        let mut conn = executor.acquire().await?;
+    async fn get_user_by_username(&self, username: &str, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<User>> {
+        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let sql = r#"
             select u.id, u.username, u.email, u.password, u.fullname from users as u where u.username = $1
         "#;
@@ -43,8 +44,8 @@ impl UserRepository for DatabaseRepositoryImpl<User> {
         }
     }
 
-    async fn insert(&self, source: NewUser, executor: impl PostgresAcquire<'_>) -> anyhow::Result<User> {
-        let mut conn = executor.acquire().await?;
+    async fn insert(&self, source: NewUser, executor: impl PgAcquire<'_>) -> anyhow::Result<User> {
+        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let user: InsertUser = source.into();
         let id = user.id.clone();
         let username = user.username.clone();

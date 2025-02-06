@@ -1,5 +1,6 @@
 pub mod status;
 
+use anyhow::Context;
 use crate::model::todo::{InsertTodo, StoredTodo, UpdateStoredTodo, UpsertStoredTodo};
 use crate::repository::DatabaseRepositoryImpl;
 use async_trait::async_trait;
@@ -8,12 +9,12 @@ use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use domain::model::Id;
 use domain::repository::todo::TodoRepository;
 use sqlx::{query, query_as};
-use domain::transaction::PostgresAcquire;
+use domain::transaction::PgAcquire;
 
 #[async_trait]
 impl TodoRepository for DatabaseRepositoryImpl<Todo> {
-    async fn get(&self, id: &Id<Todo>, executor: impl PostgresAcquire<'_>) -> anyhow::Result<Option<Todo>> {
-        let mut conn = executor.acquire().await?;
+    async fn get(&self, id: &Id<Todo>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<Todo>> {
+        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let sql = r#"
             select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
                 t.created_at as created_at, t.updated_at as updated_at
@@ -33,8 +34,8 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
         }
     }
 
-    async fn find(&self, status: Option<TodoStatus>, executor: impl PostgresAcquire<'_>) -> anyhow::Result<Option<Vec<Todo>>> {
-        let mut conn = executor.acquire().await?;
+    async fn find(&self, status: Option<TodoStatus>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<Vec<Todo>>> {
+        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let where_status = if let Some(s) = &status {
             s.id.value.to_string()
         } else {
@@ -70,8 +71,8 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
         }
     }
 
-    async fn insert(&self, source: NewTodo, executor: impl PostgresAcquire<'_>) -> anyhow::Result<Todo> {
-        let mut conn = executor.acquire().await?;
+    async fn insert(&self, source: NewTodo, executor: impl PgAcquire<'_>) -> anyhow::Result<Todo> {
+        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let todo: InsertTodo = source.into();
         let id = todo.id.clone();
 
@@ -97,8 +98,8 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
         Ok(stored_todo.try_into()?)
     }
 
-    async fn update(&self, source: UpdateTodo, executor: impl PostgresAcquire<'_>) -> anyhow::Result<Todo> {
-        let mut conn = executor.acquire().await?;
+    async fn update(&self, source: UpdateTodo, executor: impl PgAcquire<'_>) -> anyhow::Result<Todo> {
+        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let todo: UpdateStoredTodo = source.into();
         let id = todo.id.clone();
 
@@ -135,8 +136,8 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
         Ok(stored_todo.try_into()?)
     }
 
-    async fn upsert(&self, source: UpsertTodo, executor: impl PostgresAcquire<'_>) -> anyhow::Result<Todo> {
-        let mut conn = executor.acquire().await?;
+    async fn upsert(&self, source: UpsertTodo, executor: impl PgAcquire<'_>) -> anyhow::Result<Todo> {
+        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let todo: UpsertStoredTodo = source.into();
         let id = todo.id.clone();
 
@@ -147,12 +148,16 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
         "#;
 
         let _ = query(upsert_sql)
-            .bind(todo.id)
+            .bind(todo.id.clone())
             .bind(todo.title)
             .bind(todo.description)
             .bind(todo.status_id)
             .execute(&mut *conn)
-            .await?;
+            .await
+            .context(format!(
+                r#"failed to upsert "{}" into [share]"#,
+                todo.id
+        ))?;
 
         let sql = r#"
             select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
@@ -169,8 +174,8 @@ impl TodoRepository for DatabaseRepositoryImpl<Todo> {
         Ok(stored_todo.try_into()?)
     }
 
-    async fn delete(&self, id: &Id<Todo>, executor: impl PostgresAcquire<'_>) -> anyhow::Result<Option<Todo>> {
-        let mut conn = executor.acquire().await?;
+    async fn delete(&self, id: &Id<Todo>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<Todo>> {
+        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
 
         let sql = r#"
             select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,

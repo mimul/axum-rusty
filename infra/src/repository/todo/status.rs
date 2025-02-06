@@ -1,16 +1,16 @@
 use crate::model::todo::status::StoredTodoStatus;
 use crate::repository::DatabaseRepositoryImpl;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use domain::model::todo::status::TodoStatus;
 use domain::repository::todo::status::TodoStatusRepository;
 use sqlx::query_as;
-use domain::transaction::PostgresAcquire;
+use domain::transaction::PgAcquire;
 
 #[async_trait]
 impl TodoStatusRepository for DatabaseRepositoryImpl<TodoStatus> {
-    async fn get_by_code(&self, code: &str, executor: impl PostgresAcquire<'_>) -> anyhow::Result<TodoStatus> {
-        let mut conn = executor.acquire().await?;
+    async fn get_by_code(&self, code: &str, executor: impl PgAcquire<'_>) -> anyhow::Result<TodoStatus> {
+        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let sql = r#"
             select id, code, name
             from todo_statuses
