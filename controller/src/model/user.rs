@@ -8,7 +8,6 @@ use validator::{Validate, ValidationError};
 static DIGIT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d").unwrap());
 static SPECIAL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"[^\da-zA-Z]").unwrap());
 static LENGTH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r".{7,}").unwrap());
-
 fn validate_password(value: &str) -> Result<(), ValidationError> {
     if DIGIT_REGEX.is_match(value).unwrap() && SPECIAL_REGEX.is_match(value).unwrap() && LENGTH_REGEX.is_match(value).unwrap()
     {

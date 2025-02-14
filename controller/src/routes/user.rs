@@ -12,7 +12,7 @@ use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use axum_extra::extract::cookie::{Cookie, SameSite};
-use tracing::log::{error, info};
+use log::{error, info};
 use usecase::model::user::UserView;
 #[utoipa::path(
     post,
@@ -190,7 +190,6 @@ pub async fn login_user(
                     &claims,
                     &EncodingKey::from_secret(state.config.jwt_secret.as_ref()),
                 ).unwrap();
-                //.map_err(|_| AppError::InvalidJwt("token encoding error".to_string()));
                 let cookie = Cookie::build("token", token.to_owned())
                     .path("/")
                     .max_age(time::Duration::hours(state.config.jwt_max_age.to_owned()))

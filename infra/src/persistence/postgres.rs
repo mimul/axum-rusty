@@ -4,13 +4,13 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::log::LevelFilter;
-use crate::persistence::config::Config;
+use crate::config::config::ApplicationConfig;
 
 #[derive(Clone)]
 pub struct Db(pub Arc<Pool<Postgres>>);
 
 impl Db {
-    pub async fn new(config: Config) -> Db {
+    pub async fn new(config: ApplicationConfig) -> Db {
         let pg_options = PgConnectOptions::from_str(config.database_url.as_str()).unwrap_or_else(|_| panic!("Error connecting to {}", config.database_url.as_str()))
             .log_statements(LevelFilter::Trace)
             .log_slow_statements(LevelFilter::Info, Duration::from_millis(250))

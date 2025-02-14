@@ -4,7 +4,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use std::sync::Arc;
-use tracing::{debug, error};
+use log::{debug, error};
 
 pub async fn hc(_: ApiVersion) -> impl IntoResponse {
     debug!("Access health check endpoint.");

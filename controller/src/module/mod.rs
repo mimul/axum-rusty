@@ -5,7 +5,7 @@ use std::sync::Arc;
 use usecase::usecase::health_check::HealthCheckUseCase;
 use usecase::usecase::todo::TodoUseCase;
 use usecase::usecase::user::UserUseCase;
-use infra::persistence::config::Config;
+use infra::config::config::ApplicationConfig;
 
 pub struct Modules {
     user_use_case: UserUseCase<RepositoriesModule>,
@@ -53,11 +53,11 @@ impl Modules {
 #[derive(Clone)]
 pub struct AppState {
     pub modules: Arc<Modules>,
-    pub config: Arc<Config>,
+    pub config: Arc<ApplicationConfig>,
 }
 
 impl AppState {
-    pub fn new(db: Db, config: Config) -> Self {
+    pub fn new(db: Db, config: ApplicationConfig) -> Self {
         let modules = Arc::new(Modules::new(db.clone()));
         let config = Arc::new(config);
 

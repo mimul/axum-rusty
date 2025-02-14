@@ -6,8 +6,7 @@ use axum::{middleware::Next, response::IntoResponse};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use std::sync::Arc;
 use axum::extract::{Request, State};
-use tracing::info;
-use tracing::log::error;
+use log::{error, info};
 use usecase::model::user::UserView;
 use crate::context::webs::{get_auth_header, get_cookie_from_headers};
 
@@ -16,12 +15,12 @@ pub async fn auth(
     mut req: Request,
     next: Next,
 ) -> Result<impl IntoResponse, AppError> {
-
     let access_token = get_cookie_from_headers("access_token", req.headers())
         .unwrap_or_else(|| {
             get_auth_header(req.headers()).unwrap().to_string()
         });
     info!("auth: access_token={:?}", access_token);
+    log::logger().flush();
     if access_token.is_empty() {
         return Err(InvalidJwt("auth_header not found".to_string()));
     }

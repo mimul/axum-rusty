@@ -7,19 +7,18 @@ use crate::routes::user::{create_user, get_user, get_user_by_username, login_use
 use axum::error_handling::HandleErrorLayer;
 use axum::routing::{get, post};
 use axum::{middleware, Json, Router};
-use dotenv::dotenv;
 use std::env;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 use http::header::{ACCEPT, ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, AUTHORIZATION, CONTENT_TYPE, ORIGIN};
 use http::{HeaderValue, Method, StatusCode};
+use log::info;
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tower::{BoxError, ServiceBuilder};
 use tower_http::cors::{CorsLayer};
 use tower_http::trace::TraceLayer;
-use tracing::info;
 use utoipa::OpenApi;
 use utoipa::openapi::{Info, OpenApiBuilder};
 use utoipa_swagger_ui::SwaggerUi;
@@ -114,12 +113,9 @@ async fn fallback() -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> 
     Err(AppError::Error("abnormal uri".to_string()))
 }
 
-pub fn init_app() {
-    dotenv().ok();
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .init();
-}
+// pub fn init_app() {
+//     dotenv().ok();
+// }
 
 fn init_addr() -> (IpAddr, u16) {
     let env_host = env::var_os("HOST").expect("HOST is undefined.");
@@ -136,6 +132,6 @@ fn init_addr() -> (IpAddr, u16) {
         .parse::<u16>()
         .expect("PORT is invalid.");
 
-    tracing::info!("Init ip address.");
+    info!("Init ip address.");
     (ip_addr, port)
 }

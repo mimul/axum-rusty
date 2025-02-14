@@ -12,7 +12,7 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use tracing::log::{error, info};
+use log::{error, info};
 
 #[utoipa::path(
     get,
