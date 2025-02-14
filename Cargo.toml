@@ -4,5 +4,6 @@ members = [
     "usecase",
     "controller",
     "domain",
+    "common",
 ]
 resolver = "2"

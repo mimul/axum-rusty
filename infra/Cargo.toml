@@ -7,8 +7,9 @@ edition = "2021"
 
 [dependencies]
 domain = { path = "../domain" }
+common = { path = "../common" }
 anyhow = "1.0.86"
 async-trait = "0.1.80"
 chrono = "0.4.38"
 sqlx = { version = "0.7.4", features = ["runtime-tokio-rustls", "postgres", "chrono"] }
-tracing = "0.1.41"
+log = "0.4.22"

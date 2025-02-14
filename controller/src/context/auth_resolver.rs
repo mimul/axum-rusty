@@ -8,7 +8,7 @@ use std::sync::Arc;
 use axum::extract::{Request, State};
 use log::{error, info};
 use usecase::model::user::UserView;
-use crate::context::webs::{get_auth_header, get_cookie_from_headers};
+use common::auth::webs::{get_auth_header, get_cookie_from_headers};
 
 pub async fn auth(
     State(state): State<Arc<AppState>>,

@@ -3,8 +3,8 @@ use sqlx::{ConnectOptions, Pool, Postgres};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::log::LevelFilter;
-use crate::config::config::ApplicationConfig;
+use log::LevelFilter;
+use common::config::config::ApplicationConfig;
 
 #[derive(Clone)]
 pub struct Db(pub Arc<Pool<Postgres>>);

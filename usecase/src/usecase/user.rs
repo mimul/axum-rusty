@@ -4,7 +4,7 @@ use domain::model::user::User;
 use domain::repository::user::UserRepository;
 use infra::modules::RepositoriesModuleExt;
 use std::sync::Arc;
-use tracing::log::{error, info};
+use log::{error, info};
 use infra::persistence::postgres::Db;
 
 pub struct UserUseCase<R: RepositoriesModuleExt> {

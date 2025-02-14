@@ -1,6 +1,6 @@
 use http::{header, HeaderMap, HeaderValue};
 use tower_cookies::cookie::{ time::Duration, CookieBuilder, SameSite};
-use tracing::log::error;
+use log::error;
 
 pub fn create_cookie_headers(key: &str, value: &str) -> header::HeaderMap {
     let cookie = CookieBuilder::new(key, value)

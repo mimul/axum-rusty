@@ -17,6 +17,7 @@ services:
             -   ./usecase:/app/usecase
             -   ./controller:/app/controller
             -   ./domain:/app/domain
+            -   ./common:/app/common
             -   ./migrations:/app/migrations
             -   ./Cargo.toml:/app/Cargo.toml
             -   ./docker-app.env:/app/.env
