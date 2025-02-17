@@ -1,17 +1,27 @@
-use std::marker::PhantomData;
-
 pub mod health_check;
 pub mod todo;
 pub mod user;
 
-pub struct DatabaseRepositoryImpl<T> {
-    _marker: PhantomData<T>,
+pub struct UserRepositoryImpl {}
+
+impl UserRepositoryImpl {
+    pub fn new() -> Self {
+        Self {}
+    }
 }
 
-impl<T> DatabaseRepositoryImpl<T> {
+pub struct TodoRepositoryImpl {}
+
+impl TodoRepositoryImpl {
     pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
+        Self {}
+    }
+}
+
+pub struct TodoStatusRepositoryImpl {}
+
+impl TodoStatusRepositoryImpl {
+    pub fn new() -> Self {
+        Self {}
     }
 }

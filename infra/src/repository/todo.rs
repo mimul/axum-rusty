@@ -2,7 +2,7 @@ pub mod status;
 
 use anyhow::Context;
 use crate::model::todo::{InsertTodo, StoredTodo, UpdateStoredTodo, UpsertStoredTodo};
-use crate::repository::DatabaseRepositoryImpl;
+use crate::repository::TodoRepositoryImpl;
 use async_trait::async_trait;
 use domain::model::todo::status::TodoStatus;
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
@@ -12,7 +12,7 @@ use sqlx::{query, query_as};
 use domain::transaction::PgAcquire;
 
 #[async_trait]
-impl TodoRepository for DatabaseRepositoryImpl<Todo> {
+impl TodoRepository for TodoRepositoryImpl {
     async fn get(&self, id: &Id<Todo>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<Todo>> {
         let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let sql = r#"

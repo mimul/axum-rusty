@@ -22,11 +22,13 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
         let resp = self
             .repositories
             .user_repository()
-            .get_user(&id.try_into()?, &mut tx)
+            .get_user(&id.clone().try_into()?, &mut tx)
             .await?;
 
         match resp {
-            Some(user) => Ok(Some(user.into())),
+            Some(user) => {
+                Ok(Some(user.into()))
+            },
             None => Ok(None),
         }
     }

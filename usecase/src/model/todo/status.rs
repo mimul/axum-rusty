@@ -1,5 +1,5 @@
 use domain::model::todo::status::TodoStatus;
-
+#[derive(Debug, Clone)]
 pub struct TodoStatusView {
     pub id: String,
     pub code: String,

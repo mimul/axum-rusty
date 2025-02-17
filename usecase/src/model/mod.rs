@@ -5,6 +5,7 @@ use std::fmt::Formatter;
 pub mod todo;
 pub mod user;
 
+#[derive(Debug, Clone)]
 pub struct DateTimeRfc3339(pub String);
 
 impl From<DateTime<Utc>> for DateTimeRfc3339 {

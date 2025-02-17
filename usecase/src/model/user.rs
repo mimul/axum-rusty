@@ -11,13 +11,13 @@ pub struct UserView {
 }
 
 impl From<User> for UserView {
-    fn from(u: User) -> Self {
+    fn from(user: User) -> Self {
         Self {
-            id: u.id.value.to_string(),
-            username: u.username,
-            email: u.email,
-            password: u.password,
-            fullname: u.fullname,
+            id: user.id.value.to_string(),
+            username: user.username,
+            email: user.email,
+            password: user.password,
+            fullname: user.fullname,
         }
     }
 }
@@ -46,7 +46,7 @@ pub struct LoginUser {
     pub password: String,
 }
 
-impl crate::model::user::LoginUser {
+impl LoginUser {
     pub fn new(username: String, password: String) -> Self {
         Self { username, password, }
     }

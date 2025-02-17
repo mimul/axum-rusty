@@ -28,7 +28,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
             .await?;
 
         match resp {
-            Some(t) => Ok(Some(t.into())),
+            Some(todo) => Ok(Some(todo.into())),
             None => Ok(None),
         }
     }

@@ -22,14 +22,12 @@ pub trait ModulesExt {
 
 impl ModulesExt for Modules {
     type RepositoriesModule = RepositoriesModule;
-
     fn user_use_case(&self) -> &UserUseCase<Self::RepositoriesModule> {
         &self.user_use_case
     }
     fn health_check_use_case(&self) -> &HealthCheckUseCase {
         &self.health_check_use_case
     }
-
     fn todo_use_case(&self) -> &TodoUseCase<Self::RepositoriesModule> {
         &self.todo_use_case
     }

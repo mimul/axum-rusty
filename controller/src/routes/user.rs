@@ -32,10 +32,10 @@ pub async fn create_user(
     State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonCreateUser>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("create_user source={:?}", source);
+    info!("create_user request param={:?}", source);
     let resp = state.modules.user_use_case().create_user(source.into()).await;
     resp.map(|tv| {
-        info!("created user: {}", tv.id);
+        info!("create_user: response user: {}", tv.id);
         let json: JsonUser = tv.into();
         let response: ApiResponse<Value> = ApiResponse::<Value> {
             result: true,
@@ -70,12 +70,12 @@ pub async fn get_user(
     State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<UserView>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("get_user: id={}, current_user={:?}", id, current_user);
+    info!("get_user: request param id={}, current_user={:?}", id, current_user);
     let resp = state.modules.user_use_case().get_user(id).await;
     match resp {
         Ok(uv) => uv
             .map(|uv| {
-                info!("found user `{:?}`.", uv);
+                info!("get_user: response user={:?}.", uv);
                 let json: JsonUser = uv.into();
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
                     result: true,
@@ -116,7 +116,7 @@ pub async fn get_user_by_username(
     State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<UserView>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("get_user_by_username: param={:?}, current_user={:?}",query, current_user);
+    info!("get_user_by_username: request param={:?}, current_user={:?}",query, current_user);
     if query.username.is_empty() {
         info!("get_user_by_username: username is empty. id={:?}", query);
         return Err(AppError::Error("username is empty".to_string()));
@@ -125,7 +125,7 @@ pub async fn get_user_by_username(
     match user_view {
         Ok(user_view) => match user_view {
             Some(uv) => {
-                info!("found user `{:?}`.", uv);
+                info!("get_user_by_username: response user `{:?}`.", uv);
                 let json: JsonUser = uv.into();
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
                     result: true,
@@ -170,11 +170,12 @@ pub async fn login_user(
     State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonLoginUser>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("login_user {:?}", source);
+    info!("login_user: request param={:?}", source);
     let user_view = state.modules.user_use_case().login_user(source.into()).await;
     match user_view {
         Ok(user_view) => match user_view {
             uv => {
+                info!("login_user: response user `{:?}`.", uv);
                 let now = Utc::now();
                 let iat = now.timestamp() as usize;
                 let exp = (now + Duration::minutes(state.config.jwt_duration.parse().unwrap()))

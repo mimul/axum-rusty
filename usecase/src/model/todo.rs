@@ -5,6 +5,7 @@ use crate::model::DateTimeRfc3339;
 use domain::model::todo::{NewTodo, Todo};
 use domain::model::Id;
 
+#[derive(Debug, Clone)]
 pub struct TodoView {
     pub id: String,
     pub title: String,
@@ -15,14 +16,14 @@ pub struct TodoView {
 }
 
 impl From<Todo> for TodoView {
-    fn from(t: Todo) -> Self {
+    fn from(todo: Todo) -> Self {
         Self {
-            id: t.id.value.to_string(),
-            title: t.title,
-            description: t.description,
-            status: t.status.into(),
-            created_at: t.created_at.into(),
-            updated_at: t.updated_at.into(),
+            id: todo.id.value.to_string(),
+            title: todo.title,
+            description: todo.description,
+            status: todo.status.into(),
+            created_at: todo.created_at.into(),
+            updated_at: todo.updated_at.into(),
         }
     }
 }

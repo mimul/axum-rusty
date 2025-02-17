@@ -1,7 +1,7 @@
 use anyhow::Context;
 use async_trait::async_trait;
 use crate::model::user::{InsertUser, StoredUser};
-use crate::repository::DatabaseRepositoryImpl;
+use crate::repository::UserRepositoryImpl;
 use domain::model::user::{NewUser, User};
 use domain::model::Id;
 use domain::repository::user::UserRepository;
@@ -9,7 +9,7 @@ use sqlx::{query, query_as};
 use domain::transaction::PgAcquire;
 
 #[async_trait]
-impl UserRepository for DatabaseRepositoryImpl<User> {
+impl UserRepository for UserRepositoryImpl {
     async fn get_user(&self, id: &Id<User>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<User>> {
         let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let sql = r#"
