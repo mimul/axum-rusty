@@ -1,7 +1,9 @@
-use crate::repository::{TodoRepositoryImpl, TodoStatusRepositoryImpl, UserRepositoryImpl};
 use domain::repository::todo::status::TodoStatusRepository;
 use domain::repository::todo::TodoRepository;
 use domain::repository::user::UserRepository;
+use crate::repository::todo::status::TodoStatusRepositoryImpl;
+use crate::repository::todo::TodoRepositoryImpl;
+use crate::repository::user::UserRepositoryImpl;
 
 pub struct RepositoriesModule {
     user_repository: UserRepositoryImpl,
@@ -25,7 +27,7 @@ impl RepositoriesModuleExt for RepositoriesModule {
     type TodoStatusRepo = TodoStatusRepositoryImpl;
 
     fn user_repository(&self) -> &Self::UserRepo {
-       &self.user_repository
+        &self.user_repository
     }
     fn todo_repository(&self) -> &Self::TodoRepo {
         &self.todo_repository
@@ -47,3 +49,4 @@ impl RepositoriesModule {
         }
     }
 }
+

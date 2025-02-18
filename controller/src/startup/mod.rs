@@ -1,6 +1,5 @@
 use crate::context::auth_resolver::auth;
 use crate::context::errors::AppError;
-use crate::module::AppState;
 use crate::routes::health_check::{hc, hc_postgres};
 use crate::routes::todo::{create_todo, delete_todo, find_todo, get_todo, update_todo, upsert_todo};
 use crate::routes::user::{create_user, get_user, get_user_by_username, login_user};
@@ -24,6 +23,7 @@ use utoipa::openapi::{Info, OpenApiBuilder};
 use utoipa_swagger_ui::SwaggerUi;
 use crate::context::api_doc::ApiDoc;
 use crate::context::api_response::ApiResponse;
+use crate::module::usecase_module::AppState;
 
 pub async fn startup(app_state: Arc<AppState>) {
     let cors = CorsLayer::new()

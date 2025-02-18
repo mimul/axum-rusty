@@ -2,14 +2,17 @@ pub mod status;
 
 use anyhow::Context;
 use crate::model::todo::{InsertTodo, StoredTodo, UpdateStoredTodo, UpsertStoredTodo};
-use crate::repository::TodoRepositoryImpl;
 use async_trait::async_trait;
+use derive_new::new;
 use domain::model::todo::status::TodoStatus;
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use domain::model::Id;
 use domain::repository::todo::TodoRepository;
 use sqlx::{query, query_as};
 use domain::transaction::PgAcquire;
+
+#[derive(new)]
+pub struct TodoRepositoryImpl {}
 
 #[async_trait]
 impl TodoRepository for TodoRepositoryImpl {

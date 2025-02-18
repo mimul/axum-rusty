@@ -1,10 +1,10 @@
 use crate::context::api_version::ApiVersion;
-use crate::module::{AppState, ModulesExt};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use std::sync::Arc;
 use log::{debug, error};
+use crate::module::usecase_module::{AppState, UseCaseModulesExt};
 
 pub async fn hc(_: ApiVersion) -> impl IntoResponse {
     debug!("Access health check endpoint.");

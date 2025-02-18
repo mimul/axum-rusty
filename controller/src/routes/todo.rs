@@ -6,13 +6,13 @@ use crate::model::todo::{
     JsonCreateTodo, JsonTodo, JsonTodoList, JsonUpdateTodoContents, JsonUpsertTodoContents,
     TodoQuery,
 };
-use crate::module::{AppState, ModulesExt};
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use log::{error, info};
+use crate::module::usecase_module::{AppState, UseCaseModulesExt};
 
 #[utoipa::path(
     get,

@@ -1,12 +1,15 @@
 use anyhow::Context;
 use async_trait::async_trait;
+use derive_new::new;
 use crate::model::user::{InsertUser, StoredUser};
-use crate::repository::UserRepositoryImpl;
 use domain::model::user::{NewUser, User};
 use domain::model::Id;
 use domain::repository::user::UserRepository;
 use sqlx::{query, query_as};
 use domain::transaction::PgAcquire;
+
+#[derive(new)]
+pub struct UserRepositoryImpl {}
 
 #[async_trait]
 impl UserRepository for UserRepositoryImpl {

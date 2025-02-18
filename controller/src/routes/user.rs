@@ -3,7 +3,6 @@ use crate::context::api_version::ApiVersion;
 use crate::context::errors::AppError;
 use crate::context::validate::ValidatedRequest;
 use crate::model::user::{JsonCreateUser, JsonLoginUser, JsonUser, TokenClaims, UserQuery};
-use crate::module::{AppState, ModulesExt};
 use axum::extract::{Path, Query, State};
 use axum::http::{header, StatusCode, Response};
 use axum::{Extension, Json};
@@ -14,6 +13,8 @@ use std::sync::Arc;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use log::{error, info};
 use usecase::model::user::UserView;
+use crate::module::usecase_module::{AppState, UseCaseModulesExt};
+
 #[utoipa::path(
     post,
     path = "/v1/auth/create",

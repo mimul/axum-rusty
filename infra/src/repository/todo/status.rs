@@ -1,11 +1,14 @@
 use crate::model::todo::status::StoredTodoStatus;
-use crate::repository::TodoStatusRepositoryImpl;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use derive_new::new;
 use domain::model::todo::status::TodoStatus;
 use domain::repository::todo::status::TodoStatusRepository;
 use sqlx::query_as;
 use domain::transaction::PgAcquire;
+
+#[derive(new)]
+pub struct TodoStatusRepositoryImpl {}
 
 #[async_trait]
 impl TodoStatusRepository for TodoStatusRepositoryImpl {

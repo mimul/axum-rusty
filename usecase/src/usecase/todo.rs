@@ -5,8 +5,8 @@ use anyhow::anyhow;
 use domain::model::todo::{UpdateTodo, UpsertTodo};
 use domain::repository::todo::status::TodoStatusRepository;
 use domain::repository::todo::TodoRepository;
-use infra::modules::RepositoriesModuleExt;
 use std::sync::Arc;
+use infra::module::repo_module::RepositoriesModuleExt;
 use infra::persistence::postgres::Db;
 
 pub struct TodoUseCase<R: RepositoriesModuleExt> {

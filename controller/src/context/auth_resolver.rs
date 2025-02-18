@@ -1,7 +1,6 @@
 use crate::context::errors::AppError;
 use crate::context::errors::AppError::InvalidJwt;
 use crate::model::user::TokenClaims;
-use crate::module::{AppState, ModulesExt};
 use axum::{middleware::Next, response::IntoResponse};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use std::sync::Arc;
@@ -9,6 +8,7 @@ use axum::extract::{Request, State};
 use log::{error, info};
 use usecase::model::user::UserView;
 use common::auth::webs::{get_auth_header, get_cookie_from_headers};
+use crate::module::usecase_module::{AppState, UseCaseModulesExt};
 
 pub async fn auth(
     State(state): State<Arc<AppState>>,

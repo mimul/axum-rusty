@@ -2,9 +2,9 @@ use crate::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView};
 use anyhow::anyhow;
 use domain::model::user::User;
 use domain::repository::user::UserRepository;
-use infra::modules::RepositoriesModuleExt;
 use std::sync::Arc;
 use log::{error, info};
+use infra::module::repo_module::RepositoriesModuleExt;
 use infra::persistence::postgres::Db;
 
 pub struct UserUseCase<R: RepositoriesModuleExt> {
