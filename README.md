@@ -1,4 +1,4 @@
-# Rust 환경에서 Axum과 Clean Architecture 맛보기
+# API Prototyping with Rust and Axum
 
 Rust와 Axum을 활용한 웹 API를 만들어 본다.
 
