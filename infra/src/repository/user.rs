@@ -36,7 +36,7 @@ impl UserRepository for UserRepositoryImpl {
             select u.id, u.username, u.email, u.password, u.fullname from users as u where u.username = $1
         "#;
         let result = query_as::<_, StoredUser>(sql)
-            .bind(username.to_string())
+            .bind(username)
             .fetch_one(&mut *conn)
             .await
             .ok();
@@ -50,15 +50,13 @@ impl UserRepository for UserRepositoryImpl {
     async fn insert(&self, source: NewUser, executor: impl PgAcquire<'_>) -> anyhow::Result<User> {
         let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
         let user: InsertUser = source.into();
-        let id = user.id.clone();
-        let username = user.username.clone();
 
         let _ = query("insert into users (id, username, email, password, fullname) values ($1, $2, $3, $4, $5)")
-            .bind(user.id)
-            .bind(user.username)
-            .bind(username)
-            .bind(user.password)
-            .bind(user.fullname)
+            .bind(&user.id)
+            .bind(&user.username)
+            .bind(&user.username)
+            .bind(&user.password)
+            .bind(&user.fullname)
             .execute(&mut *conn)
             .await?;
 
@@ -68,7 +66,7 @@ impl UserRepository for UserRepositoryImpl {
             where u.id = $1
         "#;
         let result = query_as::<_, StoredUser>(sql)
-            .bind(id)
+            .bind(&user.id)
             .fetch_one(&mut *conn)
             .await?;
         Ok(result.try_into()?)

@@ -1,4 +1,7 @@
 use crate::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView};
+
+/// bcrypt 해시 cost factor (OWASP 권고: 10 이상)
+const BCRYPT_COST: u32 = 12;
 use anyhow::anyhow;
 use domain::model::user::User;
 use domain::repository::user::UserRepository;
@@ -41,7 +44,7 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
         let username = if let Some(u) = &condition.username {
             u.as_str()
         } else {
-            return Err(anyhow!("username is empty".to_string()));
+            return Err(anyhow!("username is empty"));
         };
         let resp = self
             .repositories
@@ -70,12 +73,12 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
             }
             Err(e) => {
                 error!("failed to get user by username: {:?}", e);
-                return Err(anyhow!("username is empty".to_string()));
+                return Err(anyhow!("username is empty"));
             }
             _ => {}
         }
         // hash password
-        let hashed_password = bcrypt::hash(source.password.clone(), 12)?;
+        let hashed_password = bcrypt::hash(source.password.clone(), BCRYPT_COST)?;
         if hashed_password.is_empty() {
             return Err(anyhow!("hashed password is empty"));
         }

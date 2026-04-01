@@ -191,7 +191,7 @@ pub async fn login_user(
                     &Header::default(),
                     &claims,
                     &EncodingKey::from_secret(state.config.jwt_secret.as_ref()),
-                ).unwrap();
+                ).map_err(|e| AppError::Error(format!("token encoding failed: {e}")))?;
                 let cookie = Cookie::build("token", token.to_owned())
                     .path("/")
                     .max_age(time::Duration::hours(state.config.jwt_max_age.to_owned()))
@@ -199,7 +199,12 @@ pub async fn login_user(
                     .http_only(true)
                     .finish();
                 let mut response = Response::new(json!({"status": "success"}).to_string());
-                response.headers_mut().insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
+                response.headers_mut().insert(
+                    header::SET_COOKIE,
+                    cookie.to_string()
+                        .parse()
+                        .map_err(|e| AppError::Error(format!("cookie header parse failed: {e}")))?,
+                );
                 let json_user: JsonUser = uv.into();
                 let response: ApiResponse<Value> = ApiResponse::<Value> {
                     result: true,

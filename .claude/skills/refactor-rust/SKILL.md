@@ -58,13 +58,13 @@ rules:
 ## 실행 흐름 (Claude 동작 지침)
 
 `/refactor-rust` 커맨드가 입력되면 아래 **6단계 워크플로우**를 순서대로 수행한다.
-**STEP 0(worktree 준비)과 STEP 4(Before/After 확인)에서 반드시 인간의 응답을 기다린다.**
+**STEP 4(Before/After 확인)에서만 인간의 응답을 기다린다. STEP 0는 Claude가 자동으로 실행한다.**
 
 ```
 STEP 0  →  STEP 1  →  STEP 2  →  STEP 3  ─→  STEP 4  ──┐
 Worktree   코드접수  rules 로드  실행계획            ↓      │
-준비               + 분석리포트  확인    Before/After 제시  │
-                                         ↓ [승인]          │
+자동실행           + 분석리포트  확인    Before/After 제시  │
+(Bash 실행)                              ↓ [승인]          │
                                          적용 + 커밋        │
                                          ↓ [다음 항목]  ←──┘
                                         STEP 5
@@ -73,9 +73,10 @@ Worktree   코드접수  rules 로드  실행계획            ↓      │
 
 ---
 
-### STEP 0 — Git Worktree 브랜치 준비
+### STEP 0 — Git Worktree 브랜치 자동 준비
 
 리팩토링 코드를 받기 전에 가장 먼저 수행한다.
+**Claude가 Bash 도구로 직접 실행하며, 사용자 확인 없이 자동으로 진행한다.**
 
 #### 0-1. 브랜치 이름 결정
 
@@ -92,37 +93,54 @@ module-name 결정 기준 (우선순위):
   src/order/service.rs  → feature/refactor-order-service
   src/db.rs             → feature/refactor-db
   --scope error 지정 시 → feature/refactor-error-handling
+  전체 코드베이스       → feature/refactor-whole-codebase
 ```
 
-#### 0-2. Worktree 설정 커맨드 출력
+#### 0-2. Worktree 자동 실행
 
-브랜치 이름 결정 후 아래 커맨드를 출력하고 **완료 확인을 기다린다.**
+브랜치 이름 결정 후 Claude가 아래 순서로 **Bash 도구를 사용해 직접 실행**한다.
+
+```bash
+# 1. main 최신화 (현재 브랜치가 main이 아니면 stash 후 전환)
+git checkout main && git pull origin main
+
+# 2. worktree 생성 (이미 존재하면 건너뜀)
+REPO_DIR=$(basename $(git rev-parse --show-toplevel))
+WORKTREE_PATH="../${REPO_DIR}-refactor-[module-name]"
+BRANCH="feature/refactor-[module-name]"
+
+git worktree list | grep -q "$BRANCH" || \
+  git worktree add "$WORKTREE_PATH" -b "$BRANCH"
+
+# 3. 기준선 측정 (worktree 경로에서)
+cd "$WORKTREE_PATH"
+cargo check 2>&1
+cargo test  2>&1 | tee test_baseline.txt
+cargo clippy -- -D warnings 2>&1 | tee clippy_baseline.txt
+```
+
+실행 후 결과를 출력하고, 오류가 없으면 즉시 STEP 1로 진행한다.
+오류 발생 시 원인을 분석하여 사용자에게 보고한 뒤 중단한다.
+
+아래 형식으로 실행 결과를 보고한다:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🌿  Git Worktree 준비
+🌿  Git Worktree 준비 완료 (자동 실행됨)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-리팩토링 작업 브랜치: feature/refactor-[module-name]
+브랜치: feature/refactor-[module-name]
+경로:   ../[repo]-refactor-[module-name]
 
-아래 커맨드를 순서대로 실행해 주세요:
+✅ cargo check    — 통과
+✅ cargo test     — N 통과 / 0 실패  (test_baseline.txt)
+✅ cargo clippy   — 경고 N건         (clippy_baseline.txt)
 
-  git checkout main && git pull origin main
-
-  git worktree add ../[repo]-refactor-[module-name] \
-      -b feature/refactor-[module-name]
-
-  cd ../[repo]-refactor-[module-name]
-  cargo check
-  cargo test 2>&1 | tee test_baseline.txt
-  cargo clippy -- -D warnings 2>&1 | tee clippy_baseline.txt
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✋ 준비 완료되면 "준비됐어"라고 알려주세요.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-> Claude는 완료 확인 전까지 STEP 1로 진행하지 않는다.
+> **중요**: 이후 모든 파일 편집(Edit/Write)은 worktree 경로의 파일에만 적용한다.
+> main 브랜치 파일을 직접 수정하지 않는다.
 
 ---
 

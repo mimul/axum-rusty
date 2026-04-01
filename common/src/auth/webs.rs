@@ -1,11 +1,14 @@
 use http::{header, HeaderMap, HeaderValue};
+
+/// 인증 쿠키 유효 시간 (초)
+const COOKIE_MAX_AGE_SECS: i64 = 60;
 use tower_cookies::cookie::{ time::Duration, CookieBuilder, SameSite};
 use log::error;
 
 pub fn create_cookie_headers(key: &str, value: &str) -> header::HeaderMap {
     let cookie = CookieBuilder::new(key, value)
         .path("/")
-        .max_age(Duration::seconds(60))
+        .max_age(Duration::seconds(COOKIE_MAX_AGE_SECS))
         //.secure(true) // true: indicates that only https requests will carry
         .http_only(true)
         .same_site(SameSite::Strict)
