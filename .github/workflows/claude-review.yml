@@ -1,0 +1,129 @@
+name: Claude AI 코드 리뷰 준비 알림
+
+# ──────────────────────────────────────────────────────────────────
+# 이 워크플로우는 ANTHROPIC_API_KEY 없이 동작합니다.
+# CI 통과 후 리뷰어에게 로컬 실행 방법을 안내하는 코멘트만 작성합니다.
+#
+# 실제 Claude 코드 리뷰는 리뷰어가 로컬에서 수동으로 실행합니다:
+#   /code-review-rust --pr [PR번호]
+# ──────────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    types: [labeled]   # ci-passed 라벨이 붙으면 실행
+
+jobs:
+  notify-ready-for-review:
+    name: 📢 리뷰 준비 완료 알림
+    if: github.event.label.name == 'ci-passed'
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: 변경된 Rust 파일 목록 추출
+        id: changed
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            const rsFiles = files
+              .filter(f => f.filename.endsWith('.rs'))
+              .map(f => `\`${f.filename}\``)
+              .join('\n  ');
+            const count = files.filter(f => f.filename.endsWith('.rs')).length;
+            core.setOutput('rs_count', count);
+            core.setOutput('rs_list', rsFiles || '없음');
+
+      - name: 리뷰어에게 로컬 실행 안내 코멘트 작성
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber  = context.issue.number;
+            const prTitle   = context.payload.pull_request.title;
+            const base      = context.payload.pull_request.base.ref;
+            const head      = context.payload.pull_request.head.ref;
+            const rsCount   = '${{ steps.changed.outputs.rs_count }}';
+            const rsList    = `${{ steps.changed.outputs.rs_list }}`;
+
+            const body = [
+              `## ✅ CI 통과 — Claude 코드 리뷰 준비 완료`,
+              ``,
+              `> **PR #${prNumber}**: ${prTitle}`,
+              `> \`${base}\` ← \`${head}\``,
+              ``,
+              `### 📂 변경된 Rust 파일 (${rsCount}개)`,
+              `  ${rsList}`,
+              ``,
+              `---`,
+              ``,
+              `### 🤖 Claude 코드 리뷰 실행 방법`,
+              ``,
+              `리뷰어는 **로컬 Claude Code**에서 아래 커맨드를 실행해 주세요:`,
+              ``,
+              `\`\`\``,
+              `/code-review-rust --pr ${prNumber}`,
+              `\`\`\``,
+              ``,
+              `**실행 절차:**`,
+              `\`\`\`bash`,
+              `# 1. 리뷰용 worktree 자동 생성`,
+              `git fetch origin ${head}`,
+              `git worktree add ./review-${prNumber} origin/${head}`,
+              `cd ./review-${prNumber}`,
+              ``,
+              `# 2. 변경 파일 확인`,
+              `git diff --name-only origin/${base}...HEAD`,
+              ``,
+              `# 3. Claude Code에서 리뷰 커맨드 실행`,
+              `/code-review-rust --pr ${prNumber}`,
+              `\`\`\``,
+              ``,
+              `**스코프 지정 (선택):**`,
+              `\`\`\``,
+              `/code-review-rust --pr ${prNumber} --scope error       # 에러 처리 집중`,
+              `/code-review-rust --pr ${prNumber} --scope async        # 비동기 집중`,
+              `/code-review-rust --pr ${prNumber} --severity critical  # Critical만`,
+              `\`\`\``,
+              ``,
+              `---`,
+              ``,
+              `### 👤 인간 리뷰어 체크포인트`,
+              ``,
+              `> Claude가 확인하지 못하는 항목 — 리뷰어가 직접 판단해 주세요.`,
+              ``,
+              `- [ ] **비즈니스 로직 정확성** — 도메인 규칙에 맞게 동작하는가?`,
+              `- [ ] **요구사항 충족** — 티켓/스펙 AC를 모두 만족하는가?`,
+              `- [ ] **버그 가능성** — 엣지 케이스, 동시성, 타임아웃 처리가 있는가?`,
+              `- [ ] **성능·보안 개선 여지** — N+1 쿼리, 락 경합, 취약점은 없는가?`,
+              `- [ ] **과도한 변경** — PR 목적과 무관한 변경이 포함되어 있지 않은가?`,
+              `- [ ] **AI 수정 검토** — Claude가 제안한 수정이 의도에 맞고 안전한가?`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });
+
+      - name: claude-review-ready 라벨 부착
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['claude-review-ready'],
+            });
