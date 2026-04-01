@@ -1,4 +1,8 @@
-# axum-rusty
+## 프로젝트 개요
+
+API Prototyping with Rust and Axum.
+
+---
 
 ## 기술 스택
 
