@@ -41,7 +41,7 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
         let username = if let Some(u) = &condition.username {
             u.as_str()
         } else {
-            return Err(anyhow!("username is empty".to_string()));
+            return Err(anyhow!("username is empty"));
         };
         let resp = self
             .repositories
@@ -70,7 +70,7 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
             }
             Err(e) => {
                 error!("failed to get user by username: {:?}", e);
-                return Err(anyhow!("username is empty".to_string()));
+                return Err(anyhow!("username is empty"));
             }
             _ => {}
         }

@@ -36,7 +36,7 @@ impl UserRepository for UserRepositoryImpl {
             select u.id, u.username, u.email, u.password, u.fullname from users as u where u.username = $1
         "#;
         let result = query_as::<_, StoredUser>(sql)
-            .bind(username.to_string())
+            .bind(username)
             .fetch_one(&mut *conn)
             .await
             .ok();
