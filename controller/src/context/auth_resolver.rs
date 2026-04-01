@@ -16,14 +16,10 @@ pub async fn auth(
     next: Next,
 ) -> Result<impl IntoResponse, AppError> {
     let access_token = get_cookie_from_headers("access_token", req.headers())
-        .unwrap_or_else(|| {
-            get_auth_header(req.headers()).unwrap().to_string()
-        });
+        .or_else(|| get_auth_header(req.headers()).map(|s| s.to_string()))
+        .ok_or_else(|| InvalidJwt("auth_header not found".to_string()))?;
     info!("auth: access_token={:?}", access_token);
     log::logger().flush();
-    if access_token.is_empty() {
-        return Err(InvalidJwt("auth_header not found".to_string()));
-    }
 
     match authorize_current_user(access_token, &state).await {
         Ok(current_user) => {
