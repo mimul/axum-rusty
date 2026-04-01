@@ -39,31 +39,37 @@ impl TodoRepository for TodoRepositoryImpl {
 
     async fn find(&self, status: Option<TodoStatus>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<Vec<Todo>>> {
         let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
-        let where_status = if let Some(s) = &status {
-            s.id.value.to_string()
-        } else {
-            "".to_string()
+
+        let stored_todo_list = match status {
+            Some(s) => {
+                let sql = r#"
+                    select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
+                    t.created_at as created_at, t.updated_at as updated_at
+                    from  todos as t
+                    inner join todo_statuses as ts on ts.id = t.status_id
+                    where t.status_id = $1
+                    order by t.created_at asc
+                "#;
+                query_as::<_, StoredTodo>(sql)
+                    .bind(s.id.value.to_string())
+                    .fetch_all(&mut *conn)
+                    .await
+                    .ok()
+            }
+            None => {
+                let sql = r#"
+                    select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
+                    t.created_at as created_at, t.updated_at as updated_at
+                    from  todos as t
+                    inner join todo_statuses as ts on ts.id = t.status_id
+                    order by t.created_at asc
+                "#;
+                query_as::<_, StoredTodo>(sql)
+                    .fetch_all(&mut *conn)
+                    .await
+                    .ok()
+            }
         };
-
-        let mut sql = r#"
-            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
-            t.created_at as created_at, t.updated_at as updated_at
-            from  todos as t
-            inner join todo_statuses as ts on ts.id = t.status_id
-            where t.status_id in ($1)
-            order by t.created_at asc
-        "#
-        .to_string();
-
-        if status.is_none() {
-            sql = sql.replace("$1", "select id from todo_statuses");
-        }
-
-        let stored_todo_list = query_as::<_, StoredTodo>(&sql)
-            .bind(where_status)
-            .fetch_all(&mut *conn)
-            .await
-            .ok();
 
         match stored_todo_list {
             Some(todo_list) => {
