@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(cargo build)",
+      "Bash(cargo build --release)",
+      "Bash(cargo check)",
+      "Bash(cargo test *)",
+      "Bash(cargo clippy *)",
+      "Bash(cargo fmt *)",
+      "Bash(cargo bench *)",
+      "Bash(cargo doc *)",
+      "Bash(cargo tarpaulin *)",
+      "Bash(cargo audit)",
+      "Bash(cargo install *)",
+      "Bash(git fetch origin *)",
+      "Bash(git status)",
+      "Bash(git branch *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git stash list)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout -b feature/*)",
+      "Bash(git checkout -b fix/*)",
+      "Bash(git checkout feature/*)",
+      "Bash(git checkout fix/*)",
+      "Bash(git push origin feature/*)",
+      "Bash(git push origin fix/*)",
+      "Bash(git pull origin main)",
+      "Bash(git pull origin develop)",
+      "Bash(git tag *)",
+      "Bash(git worktree add *)",
+      "Bash(git worktree list)",
+      "Bash(git worktree remove *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr comment *)",
+      "Bash(gh pr review *)",
+      "Bash(gh pr create *)",
+      "Bash(gh issue view *)",
+      "Bash(gh run view *)",
+      "Bash(gh run list *)"
+    ],
+    "deny": [
+      "Bash(cargo publish)",
+      "Bash(cargo yank *)",
+      "Bash(git push origin main)",
+      "Bash(git push origin master)",
+      "Bash(git push origin develop)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(gh pr merge *)",
+      "Bash(rm -rf *)",
+      "Bash(curl * | bash)",
+      "Bash(wget * | bash)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(.claude/settings.local.json)",
+      "Read(secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.secret)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BRANCH=$(git branch --show-current 2>/dev/null); if [ \"$BRANCH\" = \"main\" ] || [ \"$BRANCH\" = \"master\" ] || [ \"$BRANCH\" = \"develop\" ]; then echo '{\"block\": true, \"message\": \"보호 브랜치 직접 수정 불가.\\n\\n리팩토링: git worktree add 로 feature/refactor-{module} 생성\\n코드리뷰: git checkout -b fix/cr-{module} 으로 수정 브랜치 생성\"}' >&2; exit 2; fi",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(echo \"$CLAUDE_TOOL_INPUT\" | grep -o '[^ ]*\\.rs' | head -1); if [ -n \"$FILE\" ] && [ -f \"$FILE\" ]; then cargo fmt -- \"$FILE\" 2>/dev/null && echo \"✅ fmt: $FILE\"; fi",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(echo \"$CLAUDE_TOOL_INPUT\" | grep -o '[^ ]*\\.rs' | head -1); if echo \"$FILE\" | grep -qE '(_test|tests)\\.rs$|/tests/'; then echo \"🧪 테스트 실행 중...\"; cargo test 2>&1 | tail -10; fi",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "RUST_BACKTRACE": "1",
+    "RUST_LOG": "debug",
+    "RUSTFLAGS": "-D warnings"
+  }
+}

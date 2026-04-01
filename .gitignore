@@ -59,7 +59,7 @@ Temporary Items
 
 # Database
 /database/pg-data
-#CLAUDE
+# CLAUDE
 .claude/settings.local.json
 .claude/projects/
 CLAUDE.local.md

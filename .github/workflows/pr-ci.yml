@@ -1,0 +1,305 @@
+name: PR CI — Rust 자동 검사
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+# PR당 동시 실행 방지 (이전 실행 취소)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # CI에서 incremental 컴파일 비활성화 (캐시 효율 향상)
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  # ────────────────────────────────────────────
+  # JOB 1: 포맷 검사
+  # ────────────────────────────────────────────
+  format:
+    name: 📐 Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust 툴체인 설치
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+  # ────────────────────────────────────────────
+  # JOB 2: 정적 분석 (Clippy)
+  # ────────────────────────────────────────────
+  lint:
+    name: 🔍 Clippy Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust 툴체인 설치
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Rust 캐시
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Clippy 결과 어노테이션
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ **Clippy 검사 실패** — `cargo clippy --all-targets -- -D warnings` 를 로컬에서 실행하여 경고를 수정해 주세요.'
+            })
+
+  # ────────────────────────────────────────────
+  # JOB 3: 보안 감사 (cargo-audit)
+  # ────────────────────────────────────────────
+  security:
+    name: 🔒 Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: cargo-audit 설치
+        run: cargo install cargo-audit --locked
+
+      - name: cargo audit
+        run: cargo audit
+
+      - name: 취약점 발견 시 PR 코멘트
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🔒 **보안 취약점 발견** — `cargo audit` 결과를 확인하고 의존성을 업데이트해 주세요.\n\nActions 탭에서 상세 내용을 확인할 수 있습니다.'
+            })
+
+  # ────────────────────────────────────────────
+  # JOB 4: 단위 테스트 + 통합 테스트
+  # ────────────────────────────────────────────
+  test:
+    name: 🧪 Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust 툴체인 설치
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 캐시
+        uses: Swatinem/rust-cache@v2
+
+      - name: sqlx CLI 설치 (DB 마이그레이션용)
+        run: cargo install sqlx-cli --no-default-features --features postgres --locked
+
+      - name: DB 마이그레이션 실행
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+        run: sqlx migrate run
+
+      - name: 단위 테스트
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+        run: cargo test --lib --all-features 2>&1 | tee test-results.txt
+
+      - name: 통합 테스트
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+        run: cargo test --test '*' --all-features 2>&1 | tee -a test-results.txt
+
+      - name: 테스트 결과 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.txt
+
+  # ────────────────────────────────────────────
+  # JOB 5: 커버리지 측정 (cargo-tarpaulin)
+  # ────────────────────────────────────────────
+  coverage:
+    name: 📊 Coverage
+    runs-on: ubuntu-latest
+    needs: test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust 툴체인 설치
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 캐시
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo-tarpaulin 설치
+        run: cargo install cargo-tarpaulin --locked
+
+      - name: 커버리지 측정
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+        run: |
+          cargo tarpaulin \
+            --all-features \
+            --timeout 120 \
+            --out Xml --out Html \
+            --output-dir coverage/
+        continue-on-error: true   # 커버리지 미달이 빌드를 막지 않음 (경고만)
+
+      - name: 커버리지 리포트 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+      - name: PR에 커버리지 코멘트
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            // tarpaulin XML에서 line-rate 파싱
+            try {
+              const xml = fs.readFileSync('coverage/cobertura.xml', 'utf8');
+              const match = xml.match(/line-rate="([\d.]+)"/);
+              const rate = match ? (parseFloat(match[1]) * 100).toFixed(1) : 'N/A';
+              const emoji = parseFloat(rate) >= 80 ? '✅' : '⚠️';
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `${emoji} **커버리지: ${rate}%** (목표: 80%)\n\n상세 리포트는 Actions 탭 Artifacts에서 확인하세요.`
+              });
+            } catch(e) {
+              console.log('커버리지 XML 파싱 실패:', e);
+            }
+
+  # ────────────────────────────────────────────
+  # JOB 6: 성능 회귀 검사 (criterion)
+  # ────────────────────────────────────────────
+  bench:
+    name: ⚡ Performance Regression
+    runs-on: ubuntu-latest
+    # 벤치마크는 PR에서 선택적으로 실행 (라벨 기반)
+    if: contains(github.event.pull_request.labels.*.name, 'perf-check')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 전체 히스토리 필요 (base 브랜치 비교)
+
+      - name: Rust 툴체인 설치
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 캐시
+        uses: Swatinem/rust-cache@v2
+
+      - name: main 브랜치 벤치마크 (기준선)
+        run: |
+          git checkout ${{ github.base_ref }}
+          cargo bench --bench '*' -- --save-baseline main 2>&1 | tee bench-main.txt
+
+      - name: PR 브랜치 벤치마크 (비교)
+        run: |
+          git checkout ${{ github.head_ref }}
+          cargo bench --bench '*' -- --baseline main 2>&1 | tee bench-pr.txt
+
+      - name: 벤치마크 결과 PR 코멘트
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const result = fs.readFileSync('bench-pr.txt', 'utf8');
+            const regressions = result.includes('regressed') ? '⚠️ 성능 회귀 감지됨' : '✅ 성능 회귀 없음';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ⚡ 성능 벤치마크 결과\n\n${regressions}\n\n\`\`\`\n${result.slice(0, 3000)}\n\`\`\``
+            });
+
+  # ────────────────────────────────────────────
+  # JOB 7: CI 전체 통과 게이트 (required status check)
+  # ────────────────────────────────────────────
+  ci-gate:
+    name: ✅ CI Gate
+    runs-on: ubuntu-latest
+    needs: [format, lint, security, test, coverage]
+    if: always()
+    steps:
+      - name: 전체 CI 결과 확인
+        run: |
+          results='${{ toJSON(needs) }}'
+          echo "CI Job 결과:"
+          echo "$results" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          failed = [k for k, v in data.items() if v['result'] not in ('success', 'skipped')]
+          if failed:
+              print('❌ 실패한 Job:', failed)
+              sys.exit(1)
+          else:
+              print('✅ 모든 필수 CI 통과')
+          "
+
+      - name: ci-passed 라벨 부착 → claude-review.yml 트리거
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // ci-passed 라벨 추가 → claude-review.yml 이 리뷰어 안내 코멘트 작성
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['ci-passed']
+            });
