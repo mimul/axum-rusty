@@ -1,7 +1,6 @@
 use crate::model::todo::{
     CreateTodo, SearchTodoCondition, TodoView, UpdateTodoView, UpsertTodoView,
 };
-use anyhow::anyhow;
 use domain::model::todo::{UpdateTodo, UpsertTodo};
 use domain::repository::todo::status::TodoStatusRepository;
 use domain::repository::todo::TodoRepository;
@@ -38,20 +37,14 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
         condition: SearchTodoCondition,
     ) -> anyhow::Result<Option<Vec<TodoView>>> {
         let mut tx = self.db.0.clone().begin().await?;
-        let status = if let Some(code) = &condition.status_code {
-            match self
-                .repositories
-                .todo_status_repository()
-                .get_by_code(code.as_str(), &mut tx)
-                .await
-            {
-                Ok(status) => Some(status),
-                Err(err) => {
-                    return Err(anyhow!(err));
-                }
-            }
-        } else {
-            None
+        let status = match &condition.status_code {
+            Some(code) => Some(
+                self.repositories
+                    .todo_status_repository()
+                    .get_by_code(code.as_str(), &mut tx)
+                    .await?,
+            ),
+            None => None,
         };
 
         let resp = self.repositories.todo_repository().find(status, &mut tx).await?;
@@ -77,20 +70,14 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
 
     pub async fn update_todo(&self, source: UpdateTodoView) -> anyhow::Result<TodoView> {
         let mut tx = self.db.0.clone().begin().await?;
-        let status = if let Some(code) = &source.status_code {
-            match self
-                .repositories
-                .todo_status_repository()
-                .get_by_code(code.as_str(), &mut tx)
-                .await
-            {
-                Ok(status) => Some(status),
-                Err(err) => {
-                    return Err(anyhow!(err));
-                }
-            }
-        } else {
-            None
+        let status = match &source.status_code {
+            Some(code) => Some(
+                self.repositories
+                    .todo_status_repository()
+                    .get_by_code(code.as_str(), &mut tx)
+                    .await?,
+            ),
+            None => None,
         };
 
         let update_todo = UpdateTodo::new(
@@ -111,17 +98,11 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
 
     pub async fn upsert_todo(&self, source: UpsertTodoView) -> anyhow::Result<TodoView> {
         let mut tx = self.db.0.clone().begin().await?;
-        let status = match self
+        let status = self
             .repositories
             .todo_status_repository()
             .get_by_code(&source.status_code, &mut tx)
-            .await
-        {
-            Ok(status) => status,
-            Err(err) => {
-                return Err(anyhow!(err));
-            }
-        };
+            .await?;
 
         let upsert_todo = UpsertTodo::new(
             source.id.try_into()?,
