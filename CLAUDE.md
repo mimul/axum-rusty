@@ -130,3 +130,5 @@ type: feat | fix | refactor | test | docs | chore
 | `/refactor-rust` | 운영 코드 리팩토링 (worktree 격리) |
 | `/code-review-rust` | 로컬 코드 품질 리뷰 |
 | `/code-review-rust --pr [번호]` | GitHub PR 리뷰 (로컬 실행) |
+| `/test-rust` | 테스트 작성 (단위: src/, 통합·DB·API: tests/) |
+| `/test-rust --type [unit\|db\|integration\|api]` | 특정 종류 테스트만 작성 |
