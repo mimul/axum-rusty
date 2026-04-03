@@ -55,3 +55,42 @@ impl LoginUser {
 pub struct SearchUserCondition {
     pub username: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use domain::model::Id;
+
+    fn make_user() -> (domain::model::user::User, String) {
+        let id: Id<domain::model::user::User> = Id::gen();
+        let ulid_str = id.value.to_string();
+        let user = domain::model::user::User::new(
+            id,
+            "alice".to_string(),
+            "alice@example.com".to_string(),
+            "hashed".to_string(),
+            "Alice".to_string(),
+        );
+        (user, ulid_str)
+    }
+
+    #[test]
+    fn user_view_from_user_maps_all_fields() {
+        let (user, ulid_str) = make_user();
+        let view = UserView::from(user);
+        assert_eq!(view.id, ulid_str);
+        assert_eq!(view.username, "alice");
+        assert_eq!(view.email, "alice@example.com");
+        assert_eq!(view.password, "hashed");
+        assert_eq!(view.fullname, "Alice");
+    }
+
+    #[test]
+    fn create_user_try_into_new_user_generates_id() {
+        let cu = CreateUser::new("bob".to_string(), "pw".to_string(), "Bob".to_string());
+        let nu: NewUser = cu.try_into().unwrap();
+        assert_eq!(nu.username, "bob");
+        assert_eq!(nu.password, "pw");
+        assert_eq!(nu.fullname, "Bob");
+    }
+}

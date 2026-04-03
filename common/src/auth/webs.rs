@@ -53,3 +53,77 @@ pub fn get_auth_header(headers: &HeaderMap) -> Option<&str> {
             }
         })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_cookie_from_str_with_single_cookie_returns_value() {
+        let result = get_cookie_from_str("access_token=abc123", "access_token");
+        assert_eq!(result, Some("abc123".to_string()));
+    }
+
+    #[test]
+    fn get_cookie_from_str_with_multiple_cookies_returns_correct_value() {
+        let result = get_cookie_from_str("session=xyz; access_token=tok789; other=val", "access_token");
+        assert_eq!(result, Some("tok789".to_string()));
+    }
+
+    #[test]
+    fn get_cookie_from_str_with_missing_key_returns_none() {
+        let result = get_cookie_from_str("session=xyz; other=val", "access_token");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn get_cookie_from_str_with_empty_string_returns_none() {
+        let result = get_cookie_from_str("", "access_token");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn get_auth_header_with_valid_bearer_returns_token() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            http::header::AUTHORIZATION,
+            "Bearer mytoken123".parse().unwrap(),
+        );
+        assert_eq!(get_auth_header(&headers), Some("mytoken123"));
+    }
+
+    #[test]
+    fn get_auth_header_with_missing_header_returns_none() {
+        let headers = HeaderMap::new();
+        assert!(get_auth_header(&headers).is_none());
+    }
+
+    #[test]
+    fn get_auth_header_with_non_bearer_scheme_returns_none() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            http::header::AUTHORIZATION,
+            "Basic dXNlcjpwYXNz".parse().unwrap(),
+        );
+        assert!(get_auth_header(&headers).is_none());
+    }
+
+    #[test]
+    fn get_cookie_from_headers_with_valid_cookie_returns_value() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::COOKIE,
+            "access_token=headertoken; other=val".parse().unwrap(),
+        );
+        assert_eq!(
+            get_cookie_from_headers("access_token", &headers),
+            Some("headertoken".to_string())
+        );
+    }
+
+    #[test]
+    fn get_cookie_from_headers_with_no_cookie_header_returns_none() {
+        let headers = HeaderMap::new();
+        assert!(get_cookie_from_headers("access_token", &headers).is_none());
+    }
+}
