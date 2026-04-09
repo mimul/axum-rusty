@@ -14,19 +14,6 @@ description: >
     로컬 파일 모드   — 파일 경로 또는 모듈명 지정 시 해당 파일을 직접 리뷰한다.
   모든 모드에서 CODE_REVIEW_RUST.md의 10개 카테고리(C-CR-01~C-CR-10) 기준으로
   분석하고, 이슈마다 Before/After를 제시하고 인간 확인 후에만 수정을 적용한다.
-triggers:
-  - /code-review-rust
-  - /code-review-rust --pr [PR번호]
-  - /code-review-rust --staged
-  - /code-review-rust --commit [커밋해시]
-  - /code-review-rust --branch
-  - /code-review-rust --branch [브랜치명]
-  - /code-review-rust [파일경로 또는 모듈명]
-  - /code-review-rust --scope [카테고리 키워드]
-  - /code-review-rust --severity [critical|high|medium|low]
-  - /code-review-rust --catalog
-  - /code-review-rust --help
-reference: CODE_REVIEW_RUST.md
 rules:
   - ../../rules/security.md
   - ../../rules/test.md

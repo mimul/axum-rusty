@@ -8,9 +8,6 @@ description: >
     PR 모드   — PR 번호 지정 시 gh api로 해당 PR의 리뷰·인라인 코멘트를 가져와 대응한다.
   각 지적의 기술적 타당성과 프로젝트 정책 적합성을 독자적으로 평가하고,
   타당한 지적만 Before/After로 수정하며 최종 요약을 출력한다.
-triggers:
-  - /address-review-rust
-  - /address-review-rust [PR번호]
 rules:
   - ../../rules/security.md
   - ../../rules/test.md

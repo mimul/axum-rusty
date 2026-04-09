@@ -7,10 +7,6 @@ description: >
   인수 없이 실행하면 직전 대화의 리뷰 대응 요약을 자동 추출하여 사용한다.
   PR 번호 또는 GitHub URL을 지정하면 해당 PR 코멘트에 답장한다.
   답장 게시 전 반드시 회신 목록을 사용자에게 제시하고 승인을 받는다.
-triggers:
-  - /reply-review-rust
-  - /reply-review-rust [PR번호]
-  - /reply-review-rust [GitHub PR URL]
 ---
 
 # `/reply-review-rust` 커맨드 스킬

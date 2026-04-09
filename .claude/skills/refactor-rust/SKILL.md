@@ -7,13 +7,6 @@ description: >
   기반 계획을 수립한 후 항목별로 Before/After 비교를 먼저 제시하고 인간의
   확인을 받은 뒤에만 변환을 적용한다. 기능 동치를 유지하면서 소유권 명확화,
   에러 처리 체계화, Trait 추상화, 모듈 구조 개선 등 Rust 고유의 품질을 향상.
-triggers:
-  - /refactor-rust
-  - /refactor-rust [파일경로 또는 모듈명]
-  - /refactor-rust --scope [범위 키워드]
-  - /refactor-rust --catalog
-  - /refactor-rust --help
-reference: REFACTOR_RUST.md
 rules:
   - ../../rules/security.md
   - ../../rules/test.md

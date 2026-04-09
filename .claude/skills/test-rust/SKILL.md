@@ -7,13 +7,6 @@ description: >
   디렉토리에 분리하여 작성한다. TEST_RUST.md의 T-T-01~T-T-06
   카탈로그 기준으로 분류하고, 항목별 Before(없음)/After(테스트 코드)를
   제시한 뒤 인간 확인 후에만 작성한다. 커버리지 80%+ 달성을 목표로 한다.
-triggers:
-  - /test-rust
-  - /test-rust [파일경로 또는 모듈명]
-  - /test-rust --type [unit|db|integration|api|property]
-  - /test-rust --catalog
-  - /test-rust --help
-reference: TEST_RUST.md
 rules:
   - ../../rules/security.md
   - ../../rules/test.md
