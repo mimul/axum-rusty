@@ -7,9 +7,6 @@ description: >
   PR 모드에서는 gh api로 인라인 코멘트·리뷰 본문을 PR에 직접 등록하고,
   비PR 모드에서는 현재 브랜치의 PR을 자동 감지하거나 Markdown 리포트를 출력한다.
   모든 파라미터는 /code-review-rust와 동일하게 지원한다.
-rules:
-  - ../../rules/security.md
-  - ../../rules/test.md
 ---
 
 # `/code-review-feedback-rust` 커맨드 스킬

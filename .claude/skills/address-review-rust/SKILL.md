@@ -8,9 +8,6 @@ description: >
     PR 모드   — PR 번호 지정 시 gh api로 해당 PR의 리뷰·인라인 코멘트를 가져와 대응한다.
   각 지적의 기술적 타당성과 프로젝트 정책 적합성을 독자적으로 평가하고,
   타당한 지적만 Before/After로 수정하며 최종 요약을 출력한다.
-rules:
-  - ../../rules/security.md
-  - ../../rules/test.md
 ---
 
 # `/address-review-rust` 커맨드 스킬
@@ -357,3 +354,12 @@ fix([scope]): [A-RV-XX] [50자 이내 요약]
 - `security.md`, `test.md` 규칙과 충돌하는 리뷰어 제안은 규칙을 우선한다
 - PR 모드에서 모든 수정 커밋 완료 후 **반드시 `git push origin [브랜치명]`** 을 안내한다
 - push 완료 후 `/reply-review-rust [PR번호]`로 각 리뷰 코멘트에 대응 회신한다
+
+---
+
+## 참조 파일
+
+| 파일 | 용도 | 로드 시점 |
+|------|------|-----------|
+| `../../rules/security.md` | 보안 규칙 | **STEP 2 평가 시작 전 로드** |
+| `../../rules/test.md` | 테스트 규칙 | **STEP 2 평가 시작 전 로드** |
