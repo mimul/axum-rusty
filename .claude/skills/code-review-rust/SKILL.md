@@ -2,15 +2,25 @@
 name: code-review-rust
 description: >
   /code-review-rust 커맨드로 실행되는 Rust 코드 리뷰 스킬.
-  두 가지 모드를 지원한다:
-    PR 모드  — MCP로 PR 정보(제목·설명·대상 브랜치) 확인 후 전용 worktree를
-               생성하고, git diff로 변경 파일만 정확히 추출하여 리뷰한다.
-    로컬 모드 — 현재 작업 브랜치 또는 붙여넣은 코드를 직접 리뷰한다.
-  두 모드 모두 CODE_REVIEW_RUST.md의 10개 카테고리(C-CR-01~C-CR-10) 기준으로
+  일곱 가지 모드를 지원한다:
+    PR 모드          — MCP로 PR 정보(제목·설명·대상 브랜치) 확인 후 전용 worktree를
+                       생성하고, git diff로 변경 파일만 정확히 추출하여 리뷰한다.
+    로컬 변경 모드   — 인수 없이 실행 시 기본값. git diff HEAD로 staged + unstaged
+                       변경사항을 자동 감지하여 즉시 리뷰한다.
+    staged 모드      — --staged 옵션. git diff --cached로 staged 변경사항만 리뷰한다.
+    커밋 모드        — --commit <hash>. 특정 커밋 단독 변경사항을 리뷰한다.
+    브랜치 모드      — --branch. 현재 브랜치와 기본 브랜치(main)의 diff를 리뷰한다.
+    지정 브랜치 모드 — --branch <name>. 지정 브랜치와 기본 브랜치(main)의 diff를 리뷰한다.
+    로컬 파일 모드   — 파일 경로 또는 모듈명 지정 시 해당 파일을 직접 리뷰한다.
+  모든 모드에서 CODE_REVIEW_RUST.md의 10개 카테고리(C-CR-01~C-CR-10) 기준으로
   분석하고, 이슈마다 Before/After를 제시하고 인간 확인 후에만 수정을 적용한다.
 triggers:
   - /code-review-rust
   - /code-review-rust --pr [PR번호]
+  - /code-review-rust --staged
+  - /code-review-rust --commit [커밋해시]
+  - /code-review-rust --branch
+  - /code-review-rust --branch [브랜치명]
   - /code-review-rust [파일경로 또는 모듈명]
   - /code-review-rust --scope [카테고리 키워드]
   - /code-review-rust --severity [critical|high|medium|low]
@@ -45,20 +55,39 @@ rules:
 ## 커맨드 문법
 
 ```
-/code-review-rust --pr 42              PR #42를 MCP로 조회 후 worktree 리뷰
-/code-review-rust --pr 42 --scope error  PR 리뷰 + 에러 처리 집중
-/code-review-rust                      현재 브랜치 또는 붙여넣은 코드 리뷰
-/code-review-rust src/order/handler.rs 특정 파일만 리뷰
-/code-review-rust --scope error        C-CR-01 에러 처리만
-/code-review-rust --scope ownership    C-CR-02 소유권·차용만
-/code-review-rust --scope async        C-CR-06 비동기만
-/code-review-rust --scope unsafe       C-CR-07 unsafe만
-/code-review-rust --scope test         C-CR-10 테스트만
-/code-review-rust --scope security     security.md 전체 기준 집중 리뷰
-/code-review-rust --severity critical  Critical 이슈만 보고
-/code-review-rust --severity high      High 이상 이슈만 보고
-/code-review-rust --catalog            카테고리 목록 출력
-/code-review-rust --help               사용법 출력
+# PR 리뷰
+/code-review-rust --pr 42                   PR #42를 MCP로 조회 후 worktree 리뷰
+/code-review-rust --pr 42 --scope error     PR 리뷰 + 에러 처리 집중
+
+# 로컬 변경사항 리뷰
+/code-review-rust                           staged + unstaged 변경사항 전체 리뷰 (기본값)
+/code-review-rust --staged                  staged(git add된) 변경사항만 리뷰
+
+# 커밋 리뷰
+/code-review-rust --commit a1b2c3d          특정 커밋의 변경사항만 리뷰
+/code-review-rust --commit HEAD             직전 커밋 리뷰
+/code-review-rust --commit HEAD~2           2커밋 전 리뷰
+
+# 브랜치 diff 리뷰
+/code-review-rust --branch                  현재 브랜치 vs main 전체 diff 리뷰
+/code-review-rust --branch feature/payment  feature/payment 브랜치 vs main diff 리뷰
+
+# 파일/모듈 리뷰
+/code-review-rust src/order/handler.rs      특정 파일만 리뷰
+
+# 필터 옵션 (모든 모드와 조합 가능)
+/code-review-rust --scope error             C-CR-01 에러 처리만
+/code-review-rust --scope ownership         C-CR-02 소유권·차용만
+/code-review-rust --scope async             C-CR-06 비동기만
+/code-review-rust --scope unsafe            C-CR-07 unsafe만
+/code-review-rust --scope test              C-CR-10 테스트만
+/code-review-rust --scope security          security.md 전체 기준 집중 리뷰
+/code-review-rust --severity critical       Critical 이슈만 보고
+/code-review-rust --severity high           High 이상 이슈만 보고
+
+# 정보
+/code-review-rust --catalog                 카테고리 목록 출력
+/code-review-rust --help                    사용법 출력
 ```
 
 ---
@@ -66,28 +95,53 @@ rules:
 ## 실행 모드 판별
 
 ```
---pr [번호] 있음 → [PR 모드]
-                   STEP 0-PR → STEP 1 → STEP 2 → STEP 3 → STEP 4 → STEP 5
+--pr [번호] 있음            → [PR 모드]
+                               STEP 0-PR → STEP 1 → STEP 2 → STEP 3 → STEP 4 → STEP 5
 
---pr 없음        → [로컬 모드]
-                   STEP 0-LOCAL → STEP 1 → STEP 2 → STEP 3 → STEP 4 → STEP 5
+인수 없음                   → [로컬 변경 모드]  ← 기본값
+                               git diff HEAD (staged + unstaged) 자동 감지
+                               STEP 0-DIFF → STEP 1 → STEP 2 → STEP 3 → STEP 4 → STEP 5
+
+--staged 있음               → [staged 모드]
+                               git diff --cached (staged만) 자동 수집
+                               STEP 0-STAGED → STEP 1 → STEP 2 → STEP 3 → STEP 4 → STEP 5
+
+--commit [해시] 있음        → [커밋 모드]
+                               git show [해시]로 해당 커밋 변경사항 수집
+                               STEP 0-COMMIT → STEP 1 → STEP 2 → STEP 3 → STEP 4 → STEP 5
+
+--branch (브랜치명 없음)    → [브랜치 모드]
+                               현재 브랜치 vs origin/main diff 수집
+                               STEP 0-BRANCH → STEP 1 → STEP 2 → STEP 3 → STEP 4 → STEP 5
+
+--branch [브랜치명] 있음    → [지정 브랜치 모드]
+                               지정 브랜치 vs origin/main diff 수집
+                               STEP 0-BRANCH → STEP 1 → STEP 2 → STEP 3 → STEP 4 → STEP 5
+
+파일경로 / 모듈명 있음      → [로컬 파일 모드]
+                               지정된 파일·모듈을 직접 리뷰
+                               STEP 0-LOCAL → STEP 1 → STEP 2 → STEP 3 → STEP 4 → STEP 5
 ```
 
-STEP 1~5는 두 모드 공통이다.
+STEP 1~5는 모든 모드 공통이다.
+
+**우선순위**: `--pr` > `--staged` > `--commit` > `--branch` > 파일경로 > 인수 없음(기본값)
+
+**조합 가능 필터**: `--scope`, `--severity`는 위 모든 모드와 함께 사용 가능하다.
 
 ---
 
 ## [PR 모드] STEP 0-PR — PR 정보 확인 및 Worktree 준비
 
-**이 단계에서 인간의 완료 확인을 받기 전까지 STEP 1로 진행하지 않는다.**
-
 ### 0-PR-1. MCP로 PR 정보 조회
 
-MCP GitHub 도구로 아래 항목을 조회한다:
+Claude가 MCP GitHub 도구로 직접 아래 항목을 조회한다:
 - PR 제목 / 설명(본문) / 작성자
 - base 브랜치 / head 브랜치
 - 변경 파일 수 및 목록
 - 라벨
+
+조회 후 아래 형식으로 출력한다:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -105,30 +159,19 @@ base:   [base 브랜치]  ←  head: [PR 브랜치명]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 0-PR-2. 리뷰용 Worktree 생성 커맨드 출력
+### 0-PR-2. 리뷰용 Worktree 생성
 
+Claude가 Bash 도구로 아래 커맨드를 순서대로 직접 실행한다:
+
+```bash
+git fetch origin [PR 브랜치명]
+git worktree add ./review-[PR번호] origin/[PR 브랜치명]
+cd ./review-[PR번호] && cargo check
+git diff --name-only origin/[base 브랜치]...HEAD
+git diff origin/[base 브랜치]...HEAD -- '*.rs'
 ```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🌿  리뷰 Worktree 준비
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  git fetch origin [PR 브랜치명]
-
-  git worktree add ./review-[PR번호] origin/[PR 브랜치명]
-
-  cd ./review-[PR번호]
-
-  git diff --name-only origin/[base 브랜치]...HEAD
-
-  git diff origin/[base 브랜치]...HEAD -- '*.rs'
-
-  cargo check
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✋ 준비 완료 후 "준비됐어"라고 알려주세요.
-   git diff --name-only 결과를 함께 붙여넣으면 리뷰 범위를 자동 파악합니다.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+실행 완료 후 결과를 내부적으로 파악하고 바로 STEP 1로 진행한다.
 
 ### 0-PR-3. git diff 결과 해석
 
@@ -142,24 +185,226 @@ base:   [base 브랜치]  ←  head: [PR 브랜치명]
 
 ### 0-PR-4. PR 수정 방식 선택
 
+리뷰 결과 출력 후 수정이 필요한 경우 방식을 제안한다:
+
 **방식 A — 권장**: Claude가 Before/After 제안 → PR 코멘트 초안 생성 → 작성자가 직접 수정
 **방식 B**: `fix/cr-pr[번호]-[module]` 브랜치에 직접 수정 후 push
 **방식 C**: worktree에서 로컬 브랜치 생성 후 수정 push
 
 ---
 
-## [로컬 모드] STEP 0-LOCAL — 브랜치 상태 확인
+## [로컬 변경 모드] STEP 0-DIFF — 로컬 변경사항 자동 감지
+
+**인수 없이 `/code-review-rust`만 실행했을 때 이 단계를 따른다.**
+
+Claude가 직접 아래 커맨드를 실행하여 staged + unstaged 변경사항을 수집한다:
+
+```bash
+# 1. staged 변경 파일 목록
+git diff --cached --name-only -- '*.rs'
+
+# 2. unstaged 변경 파일 목록
+git diff --name-only -- '*.rs'
+
+# 3. 실제 diff 내용 (staged + unstaged 통합)
+git diff HEAD -- '*.rs'
+```
+
+**감지 결과별 분기:**
+
+| 상태 | 처리 |
+|------|------|
+| staged + unstaged 변경 있음 | 통합 diff를 리뷰 대상으로 즉시 진행 |
+| 변경 없음 (clean working tree) | 경고 출력 후 선택 요청 (A: 브랜치 전체 리뷰 / B: 파일 경로 직접 입력) |
+
+**변경사항 감지 시 출력 형식:**
 
 ```
-아래 커맨드로 현재 브랜치를 확인해 주세요:
-  git branch --show-current
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔍  로컬 변경 감지 (staged + unstaged)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+브랜치:  [현재 브랜치명]
+staged:  [staged .rs 파일 목록 또는 "없음"]
+unstaged:[unstaged .rs 파일 목록 또는 "없음"]
+총 변경: [N]개 파일
+
+→ 위 변경사항을 리뷰합니다. STEP 1로 진행합니다.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**변경 없을 때 출력 형식:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  로컬 변경사항 없음 (working tree clean)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A: 브랜치 전체 리뷰 (origin/main...HEAD diff)
+B: 파일 경로 직접 입력
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## [staged 모드] STEP 0-STAGED — staged 변경사항 수집
+
+**`--staged` 옵션으로 실행했을 때 이 단계를 따른다.**
+
+Claude가 직접 아래 커맨드를 실행하여 staged 변경사항만 수집한다:
+
+```bash
+# 1. staged 변경 파일 목록
+git diff --cached --name-only -- '*.rs'
+
+# 2. staged diff 내용
+git diff --cached -- '*.rs'
+```
+
+**감지 결과별 분기:**
+
+| 상태 | 처리 |
+|------|------|
+| staged 변경 있음 | staged diff를 리뷰 대상으로 즉시 진행 |
+| staged 없음 | 경고 출력 후 종료 (git add 후 재실행 안내) |
+
+**출력 형식:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🟢  staged 변경 감지
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+브랜치:  [현재 브랜치명]
+staged:  [staged .rs 파일 목록]
+총 변경: [N]개 파일
+
+→ staged 변경사항을 리뷰합니다. STEP 1로 진행합니다.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**staged 없을 때:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  staged 변경사항 없음
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+git add <파일> 후 다시 실행해 주세요.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## [커밋 모드] STEP 0-COMMIT — 특정 커밋 변경사항 수집
+
+**`--commit <해시>` 옵션으로 실행했을 때 이 단계를 따른다.**
+
+Claude가 직접 아래 커맨드를 실행하여 해당 커밋의 변경사항을 수집한다:
+
+```bash
+# 1. 커밋 정보 확인
+git show --stat [해시]
+
+# 2. .rs 파일 diff만 추출
+git show [해시] -- '*.rs'
+```
+
+**특수 해시 처리:**
+
+| 입력 | 해석 |
+|------|------|
+| `HEAD` | 직전 커밋 |
+| `HEAD~N` | N커밋 전 |
+| `a1b2c3d` (7자 이상) | 해당 커밋 |
+
+**출력 형식:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔖  커밋 리뷰
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+커밋:    [해시 7자리] [커밋 메시지 첫 줄]
+작성자:  [author]
+날짜:    [date]
+변경:    [N]개 .rs 파일
+
+→ 해당 커밋 변경사항을 리뷰합니다. STEP 1로 진행합니다.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**해시 오류 시:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+❌  커밋 [해시]를 찾을 수 없습니다
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+git log --oneline -10 으로 최근 커밋을 확인하세요.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## [브랜치 모드 / 지정 브랜치 모드] STEP 0-BRANCH — 브랜치 diff 수집
+
+**`--branch` 또는 `--branch <브랜치명>` 옵션으로 실행했을 때 이 단계를 따른다.**
+
+Claude가 직접 아래 커맨드를 실행하여 브랜치 diff를 수집한다:
+
+```bash
+# --branch (브랜치명 없음) → 현재 브랜치 사용
+TARGET=$(git branch --show-current)
+
+# --branch <브랜치명> → 지정 브랜치 사용
+TARGET=[브랜치명]
+
+# 1. 변경 파일 목록
+git diff --name-only origin/main...[TARGET] -- '*.rs'
+
+# 2. diff 내용
+git diff origin/main...[TARGET] -- '*.rs'
+```
+
+**주의사항:**
+- 기본 브랜치가 `main`이 아닌 경우 (`master`, `develop` 등) 자동 감지하여 사용
+- 원격 추적 브랜치(`origin/main`)가 없으면 로컬 `main`으로 폴백
+
+**출력 형식:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌿  브랜치 diff 리뷰
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+대상 브랜치: [TARGET 브랜치명]
+기준 브랜치: origin/main
+변경 파일:   [N]개 .rs 파일
+커밋 수:     [N]개 커밋 포함
+
+→ 브랜치 diff를 리뷰합니다. STEP 1로 진행합니다.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**diff 없을 때:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  [TARGET] 브랜치와 origin/main 간 .rs 변경사항 없음
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## [로컬 파일 모드] STEP 0-LOCAL — 브랜치 상태 확인
+
+**파일 경로 또는 모듈명을 인수로 지정했을 때 이 단계를 따른다.**
+
+Claude가 Bash 도구로 아래 커맨드를 직접 실행한다:
+
+```bash
+git branch --show-current
 ```
 
 **브랜치별 분기:**
 
-- `feature/*` / `fix/*` → 정상 진행. `git diff --name-only origin/main...HEAD` 확인 요청
-- `main` / `master` → 경고 후 선택 요청 (A: fix/cr 브랜치 생성 / B: 리포트만)
-- `fix/cr-*` → 이전 리뷰 수정 작업 중으로 인식하고 이어서 진행
+- `feature/*` / `fix/*` → 정상 진행. 바로 STEP 1로 진행한다.
+- `main` / `master` → 경고 출력 후 선택 요청 (A: fix/cr 브랜치 생성 / B: 리포트만)
+- `fix/cr-*` → 이전 리뷰 수정 작업 중으로 인식하고 이어서 진행한다.
 
 **로컬 모드 수정 커밋 네이밍:**
 ```
@@ -175,15 +420,19 @@ main에서 수정 필요   → fix/cr-{module-name} 생성
 
 **PR 모드**: worktree 완료 확인 후, diff 결과 기반으로 리뷰 대상 파일 안내
 
-**로컬 모드**: 코드를 요청한다
-```
-리뷰할 Rust 코드를 붙여넣거나 파일 경로를 알려주세요.
+**로컬 변경 모드**: STEP 0-DIFF에서 수집한 `git diff HEAD -- '*.rs'` 결과를 자동 사용. 사용자에게 코드를 요청하지 않고 바로 분석으로 진행한다.
 
-추가 정보 (선택):
-  - 이 코드의 역할 (서비스 레이어, DB 어댑터, HTTP 핸들러 등)
-  - async runtime 사용 여부
-  - 라이브러리 / 바이너리 크레이트 구분
-  - 특히 집중해서 봐줬으면 하는 부분
+**staged 모드**: STEP 0-STAGED에서 수집한 `git diff --cached -- '*.rs'` 결과를 자동 사용한다.
+
+**커밋 모드**: STEP 0-COMMIT에서 수집한 `git show [해시] -- '*.rs'` 결과를 자동 사용한다.
+
+**브랜치 모드 / 지정 브랜치 모드**: STEP 0-BRANCH에서 수집한 `git diff origin/main...[TARGET] -- '*.rs'` 결과를 자동 사용한다.
+
+**로컬 파일 모드**: Claude가 Read 도구로 지정된 파일을 직접 읽는다. 사용자에게 코드 붙여넣기를 요청하지 않는다.
+
+```bash
+# 인수로 받은 파일 경로를 직접 읽음
+Read(file_path: "[지정된 파일 경로]")
 ```
 
 코드 수신 후 내부적으로 파악한다:
@@ -227,8 +476,12 @@ main에서 수정 필요   → fix/cr-{module-name} 생성
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔍  /code-review-rust 분석 리포트
-    [PR 모드: PR #[번호] — [PR 제목]]
-    [로컬 모드: 브랜치 [브랜치명]]
+    [PR 모드:          PR #[번호] — [PR 제목]]
+    [로컬 변경 모드:   브랜치 [브랜치명] — staged + unstaged]
+    [staged 모드:      브랜치 [브랜치명] — staged only]
+    [커밋 모드:        커밋 [해시 7자리] — [커밋 메시지 첫 줄]]
+    [브랜치 모드:      [브랜치명] vs origin/main]
+    [로컬 파일 모드:   파일 [파일 경로]]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📦 리뷰 범위
