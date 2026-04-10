@@ -10,3 +10,7 @@ anyhow = "1.0.86"
 chrono = "0.4.38"
 bcrypt = "0.15.1"
 log = "0.4.22"
+
+[dev-dependencies]
+tokio = { version = "1.38.0", features = ["full"] }
+sqlx = { version = "0.7.4", features = ["runtime-tokio-rustls", "postgres", "migrate"] }

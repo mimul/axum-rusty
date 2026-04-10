@@ -131,34 +131,69 @@ async fn {대상}_{조건}_{기대결과}() {
 
 ### 작성 위치
 ```
-tests/
-└── integration/
-    ├── user_usecase_test.rs
-    └── todo_usecase_test.rs
+{crate}/tests/
+└── {usecase}_integration_test.rs   ← tests/ 바로 아래에 파일 배치 (서브디렉토리 불가)
+    common/
+    ├── mod.rs
+    └── db.rs
 ```
+
+> **주의**: Rust 통합 테스트는 `tests/` 바로 아래 `.rs` 파일만 별도 바이너리로 인식한다.
+> 서브디렉토리 파일(`tests/integration/foo.rs`)은 모듈로만 사용 가능하며,
+> `cargo test --test` 로 직접 지정할 수 없다.
 
 ### 대상
 - `usecase/` 크레이트의 Usecase 구현체
 - 여러 Repository 협력을 통한 비즈니스 흐름
-- Mock Repository를 통한 경계 조건
+- 트랜잭션 롤백 검증 (실제 DB 사용)
 
-### 패턴
+### 패턴 — 트랜잭션 롤백 검증 (실제 DB)
+
+Usecase가 내부에서 트랜잭션을 직접 열고 commit/rollback을 제어하는 경우,
+**Mock 대신 실제 DB**를 사용하여 롤백 동작을 검증한다.
+
 ```rust
-// tests/integration/user_usecase_test.rs
-use mockall::predicate::*;
+// {crate}/tests/{usecase}_integration_test.rs
+mod common;
 
+use common::db::setup_test_db;
+use infra::persistence::postgres::Db;
+use infra::module::repo_module::RepositoriesModule;
+use std::sync::Arc;
+
+/// [트랜잭션 롤백 패턴]
+/// Usecase 내부에서 실패 발생 시 트랜잭션이 자동 롤백되어
+/// DB 상태가 변경되지 않음을 검증한다.
 #[tokio::test]
-async fn {대상}_{조건}_{기대결과}() {
-    // 여러 Repository Mock 조합
-    let mut user_repo_mock = MockUserRepository::new();
-    user_repo_mock.expect_find_by_username()
-        .returning(|_| Ok(None));
+async fn {usecase}_{실패_조건}_rolls_back_transaction() {
+    let pool = setup_test_db().await;
 
-    let module = MockRepositoriesModule::new(user_repo_mock);
-    let usecase = UserUseCase::new(Arc::new(module));
+    // Setup: 사전 데이터를 커밋하여 DB에 저장
+    let repo = SomeRepositoryImpl::new();
+    let mut setup_tx = pool.begin().await.unwrap();
+    let inserted = repo.insert(fixture, &mut setup_tx).await.unwrap();
+    setup_tx.commit().await.unwrap();
 
-    let result = usecase.create_user(CreateUser::new(...)).await;
-    assert!(result.is_ok(), "{result:?}");
+    // Act: 실패를 유발하는 입력으로 Usecase 호출
+    // (Usecase 내부에서 begin → 실패 → ? 전파 → tx drop → 자동 롤백)
+    let db = Db(Arc::new(pool.clone()));
+    let usecase = SomeUseCase::new(db, Arc::new(RepositoriesModule::new()));
+    let result = usecase.some_operation(invalid_input).await;
+
+    // Assert: Err 반환 확인
+    assert!(result.is_err(), "{result:?}");
+
+    // Assert: DB 상태 무변경 (롤백 검증)
+    let mut verify_tx = pool.begin().await.unwrap();
+    let found = repo.get(&inserted.id, &mut verify_tx).await.unwrap();
+    verify_tx.rollback().await.unwrap();
+    assert_eq!(found.unwrap().field, "original_value",
+        "field must be unchanged after transaction rollback");
+
+    // Cleanup: 테스트 데이터 삭제
+    let mut cleanup_tx = pool.begin().await.unwrap();
+    repo.delete(&inserted.id, &mut cleanup_tx).await.unwrap();
+    cleanup_tx.commit().await.unwrap();
 }
 ```
 
@@ -166,6 +201,14 @@ async fn {대상}_{조건}_{기대결과}() {
 - 정상 흐름 (전체 비즈니스 시나리오)
 - Repository 에러 전파
 - 비즈니스 규칙 위반 케이스
+- **트랜잭션 롤백** — 중간 단계 실패 시 DB 상태 무변경 검증
+  - 첫 번째 Repository 호출 실패 → `?` 전파 → `tx` drop → 자동 롤백
+  - 두 번째 Repository 호출 실패 → `?` 전파 → `tx` drop → 부분 변경 없음
+
+### 환경 조건 (트랜잭션 롤백 테스트)
+- `TEST_DATABASE_URL` 환경변수 필수 (`postgresql://user:pass@host/db`)
+- `{crate}/tests/common/db.rs` 에 `setup_test_db()` 헬퍼 작성
+- `{crate}/Cargo.toml` `[dev-dependencies]`에 `tokio`, `sqlx` 추가
 
 ---
 
