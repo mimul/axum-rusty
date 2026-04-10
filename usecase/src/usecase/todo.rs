@@ -19,11 +19,10 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
     }
 
     pub async fn get_todo(&self, id: String) -> anyhow::Result<Option<TodoView>> {
-        let mut tx = self.db.0.clone().begin().await?;
         let resp = self
             .repositories
             .todo_repository()
-            .get(&id.try_into()?, &mut tx)
+            .get(&id.try_into()?, self.db.0.as_ref())
             .await?;
 
         match resp {
@@ -36,18 +35,21 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
         &self,
         condition: SearchTodoCondition,
     ) -> anyhow::Result<Option<Vec<TodoView>>> {
-        let mut tx = self.db.0.clone().begin().await?;
         let status = match &condition.status_code {
             Some(code) => Some(
                 self.repositories
                     .todo_status_repository()
-                    .get_by_code(code.as_str(), &mut tx)
+                    .get_by_code(code.as_str(), self.db.0.as_ref())
                     .await?,
             ),
             None => None,
         };
 
-        let resp = self.repositories.todo_repository().find(status, &mut tx).await?;
+        let resp = self
+            .repositories
+            .todo_repository()
+            .find(status, self.db.0.as_ref())
+            .await?;
         match resp {
             Some(todos) => {
                 let tv_list = todos.into_iter().map(|t| t.into()).collect();
