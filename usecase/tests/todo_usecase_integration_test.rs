@@ -1,3 +1,15 @@
+//! TodoUseCase 트랜잭션 롤백 통합 테스트
+//!
+//! 실행 방법:
+//! ```
+//! TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/todo_db" \
+//!   cargo test -p usecase --test todo_usecase_integration_test -- --test-threads=1
+//! ```
+//!
+//! `--test-threads=1` 필수:
+//! `#[tokio::test]`는 테스트마다 독립 tokio 런타임을 생성한다.
+//! 병렬 실행 시 각 테스트가 별도 커넥션 풀을 만들어 DB 커넥션이 고갈될 수 있다.
+
 mod common;
 
 use common::db::setup_test_db;
@@ -8,7 +20,7 @@ use infra::module::repo_module::RepositoriesModule;
 use infra::persistence::postgres::Db;
 use infra::repository::todo::TodoRepositoryImpl;
 use std::sync::Arc;
-use usecase::model::todo::{CreateTodo, UpdateTodoView};
+use usecase::model::todo::{CreateTodo, UpdateTodoView, UpsertTodoView};
 use usecase::usecase::todo::TodoUseCase;
 
 /// update_todo에 존재하지 않는 status_code를 넘기면
@@ -177,5 +189,94 @@ async fn update_todo_with_nonexistent_id_rolls_back_transaction() {
     assert!(
         result.is_err(),
         "updating nonexistent todo must return Err: {result:?}"
+    );
+}
+
+/// create_and_update_todo에서 update_source.id가 잘못된 ULID 형식이면
+/// insert 성공 후 try_into() 실패 → tx 롤백 → create된 todo도 DB에 없음을 검증한다.
+///
+/// 실패 지점:
+///   insert (성공, tx에 데이터 존재)
+///   → get_by_code 생략 (status_code = None)
+///   → update_source.id.try_into()? 실패 (잘못된 ULID 형식)
+///   → ? 전파 → tx drop → 자동 롤백
+#[tokio::test]
+async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
+    let pool = setup_test_db().await;
+    let db = Db(Arc::new(pool.clone()));
+    let repos = Arc::new(RepositoriesModule::new());
+    let usecase = TodoUseCase::new(db, repos);
+
+    // Act: create는 유효, update id는 잘못된 형식 + status_code = None
+    let create_source = CreateTodo::new(
+        "__ROLLBACK_INVALID_ID_TEST__".to_string(),
+        "Must be rolled back".to_string(),
+    );
+    let update_source = UpdateTodoView::new(
+        "NOT_A_VALID_ULID_FORMAT".to_string(),
+        Some("Ghost Title".to_string()),
+        None,
+        None, // status_code = None → get_by_code 생략 → try_into()까지 진행
+    );
+
+    let result = usecase
+        .create_and_update_todo(create_source, update_source)
+        .await;
+
+    // Assert: 에러 반환 (invalid ULID)
+    assert!(result.is_err(), "invalid ID format must return Err");
+
+    // Assert: insert된 todo가 DB에 없음 (롤백 검증)
+    let todo_repo = TodoRepositoryImpl::new();
+    let mut verify_tx = pool.begin().await.unwrap();
+    let all = todo_repo
+        .find(None, &mut verify_tx)
+        .await
+        .unwrap()
+        .unwrap_or_default();
+    verify_tx.rollback().await.unwrap();
+
+    let rolled_back = all
+        .iter()
+        .any(|t| t.title == "__ROLLBACK_INVALID_ID_TEST__");
+    assert!(
+        !rolled_back,
+        "created todo must not exist in DB after transaction rollback"
+    );
+}
+
+/// upsert_todo에 존재하지 않는 status_code를 넘기면
+/// get_by_code가 Err를 반환하고 트랜잭션이 롤백되어
+/// upsert된 데이터가 DB에 반영되지 않음을 검증한다.
+#[tokio::test]
+async fn upsert_todo_with_invalid_status_rolls_back_transaction() {
+    let pool = setup_test_db().await;
+    let db = Db(Arc::new(pool.clone()));
+    let repos = Arc::new(RepositoriesModule::new());
+    let usecase = TodoUseCase::new(db, repos);
+
+    let upsert_id = Id::<domain::model::todo::Todo>::gen().value.to_string();
+    let upsert_source = UpsertTodoView::new(
+        upsert_id.clone(),
+        "Upsert Title".to_string(),
+        "Upsert Desc".to_string(),
+        "INVALID_STATUS_CODE".to_string(),
+    );
+
+    let result = usecase.upsert_todo(upsert_source).await;
+
+    // Assert: 에러 반환 (invalid status_code)
+    assert!(result.is_err(), "invalid status_code must return Err");
+
+    // Assert: upsert된 todo가 DB에 없음 (롤백 검증)
+    let todo_repo = TodoRepositoryImpl::new();
+    let parsed_id: Id<domain::model::todo::Todo> = upsert_id.try_into().unwrap();
+    let mut verify_tx = pool.begin().await.unwrap();
+    let found = todo_repo.get(&parsed_id, &mut verify_tx).await.unwrap();
+    verify_tx.rollback().await.unwrap();
+
+    assert!(
+        found.is_none(),
+        "upserted todo must not exist in DB after transaction rollback"
     );
 }
