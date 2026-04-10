@@ -8,7 +8,7 @@ use infra::module::repo_module::RepositoriesModule;
 use infra::persistence::postgres::Db;
 use infra::repository::todo::TodoRepositoryImpl;
 use std::sync::Arc;
-use usecase::model::todo::UpdateTodoView;
+use usecase::model::todo::{CreateTodo, UpdateTodoView};
 use usecase::usecase::todo::TodoUseCase;
 
 /// update_todo에 존재하지 않는 status_code를 넘기면
@@ -64,6 +64,92 @@ async fn update_todo_with_invalid_status_rolls_back_transaction() {
     // Cleanup: 테스트 데이터 삭제
     let mut cleanup_tx = pool.begin().await.unwrap();
     todo_repo.delete(&inserted.id, &mut cleanup_tx).await.unwrap();
+    cleanup_tx.commit().await.unwrap();
+}
+
+/// create_and_update_todo에서 create는 성공하고 update가 실패할 때
+/// 단일 트랜잭션이 롤백되어 create된 todo도 DB에 반영되지 않음을 검증한다.
+#[tokio::test]
+async fn create_and_update_todo_when_update_fails_rolls_back_create() {
+    let pool = setup_test_db().await;
+
+    // Setup: update 대상 todo를 커밋하여 DB에 저장
+    let todo_repo = TodoRepositoryImpl::new();
+    let mut setup_tx = pool.begin().await.unwrap();
+    let target_todo = todo_repo
+        .insert(
+            NewTodo::new(
+                Id::gen(),
+                "Update Target".to_string(),
+                "Target Desc".to_string(),
+            ),
+            &mut setup_tx,
+        )
+        .await
+        .unwrap();
+    setup_tx.commit().await.unwrap();
+
+    // Act: create는 성공하지만 update가 invalid status_code로 실패
+    // → 단일 tx 전체가 롤백 → create된 todo도 DB에 없어야 함
+    let db = Db(Arc::new(pool.clone()));
+    let repos = Arc::new(RepositoriesModule::new());
+    let usecase = TodoUseCase::new(db, repos);
+
+    let create_source = CreateTodo::new(
+        "__ROLLBACK_CREATE_TEST__".to_string(),
+        "This todo must not persist".to_string(),
+    );
+    let update_source = UpdateTodoView::new(
+        target_todo.id.value.to_string(),
+        Some("Should Not Be Saved".to_string()),
+        None,
+        Some("INVALID_STATUS_THAT_DOES_NOT_EXIST".to_string()),
+    );
+
+    let result = usecase
+        .create_and_update_todo(create_source, update_source)
+        .await;
+
+    // Assert: Err 반환 (update 실패)
+    assert!(result.is_err(), "update failure must propagate as Err");
+
+    // Assert: create도 롤백됨 — 고유 타이틀로 존재 여부 확인
+    let mut verify_tx = pool.begin().await.unwrap();
+    let all_todos = todo_repo
+        .find(None, &mut verify_tx)
+        .await
+        .unwrap()
+        .unwrap_or_default();
+    verify_tx.rollback().await.unwrap();
+
+    let rolled_back = all_todos
+        .iter()
+        .any(|t| t.title == "__ROLLBACK_CREATE_TEST__");
+    assert!(
+        !rolled_back,
+        "created todo must not exist in DB after transaction rollback"
+    );
+
+    // Assert: update 대상 todo는 변경 없음
+    let mut verify_tx2 = pool.begin().await.unwrap();
+    let target = todo_repo
+        .get(&target_todo.id, &mut verify_tx2)
+        .await
+        .unwrap();
+    verify_tx2.rollback().await.unwrap();
+
+    let target = target.expect("update target must still exist after rollback");
+    assert_eq!(
+        target.title, "Update Target",
+        "update target title must be unchanged after rollback"
+    );
+
+    // Cleanup
+    let mut cleanup_tx = pool.begin().await.unwrap();
+    todo_repo
+        .delete(&target_todo.id, &mut cleanup_tx)
+        .await
+        .unwrap();
     cleanup_tx.commit().await.unwrap();
 }
 

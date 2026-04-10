@@ -120,6 +120,48 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
         Ok(todo_view.into())
     }
 
+    /// create와 update를 단일 트랜잭션에서 실행한다.
+    /// update가 실패하면 create도 함께 롤백된다.
+    pub async fn create_and_update_todo(
+        &self,
+        create_source: CreateTodo,
+        update_source: UpdateTodoView,
+    ) -> anyhow::Result<(TodoView, TodoView)> {
+        let mut tx = self.db.0.clone().begin().await?;
+
+        let created = self
+            .repositories
+            .todo_repository()
+            .insert(create_source.try_into()?, &mut tx)
+            .await?;
+
+        let status = match &update_source.status_code {
+            Some(code) => Some(
+                self.repositories
+                    .todo_status_repository()
+                    .get_by_code(code.as_str(), &mut tx)
+                    .await?,
+            ),
+            None => None,
+        };
+
+        let update_todo = UpdateTodo::new(
+            update_source.id.try_into()?,
+            update_source.title,
+            update_source.description,
+            status,
+        );
+
+        let updated = self
+            .repositories
+            .todo_repository()
+            .update(update_todo, &mut tx)
+            .await?;
+
+        tx.commit().await?;
+        Ok((created.into(), updated.into()))
+    }
+
     pub async fn delete_todo(&self, id: String) -> anyhow::Result<Option<TodoView>> {
         let mut tx = self.db.0.clone().begin().await?;
         let resp = self
