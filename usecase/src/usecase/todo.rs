@@ -4,9 +4,9 @@ use crate::model::todo::{
 use domain::model::todo::{UpdateTodo, UpsertTodo};
 use domain::repository::todo::status::TodoStatusRepository;
 use domain::repository::todo::TodoRepository;
-use std::sync::Arc;
 use infra::module::repo_module::RepositoriesModuleExt;
 use infra::persistence::postgres::Db;
+use std::sync::Arc;
 
 pub struct TodoUseCase<R: RepositoriesModuleExt> {
     db: Db,
@@ -60,7 +60,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
     }
 
     pub async fn create_todo(&self, source: CreateTodo) -> anyhow::Result<TodoView> {
-        let mut tx = self.db.0.clone().begin().await?;
+        let mut tx = self.db.0.begin().await?;
         let todo_view = self
             .repositories
             .todo_repository()
@@ -71,7 +71,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
     }
 
     pub async fn update_todo(&self, source: UpdateTodoView) -> anyhow::Result<TodoView> {
-        let mut tx = self.db.0.clone().begin().await?;
+        let mut tx = self.db.0.begin().await?;
         let status = match &source.status_code {
             Some(code) => Some(
                 self.repositories
@@ -99,7 +99,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
     }
 
     pub async fn upsert_todo(&self, source: UpsertTodoView) -> anyhow::Result<TodoView> {
-        let mut tx = self.db.0.clone().begin().await?;
+        let mut tx = self.db.0.begin().await?;
         let status = self
             .repositories
             .todo_status_repository()
@@ -129,7 +129,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
         create_source: CreateTodo,
         update_source: UpdateTodoView,
     ) -> anyhow::Result<(TodoView, TodoView)> {
-        let mut tx = self.db.0.clone().begin().await?;
+        let mut tx = self.db.0.begin().await?;
 
         let created = self
             .repositories
@@ -165,7 +165,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
     }
 
     pub async fn delete_todo(&self, id: String) -> anyhow::Result<Option<TodoView>> {
-        let mut tx = self.db.0.clone().begin().await?;
+        let mut tx = self.db.0.begin().await?;
         let resp = self
             .repositories
             .todo_repository()
@@ -177,5 +177,4 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
             None => Ok(None),
         }
     }
-
 }
