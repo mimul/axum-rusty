@@ -4,7 +4,7 @@ use std::sync::Arc;
 use usecase::usecase::health_check::HealthCheckUseCase;
 use usecase::usecase::todo::TodoUseCase;
 use usecase::usecase::user::UserUseCase;
-use common::config::config::ApplicationConfig;
+use common::config::ApplicationConfig;
 use infra::module::repo_module::{RepositoriesModule, RepositoriesModuleExt};
 
 pub struct UseCaseModules {

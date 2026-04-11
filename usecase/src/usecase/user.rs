@@ -5,10 +5,10 @@ const BCRYPT_COST: u32 = 12;
 use anyhow::anyhow;
 use domain::model::user::User;
 use domain::repository::user::UserRepository;
-use std::sync::Arc;
-use log::{error, info};
 use infra::module::repo_module::RepositoriesModuleExt;
 use infra::persistence::postgres::Db;
+use log::{error, info};
+use std::sync::Arc;
 
 pub struct UserUseCase<R: RepositoriesModuleExt> {
     db: Db,
@@ -21,17 +21,14 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
     }
 
     pub async fn get_user(&self, id: String) -> anyhow::Result<Option<UserView>> {
-        let mut tx = self.db.0.clone().begin().await?;
         let resp = self
             .repositories
             .user_repository()
-            .get_user(&id.clone().try_into()?, &mut tx)
+            .get_user(&id.clone().try_into()?, self.db.0.as_ref())
             .await?;
 
         match resp {
-            Some(user) => {
-                Ok(Some(user.into()))
-            },
+            Some(user) => Ok(Some(user.into())),
             None => Ok(None),
         }
     }
@@ -40,7 +37,6 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
         &self,
         condition: SearchUserCondition,
     ) -> anyhow::Result<Option<UserView>> {
-        let mut tx = self.db.0.clone().begin().await?;
         let username = if let Some(u) = &condition.username {
             u.as_str()
         } else {
@@ -49,7 +45,7 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
         let resp = self
             .repositories
             .user_repository()
-            .get_user_by_username(username, &mut tx)
+            .get_user_by_username(username, self.db.0.as_ref())
             .await?;
 
         match resp {
@@ -60,11 +56,12 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
 
     pub async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
         let username = source.username.clone();
-        let mut tx = self.db.0.clone().begin().await?;
+
+        // 읽기는 트랜잭션 불필요 — pool 직접 사용
         match self
             .repositories
             .user_repository()
-            .get_user_by_username(username.as_str(), &mut tx)
+            .get_user_by_username(username.as_str(), self.db.0.as_ref())
             .await
         {
             Ok(Some(_)) => {
@@ -77,11 +74,15 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
             }
             _ => {}
         }
-        // hash password
+
+        // CPU-heavy 작업은 트랜잭션 시작 전에 완료
         let hashed_password = bcrypt::hash(source.password.clone(), BCRYPT_COST)?;
         if hashed_password.is_empty() {
             return Err(anyhow!("hashed password is empty"));
         }
+
+        // 트랜잭션은 INSERT만 담당
+        let mut tx = self.db.0.clone().begin().await?;
         let user = CreateUser::new(source.username, hashed_password, source.fullname);
         let user_view = self
             .repositories
@@ -94,11 +95,12 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
 
     pub async fn login_user(&self, source: LoginUser) -> anyhow::Result<UserView> {
         let username = source.username.clone();
-        let mut tx = self.db.0.clone().begin().await?;
+
+        // 읽기는 트랜잭션 불필요 — pool 직접 사용
         let user_view: User = match self
             .repositories
             .user_repository()
-            .get_user_by_username(username.as_str(), &mut tx)
+            .get_user_by_username(username.as_str(), self.db.0.as_ref())
             .await
         {
             Ok(Some(user_view)) => user_view,
@@ -107,6 +109,8 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
                 return Err(anyhow!("username {} is not registered", username));
             }
         };
+
+        // CPU-heavy 검증은 DB 커넥션 반납 후 수행
         let login_result = bcrypt::verify(source.password.clone(), user_view.password.as_str())?;
         match login_result {
             true => {

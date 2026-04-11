@@ -37,6 +37,12 @@ impl RepositoriesModuleExt for RepositoriesModule {
     }
 }
 
+impl Default for RepositoriesModule {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RepositoriesModule {
     pub fn new() -> Self {
         let user_repository = UserRepositoryImpl::new();

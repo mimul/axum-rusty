@@ -20,7 +20,7 @@ where
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let params: Path<HashMap<String, String>> = parts.extract().await.map_err(|err| err)?;
+        let params: Path<HashMap<String, String>> = parts.extract().await?;
 
         let version = params
             .get("v")

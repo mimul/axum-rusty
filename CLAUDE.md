@@ -125,10 +125,31 @@ type: feat | fix | refactor | test | docs | chore
 
 ## Claude Code 스킬
 
+### Rust 전용
+
 | 커맨드 | 용도 |
 |--------|------|
-| `/refactor-rust` | 운영 코드 리팩토링 (worktree 격리) |
-| `/code-review-rust` | 로컬 코드 품질 리뷰 |
+| `/refactor-rust` | 운영 코드 리팩토링 (worktree 격리, Before/After 확인 후 적용) |
+| `/code-review-rust` | 로컬 변경 코드 품질 리뷰 (10개 카테고리) |
 | `/code-review-rust --pr [번호]` | GitHub PR 리뷰 (로컬 실행) |
+| `/code-review-feedback-rust` | PR에 리뷰 코멘트 직접 게시 |
+| `/address-review-rust` | 리뷰 지적 사항 대응 (대화 모드 / PR 번호 모드) |
+| `/reply-review-rust` | 리뷰 대응 완료 후 PR 코멘트에 회신 |
 | `/test-rust` | 테스트 작성 (단위: src/, 통합·DB·API: tests/) |
 | `/test-rust --type [unit\|db\|integration\|api]` | 특정 종류 테스트만 작성 |
+
+### 공통
+
+| 커맨드 | 용도 |
+|--------|------|
+| `/plan` | 기능 구현 전 요구사항 분석 및 단계별 계획 수립 |
+| `/tdd` | 테스트 주도 개발 워크플로우 (RED→GREEN→IMPROVE) |
+| `/code-review` | 일반 코드 리뷰 |
+| `/security-review` | 보안 취약점 점검 |
+| `/build-fix` | 빌드·타입 오류 해결 |
+| `/refactor-clean` | 불필요한 코드 정리 및 통합 |
+| `/test-coverage` | 테스트 커버리지 측정 및 개선 |
+| `/update-docs` | 문서 및 코드맵 업데이트 |
+| `/update-codemaps` | 코드맵 전용 업데이트 |
+| `/bench` | 벤치마크 실행 |
+| `/check` | 빌드·lint·테스트 일괄 확인 |
