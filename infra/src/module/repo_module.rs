@@ -1,24 +1,12 @@
-use domain::repository::todo::status::TodoStatusRepository;
-use domain::repository::todo::TodoRepository;
-use domain::repository::user::UserRepository;
 use crate::repository::todo::status::TodoStatusRepositoryImpl;
 use crate::repository::todo::TodoRepositoryImpl;
 use crate::repository::user::UserRepositoryImpl;
+use usecase::module::repos::RepositoriesModuleExt;
 
 pub struct RepositoriesModule {
     user_repository: UserRepositoryImpl,
     todo_repository: TodoRepositoryImpl,
     todo_status_repository: TodoStatusRepositoryImpl,
-}
-
-pub trait RepositoriesModuleExt {
-    type UserRepo: UserRepository;
-    type TodoRepo: TodoRepository;
-    type TodoStatusRepo: TodoStatusRepository;
-
-    fn user_repository(&self) -> &Self::UserRepo;
-    fn todo_repository(&self) -> &Self::TodoRepo;
-    fn todo_status_repository(&self) -> &Self::TodoStatusRepo;
 }
 
 impl RepositoriesModuleExt for RepositoriesModule {
@@ -55,4 +43,3 @@ impl RepositoriesModule {
         }
     }
 }
-

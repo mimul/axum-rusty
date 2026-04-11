@@ -17,7 +17,6 @@ use domain::model::todo::NewTodo;
 use domain::model::Id;
 use domain::repository::todo::TodoRepository;
 use infra::module::repo_module::RepositoriesModule;
-use infra::persistence::postgres::Db;
 use infra::repository::todo::TodoRepositoryImpl;
 use std::sync::Arc;
 use usecase::model::todo::{CreateTodo, UpdateTodoView, UpsertTodoView};
@@ -44,9 +43,8 @@ async fn update_todo_with_invalid_status_rolls_back_transaction() {
 
     // Act: 존재하지 않는 status_code로 update_todo 호출
     // → get_by_code 실패 → ? 전파 → tx drop → 자동 롤백
-    let db = Db(Arc::new(pool.clone()));
     let repos = Arc::new(RepositoriesModule::new());
-    let usecase = TodoUseCase::new(db, repos);
+    let usecase = TodoUseCase::new(pool.clone(), repos);
 
     let update_view = UpdateTodoView::new(
         inserted_id,
@@ -103,9 +101,8 @@ async fn create_and_update_todo_when_update_fails_rolls_back_create() {
 
     // Act: create는 성공하지만 update가 invalid status_code로 실패
     // → 단일 tx 전체가 롤백 → create된 todo도 DB에 없어야 함
-    let db = Db(Arc::new(pool.clone()));
     let repos = Arc::new(RepositoriesModule::new());
-    let usecase = TodoUseCase::new(db, repos);
+    let usecase = TodoUseCase::new(pool.clone(), repos);
 
     // 실행별 고유 title — panic 시 잔류해도 다음 실행 assertion에 영향 없음
     let unique_title = format!("__ROLLBACK_CREATE_TEST__{}", Id::gen().value);
@@ -173,9 +170,8 @@ async fn create_and_update_todo_when_update_fails_rolls_back_create() {
 #[tokio::test]
 async fn update_todo_with_nonexistent_id_rolls_back_transaction() {
     let pool = setup_test_db().await;
-    let db = Db(Arc::new(pool.clone()));
     let repos = Arc::new(RepositoriesModule::new());
-    let usecase = TodoUseCase::new(db, repos);
+    let usecase = TodoUseCase::new(pool.clone(), repos);
 
     // 존재하지 않는 ID로 update 시도 (status_code는 None → update()까지 진행)
     let nonexistent_id = Id::<domain::model::todo::Todo>::gen().value.to_string();
@@ -201,9 +197,8 @@ async fn update_todo_with_nonexistent_id_rolls_back_transaction() {
 #[tokio::test]
 async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
     let pool = setup_test_db().await;
-    let db = Db(Arc::new(pool.clone()));
     let repos = Arc::new(RepositoriesModule::new());
-    let usecase = TodoUseCase::new(db, repos);
+    let usecase = TodoUseCase::new(pool.clone(), repos);
 
     // 실행별 고유 title — panic 시 잔류해도 다음 실행 assertion에 영향 없음
     let unique_title = format!("__ROLLBACK_INVALID_ID_TEST__{}", Id::gen().value);
@@ -252,9 +247,8 @@ async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
 #[tokio::test]
 async fn upsert_todo_with_invalid_status_rolls_back_transaction() {
     let pool = setup_test_db().await;
-    let db = Db(Arc::new(pool.clone()));
     let repos = Arc::new(RepositoriesModule::new());
-    let usecase = TodoUseCase::new(db, repos);
+    let usecase = TodoUseCase::new(pool.clone(), repos);
 
     let upsert_id = Id::<domain::model::todo::Todo>::gen().value.to_string();
     let upsert_source = UpsertTodoView::new(

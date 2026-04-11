@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 domain = { path = "../domain" }
+usecase = { path = "../usecase" }
 common = { path = "../common" }
 anyhow = "1.0.86"
 async-trait = "0.1.80"

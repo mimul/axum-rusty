@@ -1,28 +1,28 @@
 use crate::model::todo::{
     CreateTodo, SearchTodoCondition, TodoView, UpdateTodoView, UpsertTodoView,
 };
+use crate::module::repos::RepositoriesModuleExt;
 use domain::model::todo::{UpdateTodo, UpsertTodo};
 use domain::repository::todo::status::TodoStatusRepository;
 use domain::repository::todo::TodoRepository;
-use infra::module::repo_module::RepositoriesModuleExt;
-use infra::persistence::postgres::Db;
+use sqlx::PgPool;
 use std::sync::Arc;
 
 pub struct TodoUseCase<R: RepositoriesModuleExt> {
-    db: Db,
+    pool: PgPool,
     repositories: Arc<R>,
 }
 
 impl<R: RepositoriesModuleExt> TodoUseCase<R> {
-    pub fn new(db: Db, repositories: Arc<R>) -> Self {
-        Self { db, repositories }
+    pub fn new(pool: PgPool, repositories: Arc<R>) -> Self {
+        Self { pool, repositories }
     }
 
     pub async fn get_todo(&self, id: String) -> anyhow::Result<Option<TodoView>> {
         let resp = self
             .repositories
             .todo_repository()
-            .get(&id.try_into()?, self.db.0.as_ref())
+            .get(&id.try_into()?, &self.pool)
             .await?;
 
         match resp {
@@ -39,7 +39,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
             Some(code) => Some(
                 self.repositories
                     .todo_status_repository()
-                    .get_by_code(code.as_str(), self.db.0.as_ref())
+                    .get_by_code(code.as_str(), &self.pool)
                     .await?,
             ),
             None => None,
@@ -48,7 +48,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
         let resp = self
             .repositories
             .todo_repository()
-            .find(status, self.db.0.as_ref())
+            .find(status, &self.pool)
             .await?;
         match resp {
             Some(todos) => {
@@ -60,7 +60,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
     }
 
     pub async fn create_todo(&self, source: CreateTodo) -> anyhow::Result<TodoView> {
-        let mut tx = self.db.0.begin().await?;
+        let mut tx = self.pool.begin().await?;
         let todo_view = self
             .repositories
             .todo_repository()
@@ -71,7 +71,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
     }
 
     pub async fn update_todo(&self, source: UpdateTodoView) -> anyhow::Result<TodoView> {
-        let mut tx = self.db.0.begin().await?;
+        let mut tx = self.pool.begin().await?;
         let status = match &source.status_code {
             Some(code) => Some(
                 self.repositories
@@ -99,7 +99,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
     }
 
     pub async fn upsert_todo(&self, source: UpsertTodoView) -> anyhow::Result<TodoView> {
-        let mut tx = self.db.0.begin().await?;
+        let mut tx = self.pool.begin().await?;
         let status = self
             .repositories
             .todo_status_repository()
@@ -129,7 +129,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
         create_source: CreateTodo,
         update_source: UpdateTodoView,
     ) -> anyhow::Result<(TodoView, TodoView)> {
-        let mut tx = self.db.0.begin().await?;
+        let mut tx = self.pool.begin().await?;
 
         let created = self
             .repositories
@@ -165,7 +165,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
     }
 
     pub async fn delete_todo(&self, id: String) -> anyhow::Result<Option<TodoView>> {
-        let mut tx = self.db.0.begin().await?;
+        let mut tx = self.pool.begin().await?;
         let resp = self
             .repositories
             .todo_repository()

@@ -5,12 +5,14 @@ edition = "2021"
 
 [dependencies]
 domain = { path = "../domain" }
-infra = { path = "../infra" }
 anyhow = "1.0.86"
+async-trait = "0.1.80"
 chrono = "0.4.38"
 bcrypt = "0.15.1"
 log = "0.4.22"
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres"] }
 
 [dev-dependencies]
 tokio = { version = "1.44", features = ["full"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "migrate"] }
+infra = { path = "../infra" }

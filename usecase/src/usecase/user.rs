@@ -1,30 +1,30 @@
 use crate::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView};
+use crate::module::repos::RepositoriesModuleExt;
 
 /// bcrypt 해시 cost factor (OWASP 권고: 10 이상)
 const BCRYPT_COST: u32 = 12;
 use anyhow::anyhow;
 use domain::model::user::User;
 use domain::repository::user::UserRepository;
-use infra::module::repo_module::RepositoriesModuleExt;
-use infra::persistence::postgres::Db;
 use log::{error, info};
+use sqlx::PgPool;
 use std::sync::Arc;
 
 pub struct UserUseCase<R: RepositoriesModuleExt> {
-    db: Db,
+    pool: PgPool,
     repositories: Arc<R>,
 }
 
 impl<R: RepositoriesModuleExt> UserUseCase<R> {
-    pub fn new(db: Db, repositories: Arc<R>) -> Self {
-        Self { db, repositories }
+    pub fn new(pool: PgPool, repositories: Arc<R>) -> Self {
+        Self { pool, repositories }
     }
 
     pub async fn get_user(&self, id: String) -> anyhow::Result<Option<UserView>> {
         let resp = self
             .repositories
             .user_repository()
-            .get_user(&id.clone().try_into()?, self.db.0.as_ref())
+            .get_user(&id.clone().try_into()?, &self.pool)
             .await?;
 
         match resp {
@@ -45,7 +45,7 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
         let resp = self
             .repositories
             .user_repository()
-            .get_user_by_username(username, self.db.0.as_ref())
+            .get_user_by_username(username, &self.pool)
             .await?;
 
         match resp {
@@ -61,7 +61,7 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
         match self
             .repositories
             .user_repository()
-            .get_user_by_username(username.as_str(), self.db.0.as_ref())
+            .get_user_by_username(username.as_str(), &self.pool)
             .await
         {
             Ok(Some(_)) => {
@@ -82,7 +82,7 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
         }
 
         // 트랜잭션은 INSERT만 담당
-        let mut tx = self.db.0.clone().begin().await?;
+        let mut tx = self.pool.begin().await?;
         let user = CreateUser::new(source.username, hashed_password, source.fullname);
         let user_view = self
             .repositories
@@ -100,7 +100,7 @@ impl<R: RepositoriesModuleExt> UserUseCase<R> {
         let user_view: User = match self
             .repositories
             .user_repository()
-            .get_user_by_username(username.as_str(), self.db.0.as_ref())
+            .get_user_by_username(username.as_str(), &self.pool)
             .await
         {
             Ok(Some(user_view)) => user_view,
