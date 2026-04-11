@@ -85,7 +85,7 @@ pub async fn get_user(
                         "userView": json,
                     })),
                 };
-                return (StatusCode::OK, Json(response));
+                (StatusCode::OK, Json(response))
             })
             .ok_or_else(|| {
                 error!("user is not found.");
@@ -174,48 +174,46 @@ pub async fn login_user(
     info!("login_user: request param={:?}", source);
     let user_view = state.modules.user_use_case().login_user(source.into()).await;
     match user_view {
-        Ok(user_view) => match user_view {
-            uv => {
-                info!("login_user: response user `{:?}`.", uv);
-                let now = Utc::now();
-                let iat = now.timestamp() as usize;
-                let exp = (now + Duration::minutes(state.config.jwt_duration.parse().unwrap()))
-                .timestamp() as usize;
-                let claims: TokenClaims = TokenClaims {
-                    sub: uv.id.clone().to_string(),
-                    username: uv.username.clone(),
-                    exp,
-                    iat
-                };
-                let token = encode(
-                    &Header::default(),
-                    &claims,
-                    &EncodingKey::from_secret(state.config.jwt_secret.as_ref()),
-                ).map_err(|e| AppError::Error(format!("token encoding failed: {e}")))?;
-                let cookie = Cookie::build("token", token.to_owned())
-                    .path("/")
-                    .max_age(time::Duration::hours(state.config.jwt_max_age.to_owned()))
-                    .same_site(SameSite::Lax)
-                    .http_only(true)
-                    .finish();
-                let mut response = Response::new(json!({"status": "success"}).to_string());
-                response.headers_mut().insert(
-                    header::SET_COOKIE,
-                    cookie.to_string()
-                        .parse()
-                        .map_err(|e| AppError::Error(format!("cookie header parse failed: {e}")))?,
-                );
-                let json_user: JsonUser = uv.into();
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    result: true,
-                    message: "success.".to_string(),
-                    data: Some(json!({
-                        "userView": json_user,
-                        "token": token,
-                    })),
-                };
-                Ok((StatusCode::OK, Json(response)))
-            }
+        Ok(uv) => {
+            info!("login_user: response user `{:?}`.", uv);
+            let now = Utc::now();
+            let iat = now.timestamp() as usize;
+            let exp = (now + Duration::minutes(state.config.jwt_duration.parse().unwrap()))
+            .timestamp() as usize;
+            let claims: TokenClaims = TokenClaims {
+                sub: uv.id.clone().to_string(),
+                username: uv.username.clone(),
+                exp,
+                iat
+            };
+            let token = encode(
+                &Header::default(),
+                &claims,
+                &EncodingKey::from_secret(state.config.jwt_secret.as_ref()),
+            ).map_err(|e| AppError::Error(format!("token encoding failed: {e}")))?;
+            let cookie = Cookie::build("token", token.to_owned())
+                .path("/")
+                .max_age(time::Duration::hours(state.config.jwt_max_age.to_owned()))
+                .same_site(SameSite::Lax)
+                .http_only(true)
+                .finish();
+            let mut response = Response::new(json!({"status": "success"}).to_string());
+            response.headers_mut().insert(
+                header::SET_COOKIE,
+                cookie.to_string()
+                    .parse()
+                    .map_err(|e| AppError::Error(format!("cookie header parse failed: {e}")))?,
+            );
+            let json_user: JsonUser = uv.into();
+            let response: ApiResponse<Value> = ApiResponse::<Value> {
+                result: true,
+                message: "success.".to_string(),
+                data: Some(json!({
+                    "userView": json_user,
+                    "token": token,
+                })),
+            };
+            Ok((StatusCode::OK, Json(response)))
         },
         Err(err) => {
             error!("Unexpected error: {:?}", err);

@@ -48,7 +48,7 @@ pub async fn auth(
                 let user_view = state.modules.user_use_case().get_user(user_id).await;
                 match user_view {
                     Ok(user_view) => match user_view {
-                        Some(uv) => Ok(uv.into()),
+                        Some(uv) => Ok(uv),
                         None => Err(InvalidJwt("user not found".to_string())),
                     },
                     Err(err) => {
