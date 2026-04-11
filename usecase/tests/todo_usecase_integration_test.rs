@@ -57,14 +57,11 @@ async fn update_todo_with_invalid_status_rolls_back_transaction() {
     let result = usecase.update_todo(update_view).await;
 
     // Assert: 에러 반환 확인
-    assert!(result.is_err(), "invalid status_code must return Err");
+    assert!(result.is_err(), "invalid status_code must return Err, got: {result:?}");
 
     // Assert: DB에 변경 없음 (롤백 검증)
     let mut verify_tx = pool.begin().await.unwrap();
-    let found = todo_repo
-        .get(&inserted.id, &mut verify_tx)
-        .await
-        .unwrap();
+    let found = todo_repo.get(&inserted.id, &mut verify_tx).await.unwrap();
     verify_tx.rollback().await.unwrap();
 
     let found = found.expect("todo must still exist after rollback");
@@ -75,7 +72,10 @@ async fn update_todo_with_invalid_status_rolls_back_transaction() {
 
     // Cleanup: 테스트 데이터 삭제
     let mut cleanup_tx = pool.begin().await.unwrap();
-    todo_repo.delete(&inserted.id, &mut cleanup_tx).await.unwrap();
+    todo_repo
+        .delete(&inserted.id, &mut cleanup_tx)
+        .await
+        .unwrap();
     cleanup_tx.commit().await.unwrap();
 }
 
@@ -123,7 +123,7 @@ async fn create_and_update_todo_when_update_fails_rolls_back_create() {
         .await;
 
     // Assert: Err 반환 (update 실패)
-    assert!(result.is_err(), "update failure must propagate as Err");
+    assert!(result.is_err(), "update failure must propagate as Err, got: {result:?}");
 
     // Assert: create도 롤백됨 — 고유 타이틀로 존재 여부 확인
     let mut verify_tx = pool.begin().await.unwrap();
@@ -177,12 +177,8 @@ async fn update_todo_with_nonexistent_id_rolls_back_transaction() {
 
     // 존재하지 않는 ID로 update 시도 (status_code는 None → update()까지 진행)
     let nonexistent_id = Id::<domain::model::todo::Todo>::gen().value.to_string();
-    let update_view = UpdateTodoView::new(
-        nonexistent_id,
-        Some("Ghost Title".to_string()),
-        None,
-        None,
-    );
+    let update_view =
+        UpdateTodoView::new(nonexistent_id, Some("Ghost Title".to_string()), None, None);
     let result = usecase.update_todo(update_view).await;
 
     // update() 내 fetch_one이 RowNotFound → ? 전파 → tx 롤백
@@ -224,7 +220,7 @@ async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
         .await;
 
     // Assert: 에러 반환 (invalid ULID)
-    assert!(result.is_err(), "invalid ID format must return Err");
+    assert!(result.is_err(), "invalid ID format must return Err, got: {result:?}");
 
     // Assert: insert된 todo가 DB에 없음 (롤백 검증)
     let todo_repo = TodoRepositoryImpl::new();
@@ -266,7 +262,7 @@ async fn upsert_todo_with_invalid_status_rolls_back_transaction() {
     let result = usecase.upsert_todo(upsert_source).await;
 
     // Assert: 에러 반환 (invalid status_code)
-    assert!(result.is_err(), "invalid status_code must return Err");
+    assert!(result.is_err(), "invalid status_code must return Err, got: {result:?}");
 
     // Assert: upsert된 todo가 DB에 없음 (롤백 검증)
     let todo_repo = TodoRepositoryImpl::new();
