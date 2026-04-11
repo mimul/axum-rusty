@@ -29,7 +29,11 @@ pub struct CreateUser {
 
 impl CreateUser {
     pub fn new(username: String, password: String, fullname: String) -> Self {
-        Self { username, password, fullname }
+        Self {
+            username,
+            password,
+            fullname,
+        }
     }
 }
 
@@ -37,7 +41,12 @@ impl TryFrom<CreateUser> for NewUser {
     type Error = anyhow::Error;
 
     fn try_from(cu: CreateUser) -> Result<Self, Self::Error> {
-        Ok(NewUser::new(Id::gen(), cu.username, cu.password, cu.fullname))
+        Ok(NewUser::new(
+            Id::gen(),
+            cu.username,
+            cu.password,
+            cu.fullname,
+        ))
     }
 }
 
@@ -48,7 +57,7 @@ pub struct LoginUser {
 
 impl LoginUser {
     pub fn new(username: String, password: String) -> Self {
-        Self { username, password, }
+        Self { username, password }
     }
 }
 

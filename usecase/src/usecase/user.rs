@@ -5,10 +5,10 @@ const BCRYPT_COST: u32 = 12;
 use anyhow::anyhow;
 use domain::model::user::User;
 use domain::repository::user::UserRepository;
-use std::sync::Arc;
-use log::{error, info};
 use infra::module::repo_module::RepositoriesModuleExt;
 use infra::persistence::postgres::Db;
+use log::{error, info};
+use std::sync::Arc;
 
 pub struct UserUseCase<R: RepositoriesModuleExt> {
     db: Db,
