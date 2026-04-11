@@ -107,8 +107,10 @@ async fn create_and_update_todo_when_update_fails_rolls_back_create() {
     let repos = Arc::new(RepositoriesModule::new());
     let usecase = TodoUseCase::new(db, repos);
 
+    // 실행별 고유 title — panic 시 잔류해도 다음 실행 assertion에 영향 없음
+    let unique_title = format!("__ROLLBACK_CREATE_TEST__{}", Id::gen().value);
     let create_source = CreateTodo::new(
-        "__ROLLBACK_CREATE_TEST__".to_string(),
+        unique_title.clone(),
         "This todo must not persist".to_string(),
     );
     let update_source = UpdateTodoView::new(
@@ -136,7 +138,7 @@ async fn create_and_update_todo_when_update_fails_rolls_back_create() {
 
     let rolled_back = all_todos
         .iter()
-        .any(|t| t.title == "__ROLLBACK_CREATE_TEST__");
+        .any(|t| t.title == unique_title);
     assert!(
         !rolled_back,
         "created todo must not exist in DB after transaction rollback"
@@ -203,9 +205,12 @@ async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
     let repos = Arc::new(RepositoriesModule::new());
     let usecase = TodoUseCase::new(db, repos);
 
+    // 실행별 고유 title — panic 시 잔류해도 다음 실행 assertion에 영향 없음
+    let unique_title = format!("__ROLLBACK_INVALID_ID_TEST__{}", Id::gen().value);
+
     // Act: create는 유효, update id는 잘못된 형식 + status_code = None
     let create_source = CreateTodo::new(
-        "__ROLLBACK_INVALID_ID_TEST__".to_string(),
+        unique_title.clone(),
         "Must be rolled back".to_string(),
     );
     let update_source = UpdateTodoView::new(
@@ -234,7 +239,7 @@ async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
 
     let rolled_back = all
         .iter()
-        .any(|t| t.title == "__ROLLBACK_INVALID_ID_TEST__");
+        .any(|t| t.title == unique_title);
     assert!(
         !rolled_back,
         "created todo must not exist in DB after transaction rollback"
