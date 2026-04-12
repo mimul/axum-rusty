@@ -1,19 +1,24 @@
+use infra::repository::todo::status::PgTodoStatusRepository;
+use infra::repository::todo::PgTodoRepository;
+use sqlx::PgPool;
 use std::sync::Arc;
-use usecase::module::uow::TodoUnitOfWorkFactory;
 use usecase::usecase::todo::TodoUseCase;
 
 /// Todo 도메인 모듈.
 ///
 /// Todo 관련 유스케이스를 묶어 관리한다.
-/// 도메인이 성장하면 이 구조체에 유스케이스를 추가한다.
 pub struct TodoModule {
     pub use_case: TodoUseCase,
 }
 
 impl TodoModule {
-    pub fn new(uow_factory: Arc<dyn TodoUnitOfWorkFactory>) -> Self {
+    pub fn new(
+        pool: PgPool,
+        todo_repo: Arc<PgTodoRepository>,
+        todo_status_repo: Arc<PgTodoStatusRepository>,
+    ) -> Self {
         Self {
-            use_case: TodoUseCase::new(uow_factory),
+            use_case: TodoUseCase::new(pool, todo_repo, todo_status_repo),
         }
     }
 }

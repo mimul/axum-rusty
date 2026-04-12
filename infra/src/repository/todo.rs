@@ -1,30 +1,47 @@
 pub mod status;
 
 use crate::model::todo::{InsertTodo, StoredTodo, UpdateStoredTodo, UpsertStoredTodo};
-use crate::module::uow::SharedTx;
 use anyhow::Context;
-use async_trait::async_trait;
 use domain::model::todo::status::TodoStatus;
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use domain::model::Id;
-use domain::repository::todo::TodoRepository;
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, PgPool, Postgres, Transaction};
 
-pub struct PgTodoRepo {
-    tx: SharedTx,
+pub type PgTx = Transaction<'static, Postgres>;
+
+pub struct PgTodoRepository {
+    pool: PgPool,
 }
 
-impl PgTodoRepo {
-    pub fn new(tx: SharedTx) -> Self {
-        Self { tx }
+impl PgTodoRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
-}
 
-#[async_trait]
-impl TodoRepository for PgTodoRepo {
-    async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
-        let mut guard = self.tx.lock().await;
-        let tx = guard.as_mut().context("transaction not active")?;
+    // -----------------------------------------------------------------------
+    // 읽기 — PgPool 직접 사용 (트랜잭션 불필요)
+    // -----------------------------------------------------------------------
+
+    pub async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
+        let sql = r#"
+            SELECT t.id, t.title, t.description,
+                   ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+                   t.created_at, t.updated_at
+            FROM todos t
+            INNER JOIN todo_statuses ts ON ts.id = t.status_id
+            WHERE t.id = $1
+        "#;
+        let result = query_as::<_, StoredTodo>(sql)
+            .bind(id.value.to_string())
+            .fetch_optional(&self.pool)
+            .await?;
+        match result {
+            Some(st) => Ok(Some(st.try_into()?)),
+            None => Ok(None),
+        }
+    }
+
+    pub async fn get_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
         let sql = r#"
             SELECT t.id, t.title, t.description,
                    ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
@@ -43,10 +60,7 @@ impl TodoRepository for PgTodoRepo {
         }
     }
 
-    async fn find(&self, status: Option<TodoStatus>) -> anyhow::Result<Vec<Todo>> {
-        let mut guard = self.tx.lock().await;
-        let tx = guard.as_mut().context("transaction not active")?;
-
+    pub async fn find(&self, status: Option<TodoStatus>) -> anyhow::Result<Vec<Todo>> {
         let stored: Vec<StoredTodo> = match status {
             Some(s) => {
                 let sql = r#"
@@ -60,7 +74,7 @@ impl TodoRepository for PgTodoRepo {
                 "#;
                 query_as::<_, StoredTodo>(sql)
                     .bind(s.id.value.to_string())
-                    .fetch_all(&mut **tx)
+                    .fetch_all(&self.pool)
                     .await?
             }
             None => {
@@ -72,21 +86,20 @@ impl TodoRepository for PgTodoRepo {
                     INNER JOIN todo_statuses ts ON ts.id = t.status_id
                     ORDER BY t.created_at ASC
                 "#;
-                query_as::<_, StoredTodo>(sql)
-                    .fetch_all(&mut **tx)
-                    .await?
+                query_as::<_, StoredTodo>(sql).fetch_all(&self.pool).await?
             }
         };
-
         stored
             .into_iter()
             .map(|st| st.try_into())
             .collect::<anyhow::Result<Vec<Todo>>>()
     }
 
-    async fn insert(&self, source: NewTodo) -> anyhow::Result<Todo> {
-        let mut guard = self.tx.lock().await;
-        let tx = guard.as_mut().context("transaction not active")?;
+    // -----------------------------------------------------------------------
+    // 쓰기 — 트랜잭션 컨텍스트(_tx) 필수
+    // -----------------------------------------------------------------------
+
+    pub async fn insert_tx(&self, tx: &mut PgTx, source: NewTodo) -> anyhow::Result<Todo> {
         let todo: InsertTodo = source.into();
         let id = todo.id.clone();
 
@@ -109,12 +122,10 @@ impl TodoRepository for PgTodoRepo {
             .bind(id)
             .fetch_one(&mut **tx)
             .await?;
-        Ok(stored.try_into()?)
+        stored.try_into()
     }
 
-    async fn update(&self, source: UpdateTodo) -> anyhow::Result<Todo> {
-        let mut guard = self.tx.lock().await;
-        let tx = guard.as_mut().context("transaction not active")?;
+    pub async fn update_tx(&self, tx: &mut PgTx, source: UpdateTodo) -> anyhow::Result<Todo> {
         let todo: UpdateStoredTodo = source.into();
         let id = todo.id.clone();
 
@@ -147,12 +158,10 @@ impl TodoRepository for PgTodoRepo {
             .bind(id)
             .fetch_one(&mut **tx)
             .await?;
-        Ok(stored.try_into()?)
+        stored.try_into()
     }
 
-    async fn upsert(&self, source: UpsertTodo) -> anyhow::Result<Todo> {
-        let mut guard = self.tx.lock().await;
-        let tx = guard.as_mut().context("transaction not active")?;
+    pub async fn upsert_tx(&self, tx: &mut PgTx, source: UpsertTodo) -> anyhow::Result<Todo> {
         let todo: UpsertStoredTodo = source.into();
         let id = todo.id.clone();
 
@@ -182,14 +191,10 @@ impl TodoRepository for PgTodoRepo {
             .bind(id)
             .fetch_one(&mut **tx)
             .await?;
-        Ok(stored.try_into()?)
+        stored.try_into()
     }
 
-    async fn delete(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
-        let mut guard = self.tx.lock().await;
-        let tx = guard.as_mut().context("transaction not active")?;
-
-        // CTE로 DELETE와 JOIN을 단일 쿼리로 처리한다.
+    pub async fn delete_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
         let sql = r#"
             WITH deleted AS (
                 DELETE FROM todos WHERE id = $1

@@ -1,9 +1,11 @@
 use crate::module::todo_module::TodoModule;
 use crate::module::user_module::UserModule;
 use common::config::ApplicationConfig;
-use infra::module::uow::{PgTodoUnitOfWorkFactory, PgUserUnitOfWorkFactory};
 use infra::persistence::postgres::Db;
 use infra::repository::health_check::HealthCheckRepository;
+use infra::repository::todo::status::PgTodoStatusRepository;
+use infra::repository::todo::PgTodoRepository;
+use infra::repository::user::PgUserRepository;
 use std::sync::Arc;
 use usecase::usecase::health_check::HealthCheckUseCase;
 
@@ -11,7 +13,7 @@ use usecase::usecase::health_check::HealthCheckUseCase;
 ///
 /// 도메인별 모듈(`TodoModule`, `UserModule`)과
 /// 인프라 관심사(`HealthCheckUseCase`)를 보유한다.
-/// 새 도메인 추가 시 해당 Module과 Factory만 이곳에 추가하면 된다.
+/// 새 도메인 추가 시 해당 Module과 Repository만 이곳에 추가하면 된다.
 pub struct UseCaseModules {
     pub todo: TodoModule,
     pub user: UserModule,
@@ -21,11 +23,14 @@ pub struct UseCaseModules {
 impl UseCaseModules {
     pub fn new(db: Db) -> Self {
         let pool = (*db.0).clone();
-        let todo_factory = Arc::new(PgTodoUnitOfWorkFactory::new(pool.clone()));
-        let user_factory = Arc::new(PgUserUnitOfWorkFactory::new(pool.clone()));
+
+        let todo_repo = Arc::new(PgTodoRepository::new(pool.clone()));
+        let todo_status_repo = Arc::new(PgTodoStatusRepository::new(pool.clone()));
+        let user_repo = Arc::new(PgUserRepository::new(pool.clone()));
+
         Self {
-            todo: TodoModule::new(todo_factory),
-            user: UserModule::new(user_factory),
+            todo: TodoModule::new(pool.clone(), todo_repo, todo_status_repo),
+            user: UserModule::new(pool.clone(), user_repo),
             health_check: HealthCheckUseCase::new(HealthCheckRepository::new(pool)),
         }
     }
