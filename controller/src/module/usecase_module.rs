@@ -1,7 +1,7 @@
 use crate::module::todo_module::TodoModule;
 use crate::module::user_module::UserModule;
 use common::config::ApplicationConfig;
-use infra::persistence::postgres::Db;
+use infra::db::Db;
 use infra::repository::health_check::HealthCheckRepository;
 use infra::repository::todo::status::TodoStatusRepository;
 use infra::repository::todo::TodoRepository;
