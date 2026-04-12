@@ -2,22 +2,22 @@ use crate::model::todo::{
     CreateTodo, SearchTodoCondition, TodoView, UpdateTodoView, UpsertTodoView,
 };
 use domain::model::todo::{UpdateTodo, UpsertTodo};
-use infra::repository::todo::status::PgTodoStatusRepository;
-use infra::repository::todo::PgTodoRepository;
+use infra::repository::todo::status::TodoStatusRepository;
+use infra::repository::todo::TodoRepository;
 use sqlx::PgPool;
 use std::sync::Arc;
 
 pub struct TodoUseCase {
     pool: PgPool,
-    todo_repo: Arc<PgTodoRepository>,
-    todo_status_repo: Arc<PgTodoStatusRepository>,
+    todo_repo: Arc<TodoRepository>,
+    todo_status_repo: Arc<TodoStatusRepository>,
 }
 
 impl TodoUseCase {
     pub fn new(
         pool: PgPool,
-        todo_repo: Arc<PgTodoRepository>,
-        todo_status_repo: Arc<PgTodoStatusRepository>,
+        todo_repo: Arc<TodoRepository>,
+        todo_status_repo: Arc<TodoStatusRepository>,
     ) -> Self {
         Self {
             pool,

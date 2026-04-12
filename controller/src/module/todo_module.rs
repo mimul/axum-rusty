@@ -1,5 +1,5 @@
-use infra::repository::todo::status::PgTodoStatusRepository;
-use infra::repository::todo::PgTodoRepository;
+use infra::repository::todo::status::TodoStatusRepository;
+use infra::repository::todo::TodoRepository;
 use sqlx::PgPool;
 use std::sync::Arc;
 use usecase::usecase::todo::TodoUseCase;
@@ -14,8 +14,8 @@ pub struct TodoModule {
 impl TodoModule {
     pub fn new(
         pool: PgPool,
-        todo_repo: Arc<PgTodoRepository>,
-        todo_status_repo: Arc<PgTodoStatusRepository>,
+        todo_repo: Arc<TodoRepository>,
+        todo_status_repo: Arc<TodoStatusRepository>,
     ) -> Self {
         Self {
             use_case: TodoUseCase::new(pool, todo_repo, todo_status_repo),

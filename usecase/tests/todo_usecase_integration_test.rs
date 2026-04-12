@@ -15,8 +15,8 @@ mod common;
 use common::db::setup_test_db;
 use domain::model::todo::NewTodo;
 use domain::model::Id;
-use infra::repository::todo::status::PgTodoStatusRepository;
-use infra::repository::todo::PgTodoRepository;
+use infra::repository::todo::status::TodoStatusRepository;
+use infra::repository::todo::TodoRepository;
 use std::sync::Arc;
 use usecase::model::todo::{CreateTodo, UpdateTodoView, UpsertTodoView};
 use usecase::usecase::todo::TodoUseCase;
@@ -25,11 +25,11 @@ fn build_usecase(
     pool: sqlx::PgPool,
 ) -> (
     TodoUseCase,
-    Arc<PgTodoRepository>,
-    Arc<PgTodoStatusRepository>,
+    Arc<TodoRepository>,
+    Arc<TodoStatusRepository>,
 ) {
-    let todo_repo = Arc::new(PgTodoRepository::new(pool.clone()));
-    let todo_status_repo = Arc::new(PgTodoStatusRepository::new(pool.clone()));
+    let todo_repo = Arc::new(TodoRepository::new(pool.clone()));
+    let todo_status_repo = Arc::new(TodoStatusRepository::new(pool.clone()));
     let usecase = TodoUseCase::new(pool, todo_repo.clone(), todo_status_repo.clone());
     (usecase, todo_repo, todo_status_repo)
 }

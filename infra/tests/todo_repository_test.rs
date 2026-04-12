@@ -4,14 +4,14 @@ use common::db::setup_test_db;
 use common::fixtures::fixture_new_todo;
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use domain::model::Id;
-use infra::repository::todo::status::PgTodoStatusRepository;
-use infra::repository::todo::PgTodoRepository;
+use infra::repository::todo::status::TodoStatusRepository;
+use infra::repository::todo::TodoRepository;
 
 /// insert → get (id 조회)
 #[tokio::test]
 async fn insert_todo_stores_and_retrieves_by_id() {
     let pool = setup_test_db().await;
-    let repo = PgTodoRepository::new(pool.clone());
+    let repo = TodoRepository::new(pool.clone());
     let mut tx = pool.begin().await.unwrap();
 
     let inserted = repo.insert_tx(&mut tx, fixture_new_todo()).await.unwrap();
@@ -30,7 +30,7 @@ async fn insert_todo_stores_and_retrieves_by_id() {
 #[tokio::test]
 async fn get_todo_with_nonexistent_id_returns_none() {
     let pool = setup_test_db().await;
-    let repo = PgTodoRepository::new(pool.clone());
+    let repo = TodoRepository::new(pool.clone());
     let mut tx = pool.begin().await.unwrap();
 
     let id: Id<Todo> = Id::gen();
@@ -44,7 +44,7 @@ async fn get_todo_with_nonexistent_id_returns_none() {
 #[tokio::test]
 async fn find_todos_without_filter_returns_all_inserted() {
     let pool = setup_test_db().await;
-    let repo = PgTodoRepository::new(pool.clone());
+    let repo = TodoRepository::new(pool.clone());
     let mut tx = pool.begin().await.unwrap();
 
     repo.insert_tx(&mut tx, fixture_new_todo()).await.unwrap();
@@ -71,7 +71,7 @@ async fn find_todos_without_filter_returns_all_inserted() {
 #[tokio::test]
 async fn update_todo_title_updates_correctly() {
     let pool = setup_test_db().await;
-    let repo = PgTodoRepository::new(pool.clone());
+    let repo = TodoRepository::new(pool.clone());
     let mut tx = pool.begin().await.unwrap();
 
     let inserted = repo.insert_tx(&mut tx, fixture_new_todo()).await.unwrap();
@@ -87,8 +87,8 @@ async fn update_todo_title_updates_correctly() {
 #[tokio::test]
 async fn upsert_todo_inserts_new_record() {
     let pool = setup_test_db().await;
-    let repo = PgTodoRepository::new(pool.clone());
-    let status_repo = PgTodoStatusRepository::new(pool.clone());
+    let repo = TodoRepository::new(pool.clone());
+    let status_repo = TodoStatusRepository::new(pool.clone());
     let mut tx = pool.begin().await.unwrap();
 
     let status = status_repo.get_by_code_tx(&mut tx, "new").await.unwrap();
@@ -109,8 +109,8 @@ async fn upsert_todo_inserts_new_record() {
 #[tokio::test]
 async fn upsert_todo_updates_existing_record() {
     let pool = setup_test_db().await;
-    let repo = PgTodoRepository::new(pool.clone());
-    let status_repo = PgTodoStatusRepository::new(pool.clone());
+    let repo = TodoRepository::new(pool.clone());
+    let status_repo = TodoStatusRepository::new(pool.clone());
     let mut tx = pool.begin().await.unwrap();
 
     let status = status_repo.get_by_code_tx(&mut tx, "new").await.unwrap();
@@ -147,7 +147,7 @@ async fn upsert_todo_updates_existing_record() {
 #[tokio::test]
 async fn delete_todo_removes_and_returns_deleted_todo() {
     let pool = setup_test_db().await;
-    let repo = PgTodoRepository::new(pool.clone());
+    let repo = TodoRepository::new(pool.clone());
     let mut tx = pool.begin().await.unwrap();
 
     let inserted = repo.insert_tx(&mut tx, fixture_new_todo()).await.unwrap();
@@ -166,7 +166,7 @@ async fn delete_todo_removes_and_returns_deleted_todo() {
 #[tokio::test]
 async fn delete_nonexistent_todo_returns_none() {
     let pool = setup_test_db().await;
-    let repo = PgTodoRepository::new(pool.clone());
+    let repo = TodoRepository::new(pool.clone());
     let mut tx = pool.begin().await.unwrap();
 
     let id: Id<Todo> = Id::gen();

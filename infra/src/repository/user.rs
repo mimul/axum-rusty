@@ -4,11 +4,11 @@ use domain::model::user::{NewUser, User};
 use domain::model::Id;
 use sqlx::{query, query_as, PgPool};
 
-pub struct PgUserRepository {
+pub struct UserRepository {
     pool: PgPool,
 }
 
-impl PgUserRepository {
+impl UserRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
