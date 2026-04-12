@@ -8,7 +8,7 @@ use axum::extract::{Request, State};
 use log::{error, info};
 use usecase::model::user::UserView;
 use common::auth::webs::{get_auth_header, get_cookie_from_headers};
-use crate::module::usecase_module::{AppState, UseCaseModulesExt};
+use crate::module::usecase_module::AppState;
 
 pub async fn auth(
     State(state): State<Arc<AppState>>,
@@ -45,7 +45,7 @@ pub async fn auth(
         match claims {
             Ok(claims) => {
                 let user_id = claims.claims.sub;
-                let user_view = state.modules.user_use_case().get_user(user_id).await;
+                let user_view = state.modules.user_use_case.get_user(user_id).await;
                 match user_view {
                     Ok(user_view) => match user_view {
                         Some(uv) => Ok(uv),

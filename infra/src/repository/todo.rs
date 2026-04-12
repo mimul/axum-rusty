@@ -1,238 +1,213 @@
 pub mod status;
 
-use anyhow::Context;
 use crate::model::todo::{InsertTodo, StoredTodo, UpdateStoredTodo, UpsertStoredTodo};
+use crate::module::uow::SharedTx;
+use anyhow::Context;
 use async_trait::async_trait;
-use derive_new::new;
 use domain::model::todo::status::TodoStatus;
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use domain::model::Id;
 use domain::repository::todo::TodoRepository;
 use sqlx::{query, query_as};
-use domain::transaction::PgAcquire;
 
-#[derive(new)]
-pub struct TodoRepositoryImpl {}
+pub struct PgTodoRepo {
+    tx: SharedTx,
+}
+
+impl PgTodoRepo {
+    pub fn new(tx: SharedTx) -> Self {
+        Self { tx }
+    }
+}
 
 #[async_trait]
-impl TodoRepository for TodoRepositoryImpl {
-    async fn get(&self, id: &Id<Todo>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<Todo>> {
-        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
+impl TodoRepository for PgTodoRepo {
+    async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
+        let mut guard = self.tx.lock().await;
+        let tx = guard.as_mut().context("transaction not active")?;
         let sql = r#"
-            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
-                t.created_at as created_at, t.updated_at as updated_at
-            from  todos as t
-            inner join todo_statuses as ts on ts.id = t.status_id
-            where t.id = $1
+            SELECT t.id, t.title, t.description,
+                   ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+                   t.created_at, t.updated_at
+            FROM todos t
+            INNER JOIN todo_statuses ts ON ts.id = t.status_id
+            WHERE t.id = $1
         "#;
-        let stored_todo = query_as::<_, StoredTodo>(sql)
+        let result = query_as::<_, StoredTodo>(sql)
             .bind(id.value.to_string())
-            .fetch_one(&mut *conn)
-            .await
-            .ok();
-
-        match stored_todo {
+            .fetch_optional(&mut **tx)
+            .await?;
+        match result {
             Some(st) => Ok(Some(st.try_into()?)),
             None => Ok(None),
         }
     }
 
-    async fn find(&self, status: Option<TodoStatus>, executor: impl PgAcquire<'_>) -> anyhow::Result<Vec<Todo>> {
-        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
+    async fn find(&self, status: Option<TodoStatus>) -> anyhow::Result<Vec<Todo>> {
+        let mut guard = self.tx.lock().await;
+        let tx = guard.as_mut().context("transaction not active")?;
 
-        let stored_todo_list: Vec<StoredTodo> = match status {
+        let stored: Vec<StoredTodo> = match status {
             Some(s) => {
                 let sql = r#"
-                    select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
-                    t.created_at as created_at, t.updated_at as updated_at
-                    from  todos as t
-                    inner join todo_statuses as ts on ts.id = t.status_id
-                    where t.status_id = $1
-                    order by t.created_at asc
+                    SELECT t.id, t.title, t.description,
+                           ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+                           t.created_at, t.updated_at
+                    FROM todos t
+                    INNER JOIN todo_statuses ts ON ts.id = t.status_id
+                    WHERE t.status_id = $1
+                    ORDER BY t.created_at ASC
                 "#;
                 query_as::<_, StoredTodo>(sql)
                     .bind(s.id.value.to_string())
-                    .fetch_all(&mut *conn)
+                    .fetch_all(&mut **tx)
                     .await?
             }
             None => {
                 let sql = r#"
-                    select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
-                    t.created_at as created_at, t.updated_at as updated_at
-                    from  todos as t
-                    inner join todo_statuses as ts on ts.id = t.status_id
-                    order by t.created_at asc
+                    SELECT t.id, t.title, t.description,
+                           ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+                           t.created_at, t.updated_at
+                    FROM todos t
+                    INNER JOIN todo_statuses ts ON ts.id = t.status_id
+                    ORDER BY t.created_at ASC
                 "#;
                 query_as::<_, StoredTodo>(sql)
-                    .fetch_all(&mut *conn)
+                    .fetch_all(&mut **tx)
                     .await?
             }
         };
 
-        stored_todo_list
+        stored
             .into_iter()
             .map(|st| st.try_into())
             .collect::<anyhow::Result<Vec<Todo>>>()
     }
 
-    async fn insert(&self, source: NewTodo, executor: impl PgAcquire<'_>) -> anyhow::Result<Todo> {
-        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
+    async fn insert(&self, source: NewTodo) -> anyhow::Result<Todo> {
+        let mut guard = self.tx.lock().await;
+        let tx = guard.as_mut().context("transaction not active")?;
         let todo: InsertTodo = source.into();
         let id = todo.id.clone();
 
-        let _ = query("insert into todos (id, title, description) values ($1, $2, $3)")
-            .bind(todo.id)
-            .bind(todo.title)
-            .bind(todo.description)
-            .execute(&mut *conn)
+        query("INSERT INTO todos (id, title, description) VALUES ($1, $2, $3)")
+            .bind(&todo.id)
+            .bind(&todo.title)
+            .bind(&todo.description)
+            .execute(&mut **tx)
             .await?;
 
         let sql = r#"
-            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
-            t.created_at as created_at, t.updated_at as updated_at
-            from  todos as t
-            inner join todo_statuses as ts on ts.id = t.status_id
-            where t.id = $1
+            SELECT t.id, t.title, t.description,
+                   ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+                   t.created_at, t.updated_at
+            FROM todos t
+            INNER JOIN todo_statuses ts ON ts.id = t.status_id
+            WHERE t.id = $1
         "#;
-
-        let stored_todo = query_as::<_, StoredTodo>(sql)
+        let stored = query_as::<_, StoredTodo>(sql)
             .bind(id)
-            .fetch_one(&mut *conn)
+            .fetch_one(&mut **tx)
             .await?;
-        Ok(stored_todo.try_into()?)
+        Ok(stored.try_into()?)
     }
 
-    async fn update(&self, source: UpdateTodo, executor: impl PgAcquire<'_>) -> anyhow::Result<Todo> {
-        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
+    async fn update(&self, source: UpdateTodo) -> anyhow::Result<Todo> {
+        let mut guard = self.tx.lock().await;
+        let tx = guard.as_mut().context("transaction not active")?;
         let todo: UpdateStoredTodo = source.into();
         let id = todo.id.clone();
 
         let update_sql = r#"
-            update todos as target set
-                title = case when $2 is not null then $2 else current_todo.title end,
-                description = case when $3 is not null then $3 else current_todo.description end,
-                status_id = case when $4 is not null then $4 else current_todo.status_id end,
-                updated_at = current_timestamp
-            from  (select * from todos where id = $1) as current_todo
-            where target.id = $1
+            UPDATE todos AS target SET
+                title       = CASE WHEN $2 IS NOT NULL THEN $2 ELSE current_todo.title END,
+                description = CASE WHEN $3 IS NOT NULL THEN $3 ELSE current_todo.description END,
+                status_id   = CASE WHEN $4 IS NOT NULL THEN $4 ELSE current_todo.status_id END,
+                updated_at  = current_timestamp
+            FROM (SELECT * FROM todos WHERE id = $1) AS current_todo
+            WHERE target.id = $1
         "#;
-
-        let _ = query(update_sql)
-            .bind(todo.id)
+        query(update_sql)
+            .bind(&todo.id)
             .bind(todo.title)
             .bind(todo.description)
             .bind(todo.status_id)
-            .execute(&mut *conn)
+            .execute(&mut **tx)
             .await?;
 
         let sql = r#"
-            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
-                t.created_at as created_at, t.updated_at as updated_at
-            from todos as t
-            inner join todo_statuses as ts on ts.id = t.status_id
-            where t.id = $1
+            SELECT t.id, t.title, t.description,
+                   ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+                   t.created_at, t.updated_at
+            FROM todos t
+            INNER JOIN todo_statuses ts ON ts.id = t.status_id
+            WHERE t.id = $1
         "#;
-
-        let stored_todo = query_as::<_, StoredTodo>(sql)
+        let stored = query_as::<_, StoredTodo>(sql)
             .bind(id)
-            .fetch_one(&mut *conn)
+            .fetch_one(&mut **tx)
             .await?;
-        Ok(stored_todo.try_into()?)
+        Ok(stored.try_into()?)
     }
 
-    async fn upsert(&self, source: UpsertTodo, executor: impl PgAcquire<'_>) -> anyhow::Result<Todo> {
-        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
+    async fn upsert(&self, source: UpsertTodo) -> anyhow::Result<Todo> {
+        let mut guard = self.tx.lock().await;
+        let tx = guard.as_mut().context("transaction not active")?;
         let todo: UpsertStoredTodo = source.into();
         let id = todo.id.clone();
 
         let upsert_sql = r#"
-            insert into todos (id, title, description, status_id) values ($1, $2, $3, $4)
-            on conflict on constraint pk_todos_id
-            do update set title = $2, description = $3, status_id = $4, updated_at = current_timestamp
+            INSERT INTO todos (id, title, description, status_id) VALUES ($1, $2, $3, $4)
+            ON CONFLICT ON CONSTRAINT pk_todos_id
+            DO UPDATE SET title = $2, description = $3, status_id = $4, updated_at = current_timestamp
         "#;
-
-        let _ = query(upsert_sql)
-            .bind(todo.id.clone())
+        query(upsert_sql)
+            .bind(&todo.id)
             .bind(todo.title)
             .bind(todo.description)
             .bind(todo.status_id)
-            .execute(&mut *conn)
+            .execute(&mut **tx)
             .await
-            .context(format!(
-                r#"failed to upsert "{}" into [share]"#,
-                todo.id
-        ))?;
+            .context(format!(r#"failed to upsert "{}" into todos"#, todo.id))?;
 
         let sql = r#"
-            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
-                t.created_at as created_at, t.updated_at as updated_at
-            from  todos as t
-            inner join todo_statuses as ts on ts.id = t.status_id
-            where t.id = $1
+            SELECT t.id, t.title, t.description,
+                   ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+                   t.created_at, t.updated_at
+            FROM todos t
+            INNER JOIN todo_statuses ts ON ts.id = t.status_id
+            WHERE t.id = $1
         "#;
-
-        let stored_todo = query_as::<_, StoredTodo>(sql)
+        let stored = query_as::<_, StoredTodo>(sql)
             .bind(id)
-            .fetch_one(&mut *conn)
+            .fetch_one(&mut **tx)
             .await?;
-        Ok(stored_todo.try_into()?)
+        Ok(stored.try_into()?)
     }
 
-    async fn delete(&self, id: &Id<Todo>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<Todo>> {
-        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
+    async fn delete(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
+        let mut guard = self.tx.lock().await;
+        let tx = guard.as_mut().context("transaction not active")?;
 
         // CTE로 DELETE와 JOIN을 단일 쿼리로 처리한다.
-        // todos가 존재하지 않으면 deleted CTE가 비어 SELECT도 행을 반환하지 않는다.
         let sql = r#"
             WITH deleted AS (
                 DELETE FROM todos WHERE id = $1
                 RETURNING id, title, description, status_id, created_at, updated_at
             )
             SELECT d.id, d.title, d.description,
-                   ts.id as status_id, ts.code as status_code, ts.name as status_name,
+                   ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
                    d.created_at, d.updated_at
             FROM deleted d
             INNER JOIN todo_statuses ts ON ts.id = d.status_id
         "#;
-
-        let stored_todo = query_as::<_, StoredTodo>(sql)
+        let result = query_as::<_, StoredTodo>(sql)
             .bind(id.value.to_string())
-            .fetch_optional(&mut *conn)
+            .fetch_optional(&mut **tx)
             .await?;
-
-        match stored_todo {
+        match result {
             Some(st) => Ok(Some(st.try_into()?)),
             None => Ok(None),
         }
     }
 }
-
-// #[cfg(test)]
-// mod test {
-//     use domain::model::todo::NewTodo;
-//     use domain::model::Id;
-//     use domain::repository::todo::TodoRepository;
-//     use ulid::Ulid;
-//     use crate::persistence::config::Config;
-//     use super::DatabaseRepositoryImpl;
-//     use crate::persistence::postgres::Db;
-//
-//     #[ignore]
-//     #[tokio::test]
-//     async fn test_insert_todo() {
-//         let db = Db::new(Config::init()).await;
-//         let repository = DatabaseRepositoryImpl::new();
-//         db.clone().0.acquire().await.unwrap();
-//         let id = Ulid::new();
-//         let _ = repository
-//             .insert(NewTodo::new(
-//                 Id::new(id),
-//                 "재미있는 일".to_string(),
-//                 "RUST 공부 및 아키텍처 연구좀 하자.".to_string(),
-//             ))
-//             .await
-//             .unwrap();
-//         let todo = repository.get(&Id::new(id)).await.unwrap().unwrap();
-//         assert_eq!(todo.id.value, id);
-//     }
-// }

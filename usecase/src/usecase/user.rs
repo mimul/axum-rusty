@@ -1,126 +1,80 @@
 use crate::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView};
-use crate::module::repos::RepositoriesModuleExt;
+use crate::module::uow::UnitOfWorkFactory;
 
 /// bcrypt 해시 cost factor (OWASP 권고: 10 이상)
 const BCRYPT_COST: u32 = 12;
 use anyhow::anyhow;
 use domain::model::user::User;
-use domain::repository::user::UserRepository;
 use log::{error, info};
-use sqlx::PgPool;
 use std::sync::Arc;
 
-pub struct UserUseCase<R: RepositoriesModuleExt> {
-    pool: PgPool,
-    repositories: Arc<R>,
+pub struct UserUseCase {
+    uow_factory: Arc<dyn UnitOfWorkFactory>,
 }
 
-impl<R: RepositoriesModuleExt> UserUseCase<R> {
-    pub fn new(pool: PgPool, repositories: Arc<R>) -> Self {
-        Self { pool, repositories }
+impl UserUseCase {
+    pub fn new(uow_factory: Arc<dyn UnitOfWorkFactory>) -> Self {
+        Self { uow_factory }
     }
 
     pub async fn get_user(&self, id: String) -> anyhow::Result<Option<UserView>> {
-        let resp = self
-            .repositories
-            .user_repository()
-            .get_user(&id.clone().try_into()?, &self.pool)
-            .await?;
-
-        match resp {
-            Some(user) => Ok(Some(user.into())),
-            None => Ok(None),
-        }
+        let uow = self.uow_factory.begin().await?;
+        let resp = uow.user_repo().get_user(&id.try_into()?).await?;
+        Ok(resp.map(Into::into))
     }
 
     pub async fn get_user_by_username(
         &self,
         condition: SearchUserCondition,
     ) -> anyhow::Result<Option<UserView>> {
-        let username = if let Some(u) = &condition.username {
-            u.as_str()
-        } else {
-            return Err(anyhow!("username is empty"));
-        };
-        let resp = self
-            .repositories
-            .user_repository()
-            .get_user_by_username(username, &self.pool)
-            .await?;
-
-        match resp {
-            Some(user) => Ok(Some(user.into())),
-            None => Ok(None),
-        }
+        let username = condition.username.ok_or_else(|| anyhow!("username is empty"))?;
+        let uow = self.uow_factory.begin().await?;
+        let resp = uow.user_repo().get_user_by_username(&username).await?;
+        Ok(resp.map(Into::into))
     }
 
     pub async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
-        let username = source.username.clone();
-
-        // 읽기는 트랜잭션 불필요 — pool 직접 사용
-        match self
-            .repositories
-            .user_repository()
-            .get_user_by_username(username.as_str(), &self.pool)
-            .await
-        {
-            Ok(Some(_)) => {
-                error!("username {} already exists", username);
-                return Err(anyhow!("username {} already exists", username));
-            }
-            Err(e) => {
-                error!("failed to get user by username: {:?}", e);
-                return Err(anyhow!("username is empty"));
-            }
-            _ => {}
-        }
-
         // CPU-heavy 작업은 트랜잭션 시작 전에 완료
         let hashed_password = bcrypt::hash(source.password.clone(), BCRYPT_COST)?;
         if hashed_password.is_empty() {
             return Err(anyhow!("hashed password is empty"));
         }
 
-        // 트랜잭션은 INSERT만 담당
-        let mut tx = self.pool.begin().await?;
+        let mut uow = self.uow_factory.begin().await?;
+
+        // 읽기: username 중복 확인
+        if uow.user_repo().get_user_by_username(&source.username).await?.is_some() {
+            error!("username {} already exists", source.username);
+            return Err(anyhow!("username {} already exists", source.username));
+        }
+
+        // 쓰기: insert
         let user = CreateUser::new(source.username, hashed_password, source.fullname);
-        let user_view = self
-            .repositories
-            .user_repository()
-            .insert(user.try_into()?, &mut tx)
-            .await?;
-        tx.commit().await?;
+        let user_view = uow.user_repo().insert(user.try_into()?).await?;
+        uow.commit().await?;
         Ok(user_view.into())
     }
 
     pub async fn login_user(&self, source: LoginUser) -> anyhow::Result<UserView> {
-        let username = source.username.clone();
-
-        // 읽기는 트랜잭션 불필요 — pool 직접 사용
-        let user_view: User = match self
-            .repositories
-            .user_repository()
-            .get_user_by_username(username.as_str(), &self.pool)
-            .await
-        {
-            Ok(Some(user_view)) => user_view,
-            _ => {
-                error!("username {} is not registered.", username);
-                return Err(anyhow!("username {} is not registered", username));
-            }
-        };
+        let uow = self.uow_factory.begin().await?;
+        let user: User = uow
+            .user_repo()
+            .get_user_by_username(&source.username)
+            .await?
+            .ok_or_else(|| {
+                error!("username {} is not registered.", source.username);
+                anyhow!("username {} is not registered", source.username)
+            })?;
 
         // CPU-heavy 검증은 DB 커넥션 반납 후 수행
-        let login_result = bcrypt::verify(source.password.clone(), user_view.password.as_str())?;
-        match login_result {
-            true => {
-                info!("login succeeded!");
-                Ok(user_view.into())
-            }
-            false => {
-                error!("bad password.");
-                Err(anyhow!("bad password."))
-            }
+        drop(uow);
+        let login_result = bcrypt::verify(source.password.clone(), user.password.as_str())?;
+        if login_result {
+            info!("login succeeded!");
+            Ok(user.into())
+        } else {
+            error!("bad password.");
+            Err(anyhow!("bad password."))
         }
     }
 }
