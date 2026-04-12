@@ -1,9 +1,8 @@
 mod common;
 
 use common::db::setup_test_db;
-use domain::repository::todo::status::TodoStatusRepository;
 use infra::module::uow::PgUnitOfWorkFactory;
-use usecase::module::uow::{UnitOfWork, UnitOfWorkFactory};
+use usecase::module::uow::UnitOfWorkFactory;
 
 /// 유효한 code → TodoStatus 반환
 #[tokio::test]

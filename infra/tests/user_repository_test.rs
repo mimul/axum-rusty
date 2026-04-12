@@ -4,9 +4,8 @@ use common::db::setup_test_db;
 use common::fixtures::fixture_new_user;
 use domain::model::user::{NewUser, User};
 use domain::model::Id;
-use domain::repository::user::UserRepository;
 use infra::module::uow::PgUnitOfWorkFactory;
-use usecase::module::uow::{UnitOfWork, UnitOfWorkFactory};
+use usecase::module::uow::UnitOfWorkFactory;
 
 /// insert → get_user (id 조회)
 #[tokio::test]

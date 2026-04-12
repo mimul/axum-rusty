@@ -15,11 +15,10 @@ mod common;
 use common::db::setup_test_db;
 use domain::model::todo::NewTodo;
 use domain::model::Id;
-use domain::repository::todo::TodoRepository;
 use infra::module::uow::PgUnitOfWorkFactory;
 use std::sync::Arc;
 use usecase::model::todo::{CreateTodo, UpdateTodoView, UpsertTodoView};
-use usecase::module::uow::{UnitOfWork, UnitOfWorkFactory};
+use usecase::module::uow::UnitOfWorkFactory;
 use usecase::usecase::todo::TodoUseCase;
 
 /// update_todo에 존재하지 않는 status_code를 넘기면
@@ -88,7 +87,7 @@ async fn create_and_update_todo_when_update_fails_rolls_back_create() {
 
     // Act: create는 성공하지만 update가 invalid status_code로 실패
     let usecase = TodoUseCase::new(factory.clone());
-    let unique_title = format!("__ROLLBACK_CREATE_TEST__{}", Id::gen().value);
+    let unique_title = format!("__ROLLBACK_CREATE_TEST__{}", Id::<domain::model::todo::Todo>::gen().value);
     let create_source = CreateTodo::new(unique_title.clone(), "This todo must not persist".to_string());
     let update_source = UpdateTodoView::new(
         target_todo.id.value.to_string(),
@@ -147,7 +146,7 @@ async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
     let factory = Arc::new(PgUnitOfWorkFactory::new(pool.clone()));
     let usecase = TodoUseCase::new(factory.clone());
 
-    let unique_title = format!("__ROLLBACK_INVALID_ID_TEST__{}", Id::gen().value);
+    let unique_title = format!("__ROLLBACK_INVALID_ID_TEST__{}", Id::<domain::model::todo::Todo>::gen().value);
     let create_source = CreateTodo::new(unique_title.clone(), "Must be rolled back".to_string());
     let update_source = UpdateTodoView::new(
         "NOT_A_VALID_ULID_FORMAT".to_string(),

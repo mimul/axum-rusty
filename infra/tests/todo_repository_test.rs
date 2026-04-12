@@ -4,10 +4,8 @@ use common::db::setup_test_db;
 use common::fixtures::fixture_new_todo;
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use domain::model::Id;
-use domain::repository::todo::status::TodoStatusRepository;
-use domain::repository::todo::TodoRepository;
-use infra::module::uow::{PgUnitOfWorkFactory, PgUnitOfWork};
-use usecase::module::uow::{UnitOfWork, UnitOfWorkFactory};
+use infra::module::uow::PgUnitOfWorkFactory;
+use usecase::module::uow::UnitOfWorkFactory;
 
 /// insert → get (id 조회)
 #[tokio::test]
