@@ -2,8 +2,8 @@ use http::{header, HeaderMap, HeaderValue};
 
 /// 인증 쿠키 유효 시간 (초)
 const COOKIE_MAX_AGE_SECS: i64 = 60;
-use tower_cookies::cookie::{ time::Duration, CookieBuilder, SameSite};
 use log::error;
+use tower_cookies::cookie::{time::Duration, CookieBuilder, SameSite};
 
 pub fn create_cookie_headers(key: &str, value: &str) -> header::HeaderMap {
     let cookie = CookieBuilder::new(key, value)
@@ -13,7 +13,10 @@ pub fn create_cookie_headers(key: &str, value: &str) -> header::HeaderMap {
         .http_only(true)
         .same_site(SameSite::Strict)
         .build();
-    let header_value = cookie.to_string().parse::<HeaderValue>().expect("Failed to parse cookie");
+    let header_value = cookie
+        .to_string()
+        .parse::<HeaderValue>()
+        .expect("Failed to parse cookie");
     let mut headers = header::HeaderMap::new();
     headers.append(header::SET_COOKIE, header_value); // Will cover!
     headers
@@ -29,7 +32,8 @@ pub fn get_cookie_from_headers(key: &str, headers: &HeaderMap) -> Option<String>
 }
 
 pub fn get_cookie_from_str(cookie_str: &str, key: &str) -> Option<String> {
-    cookie_str.split(';')
+    cookie_str
+        .split(';')
         .map(|pair| {
             let mut parts = pair.trim().splitn(2, '=');
             let name = parts.next().unwrap_or("").to_string();
@@ -66,7 +70,10 @@ mod tests {
 
     #[test]
     fn get_cookie_from_str_with_multiple_cookies_returns_correct_value() {
-        let result = get_cookie_from_str("session=xyz; access_token=tok789; other=val", "access_token");
+        let result = get_cookie_from_str(
+            "session=xyz; access_token=tok789; other=val",
+            "access_token",
+        );
         assert_eq!(result, Some("tok789".to_string()));
     }
 

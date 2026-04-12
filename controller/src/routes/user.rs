@@ -3,17 +3,17 @@ use crate::context::api_version::ApiVersion;
 use crate::context::errors::AppError;
 use crate::context::validate::ValidatedRequest;
 use crate::model::user::{JsonCreateUser, JsonLoginUser, JsonUser, TokenClaims, UserQuery};
+use crate::module::usecase_module::AppState;
 use axum::extract::{Path, Query, State};
-use axum::http::{header, StatusCode, Response};
+use axum::http::{header, Response, StatusCode};
 use axum::{Extension, Json};
+use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, EncodingKey, Header};
+use log::{error, info};
 use serde_json::{json, Value};
 use std::sync::Arc;
-use axum_extra::extract::cookie::{Cookie, SameSite};
-use log::{error, info};
 use usecase::model::user::UserView;
-use crate::module::usecase_module::AppState;
 
 #[utoipa::path(
     post,
@@ -71,7 +71,10 @@ pub async fn get_user(
     State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<UserView>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("get_user: request param id={}, current_user={:?}", id, current_user);
+    info!(
+        "get_user: request param id={}, current_user={:?}",
+        id, current_user
+    );
     let resp = state.modules.user.use_case.get_user(id).await;
     match resp {
         Ok(uv) => uv
@@ -117,12 +120,20 @@ pub async fn get_user_by_username(
     State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<UserView>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("get_user_by_username: request param={:?}, current_user={:?}",query, current_user);
+    info!(
+        "get_user_by_username: request param={:?}, current_user={:?}",
+        query, current_user
+    );
     if query.username.is_empty() {
         info!("get_user_by_username: username is empty. id={:?}", query);
         return Err(AppError::Error("username is empty".to_string()));
     }
-    let user_view = state.modules.user.use_case.get_user_by_username(query.into()).await;
+    let user_view = state
+        .modules
+        .user
+        .use_case
+        .get_user_by_username(query.into())
+        .await;
     match user_view {
         Ok(user_view) => match user_view {
             Some(uv) => {
@@ -179,18 +190,19 @@ pub async fn login_user(
             let now = Utc::now();
             let iat = now.timestamp() as usize;
             let exp = (now + Duration::minutes(state.config.jwt_duration.parse().unwrap()))
-            .timestamp() as usize;
+                .timestamp() as usize;
             let claims: TokenClaims = TokenClaims {
                 sub: uv.id.clone().to_string(),
                 username: uv.username.clone(),
                 exp,
-                iat
+                iat,
             };
             let token = encode(
                 &Header::default(),
                 &claims,
                 &EncodingKey::from_secret(state.config.jwt_secret.as_ref()),
-            ).map_err(|e| AppError::Error(format!("token encoding failed: {e}")))?;
+            )
+            .map_err(|e| AppError::Error(format!("token encoding failed: {e}")))?;
             let cookie = Cookie::build("token", token.to_owned())
                 .path("/")
                 .max_age(time::Duration::hours(state.config.jwt_max_age.to_owned()))
@@ -200,7 +212,8 @@ pub async fn login_user(
             let mut response = Response::new(json!({"status": "success"}).to_string());
             response.headers_mut().insert(
                 header::SET_COOKIE,
-                cookie.to_string()
+                cookie
+                    .to_string()
                     .parse()
                     .map_err(|e| AppError::Error(format!("cookie header parse failed: {e}")))?,
             );
@@ -214,7 +227,7 @@ pub async fn login_user(
                 })),
             };
             Ok((StatusCode::OK, Json(response)))
-        },
+        }
         Err(err) => {
             error!("Unexpected error: {:?}", err);
             Err(AppError::Error(err.to_string()))

@@ -52,7 +52,12 @@ mod tests {
     fn insert_user_from_new_user_maps_all_fields() {
         let id: Id<domain::model::user::User> = Id::gen();
         let ulid_str = id.value.to_string();
-        let nu = NewUser::new(id, "charlie".to_string(), "pw".to_string(), "Charlie".to_string());
+        let nu = NewUser::new(
+            id,
+            "charlie".to_string(),
+            "pw".to_string(),
+            "Charlie".to_string(),
+        );
         let insert: InsertUser = nu.into();
         assert_eq!(insert.id, ulid_str);
         assert_eq!(insert.username, "charlie");

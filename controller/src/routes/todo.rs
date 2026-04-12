@@ -6,13 +6,13 @@ use crate::model::todo::{
     JsonCreateTodo, JsonTodo, JsonTodoList, JsonUpdateTodoContents, JsonUpsertTodoContents,
     TodoQuery,
 };
+use crate::module::usecase_module::AppState;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
+use log::{error, info};
 use serde_json::{json, Value};
 use std::sync::Arc;
-use log::{error, info};
-use crate::module::usecase_module::AppState;
 
 #[utoipa::path(
     get,
@@ -223,7 +223,12 @@ pub async fn upsert_todo(
     ValidatedRequest(source): ValidatedRequest<JsonUpsertTodoContents>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("upsert_todo: {:?}", source);
-    let resp = state.modules.todo.use_case.upsert_todo(source.to_view(id)).await;
+    let resp = state
+        .modules
+        .todo
+        .use_case
+        .upsert_todo(source.to_view(id))
+        .await;
     resp.map(|tv| {
         info!("created or updated todo {}", tv.id);
         let json: JsonTodo = tv.into();

@@ -1,8 +1,10 @@
-use utoipa::{Modify, OpenApi};
-use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
-use crate::routes::{todo, user};
+use crate::model::todo::{
+    JsonCreateTodo, JsonUpdateTodoContents, JsonUpsertTodoContents, TodoQuery,
+};
 use crate::model::user::{JsonCreateUser, UserQuery};
-use crate::model::todo::{JsonCreateTodo, JsonUpdateTodoContents, JsonUpsertTodoContents, TodoQuery};
+use crate::routes::{todo, user};
+use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
+use utoipa::{Modify, OpenApi};
 #[derive(OpenApi)]
 #[openapi(
     paths(
