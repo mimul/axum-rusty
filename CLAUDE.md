@@ -2,8 +2,6 @@
 
 API Prototyping with Rust and Axum.
 
----
-
 ## 기술 스택
 
 - **언어**: Rust edition 2021
@@ -15,8 +13,6 @@ API Prototyping with Rust and Axum.
 - **API 문서화**: utoipa 5.2.0
 - **테스트 커버리지**: cargo-tarpaulin (목표: 80% 이상)
 - **벤치마킹**: criterion
-
----
 
 ## 핵심 커맨드
 
@@ -32,8 +28,6 @@ cargo bench                        # 성능 기준선 측정
 cargo audit                        # 보안 취약점 확인
 ```
 
----
-
 ## 디렉토리 구조
 
 ```
@@ -46,13 +40,34 @@ database/     Docker PostgreSQL 정의
 migrations/   테이블, 기초 데이터, 인덱스
 ```
 
----
-
 ## 행동 원칙
 
 - 3단계 이상의 작업은 항상 Plan 모드에서 시작
 
----
+## Conversation Guidelines
+
+- 항상 한국어로 대화하기
+
+## Development Philosophy
+
+### Before Implementation
+
+- 새로운 기능을 구현하기 전에 다음을 확인하십시오. 
+1. 기존 코드베이스에 유사한 구현이나 유틸리티가 있는지 검색 
+2. 사용 중인 라이브러리/프레임워크에 해당하는 API 또는 기능이 있는지 확인 
+3. Context7 MCP (`mcp__context7__`)를 사용하여 라이브러리 문서를 찾습니다.
+- '스스로 구현'보다 '기존 솔루션 사용' 우선
+
+### Test-Driven Development (TDD)
+
+- 원칙적으로 테스트 구동 개발(TDD)로 진행
+- 예상되는 입출력을 기반으로 먼저 테스트 작성
+- 구현 코드는 작성하지 않고 테스트만 준비
+- 테스트를 실행하고 실패를 확인합니다.
+- 테스트가 올바른지 확인할 수 있는 단계에서 커밋
+- 그 후 테스트를 통과시키는 구현을 진행한다.
+- 구현하는 동안 테스트를 변경하지 않고 코드를 계속 수정합니다.
+- 모든 테스트가 통과될 때까지 반복
 
 ## 브랜치 전략
 
@@ -81,8 +96,6 @@ type: feat | fix | refactor | test | docs | chore
   feat(payment):   결제 취소 API 추가
 ```
 
----
-
 ## 코딩 컨벤션
 
 ### 에러 처리
@@ -106,8 +119,6 @@ type: feat | fix | refactor | test | docs | chore
 - `pub fn` / `pub struct` / `pub trait` — `///` 주석 필수
 - `unsafe` 블록 — `// SAFETY:` 주석 필수
 
----
-
 ## 금지 사항
 
 ```
@@ -120,8 +131,6 @@ type: feat | fix | refactor | test | docs | chore
 🚫 .env 파일 git 추적
 🚫 cargo publish 임의 실행
 ```
-
----
 
 ## Claude Code 스킬
 
