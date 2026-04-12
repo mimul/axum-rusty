@@ -4,14 +4,14 @@ use common::db::setup_test_db;
 use common::fixtures::fixture_new_todo;
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use domain::model::Id;
-use infra::module::uow::PgUnitOfWorkFactory;
-use usecase::module::uow::UnitOfWorkFactory;
+use infra::module::uow::PgTodoUnitOfWorkFactory;
+use usecase::module::uow::TodoUnitOfWorkFactory;
 
 /// insert → get (id 조회)
 #[tokio::test]
 async fn insert_todo_stores_and_retrieves_by_id() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgTodoUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let inserted = uow.todo_repo().insert(fixture_new_todo()).await.unwrap();
@@ -30,7 +30,7 @@ async fn insert_todo_stores_and_retrieves_by_id() {
 #[tokio::test]
 async fn get_todo_with_nonexistent_id_returns_none() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgTodoUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let id: Id<Todo> = Id::gen();
@@ -44,7 +44,7 @@ async fn get_todo_with_nonexistent_id_returns_none() {
 #[tokio::test]
 async fn find_todos_without_filter_returns_all_inserted() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgTodoUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     uow.todo_repo().insert(fixture_new_todo()).await.unwrap();
@@ -65,7 +65,7 @@ async fn find_todos_without_filter_returns_all_inserted() {
 #[tokio::test]
 async fn update_todo_title_updates_correctly() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgTodoUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let inserted = uow.todo_repo().insert(fixture_new_todo()).await.unwrap();
@@ -81,7 +81,7 @@ async fn update_todo_title_updates_correctly() {
 #[tokio::test]
 async fn upsert_todo_inserts_new_record() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgTodoUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let status = uow.todo_status_repo().get_by_code("new").await.unwrap();
@@ -102,7 +102,7 @@ async fn upsert_todo_inserts_new_record() {
 #[tokio::test]
 async fn upsert_todo_updates_existing_record() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgTodoUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let status = uow.todo_status_repo().get_by_code("new").await.unwrap();
@@ -136,7 +136,7 @@ async fn upsert_todo_updates_existing_record() {
 #[tokio::test]
 async fn delete_todo_removes_and_returns_deleted_todo() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgTodoUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let inserted = uow.todo_repo().insert(fixture_new_todo()).await.unwrap();
@@ -155,7 +155,7 @@ async fn delete_todo_removes_and_returns_deleted_todo() {
 #[tokio::test]
 async fn delete_nonexistent_todo_returns_none() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgTodoUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let id: Id<Todo> = Id::gen();

@@ -15,10 +15,10 @@ mod common;
 use common::db::setup_test_db;
 use domain::model::todo::NewTodo;
 use domain::model::Id;
-use infra::module::uow::PgUnitOfWorkFactory;
+use infra::module::uow::PgTodoUnitOfWorkFactory;
 use std::sync::Arc;
 use usecase::model::todo::{CreateTodo, UpdateTodoView, UpsertTodoView};
-use usecase::module::uow::UnitOfWorkFactory;
+use usecase::module::uow::TodoUnitOfWorkFactory;
 use usecase::usecase::todo::TodoUseCase;
 
 /// update_todo에 존재하지 않는 status_code를 넘기면
@@ -27,7 +27,7 @@ use usecase::usecase::todo::TodoUseCase;
 #[tokio::test]
 async fn update_todo_with_invalid_status_rolls_back_transaction() {
     let pool = setup_test_db().await;
-    let factory = Arc::new(PgUnitOfWorkFactory::new(pool.clone()));
+    let factory = Arc::new(PgTodoUnitOfWorkFactory::new(pool.clone()));
 
     // Setup: 테스트용 todo를 커밋하여 DB에 영구 저장
     let mut setup_uow = factory.begin().await.unwrap();
@@ -70,7 +70,7 @@ async fn update_todo_with_invalid_status_rolls_back_transaction() {
 #[tokio::test]
 async fn create_and_update_todo_when_update_fails_rolls_back_create() {
     let pool = setup_test_db().await;
-    let factory = Arc::new(PgUnitOfWorkFactory::new(pool.clone()));
+    let factory = Arc::new(PgTodoUnitOfWorkFactory::new(pool.clone()));
 
     // Setup: update 대상 todo를 커밋하여 DB에 저장
     let mut setup_uow = factory.begin().await.unwrap();
@@ -128,7 +128,7 @@ async fn create_and_update_todo_when_update_fails_rolls_back_create() {
 #[tokio::test]
 async fn update_todo_with_nonexistent_id_rolls_back_transaction() {
     let pool = setup_test_db().await;
-    let factory = Arc::new(PgUnitOfWorkFactory::new(pool));
+    let factory = Arc::new(PgTodoUnitOfWorkFactory::new(pool));
     let usecase = TodoUseCase::new(factory);
 
     let nonexistent_id = Id::<domain::model::todo::Todo>::gen().value.to_string();
@@ -143,7 +143,7 @@ async fn update_todo_with_nonexistent_id_rolls_back_transaction() {
 #[tokio::test]
 async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
     let pool = setup_test_db().await;
-    let factory = Arc::new(PgUnitOfWorkFactory::new(pool.clone()));
+    let factory = Arc::new(PgTodoUnitOfWorkFactory::new(pool.clone()));
     let usecase = TodoUseCase::new(factory.clone());
 
     let unique_title = format!("__ROLLBACK_INVALID_ID_TEST__{}", Id::<domain::model::todo::Todo>::gen().value);
@@ -174,7 +174,7 @@ async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
 #[tokio::test]
 async fn upsert_todo_with_invalid_status_rolls_back_transaction() {
     let pool = setup_test_db().await;
-    let factory = Arc::new(PgUnitOfWorkFactory::new(pool.clone()));
+    let factory = Arc::new(PgTodoUnitOfWorkFactory::new(pool.clone()));
     let usecase = TodoUseCase::new(factory.clone());
 
     let upsert_id = Id::<domain::model::todo::Todo>::gen().value.to_string();

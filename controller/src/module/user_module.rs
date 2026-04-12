@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use usecase::module::uow::UnitOfWorkFactory;
+use usecase::module::uow::UserUnitOfWorkFactory;
 use usecase::usecase::user::UserUseCase;
 
 /// User 도메인 모듈.
@@ -11,7 +11,7 @@ pub struct UserModule {
 }
 
 impl UserModule {
-    pub fn new(uow_factory: Arc<dyn UnitOfWorkFactory>) -> Self {
+    pub fn new(uow_factory: Arc<dyn UserUnitOfWorkFactory>) -> Self {
         Self {
             use_case: UserUseCase::new(uow_factory),
         }

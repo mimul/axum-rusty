@@ -1,16 +1,16 @@
 use crate::model::todo::{
     CreateTodo, SearchTodoCondition, TodoView, UpdateTodoView, UpsertTodoView,
 };
-use crate::module::uow::UnitOfWorkFactory;
+use crate::module::uow::TodoUnitOfWorkFactory;
 use domain::model::todo::{UpdateTodo, UpsertTodo};
 use std::sync::Arc;
 
 pub struct TodoUseCase {
-    uow_factory: Arc<dyn UnitOfWorkFactory>,
+    uow_factory: Arc<dyn TodoUnitOfWorkFactory>,
 }
 
 impl TodoUseCase {
-    pub fn new(uow_factory: Arc<dyn UnitOfWorkFactory>) -> Self {
+    pub fn new(uow_factory: Arc<dyn TodoUnitOfWorkFactory>) -> Self {
         Self { uow_factory }
     }
 

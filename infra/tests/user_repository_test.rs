@@ -4,14 +4,14 @@ use common::db::setup_test_db;
 use common::fixtures::fixture_new_user;
 use domain::model::user::{NewUser, User};
 use domain::model::Id;
-use infra::module::uow::PgUnitOfWorkFactory;
-use usecase::module::uow::UnitOfWorkFactory;
+use infra::module::uow::PgUserUnitOfWorkFactory;
+use usecase::module::uow::UserUnitOfWorkFactory;
 
 /// insert → get_user (id 조회)
 #[tokio::test]
 async fn insert_user_stores_and_retrieves_by_id() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgUserUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let inserted = uow.user_repo().insert(fixture_new_user("id_lookup")).await.unwrap();
@@ -26,7 +26,7 @@ async fn insert_user_stores_and_retrieves_by_id() {
 #[tokio::test]
 async fn insert_user_then_get_by_username_returns_user() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgUserUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let new_user = fixture_new_user("by_username");
@@ -44,7 +44,7 @@ async fn insert_user_then_get_by_username_returns_user() {
 #[tokio::test]
 async fn get_user_with_nonexistent_id_returns_none() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgUserUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let id: Id<User> = Id::gen();
@@ -58,7 +58,7 @@ async fn get_user_with_nonexistent_id_returns_none() {
 #[tokio::test]
 async fn get_user_by_username_nonexistent_returns_none() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgUserUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let found = uow.user_repo().get_user_by_username("no_such_user_xyz_99999").await.unwrap();
@@ -71,7 +71,7 @@ async fn get_user_by_username_nonexistent_returns_none() {
 #[tokio::test]
 async fn insert_duplicate_username_returns_error() {
     let pool = setup_test_db().await;
-    let factory = PgUnitOfWorkFactory::new(pool);
+    let factory = PgUserUnitOfWorkFactory::new(pool);
     let mut uow = factory.begin().await.unwrap();
 
     let first = fixture_new_user("dup_user");

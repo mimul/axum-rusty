@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use usecase::module::uow::UnitOfWorkFactory;
+use usecase::module::uow::TodoUnitOfWorkFactory;
 use usecase::usecase::todo::TodoUseCase;
 
 /// Todo 도메인 모듈.
@@ -11,7 +11,7 @@ pub struct TodoModule {
 }
 
 impl TodoModule {
-    pub fn new(uow_factory: Arc<dyn UnitOfWorkFactory>) -> Self {
+    pub fn new(uow_factory: Arc<dyn TodoUnitOfWorkFactory>) -> Self {
         Self {
             use_case: TodoUseCase::new(uow_factory),
         }

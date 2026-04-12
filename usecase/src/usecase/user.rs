@@ -1,5 +1,5 @@
 use crate::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView};
-use crate::module::uow::UnitOfWorkFactory;
+use crate::module::uow::UserUnitOfWorkFactory;
 
 /// bcrypt 해시 cost factor (OWASP 권고: 10 이상)
 const BCRYPT_COST: u32 = 12;
@@ -9,11 +9,11 @@ use log::{error, info};
 use std::sync::Arc;
 
 pub struct UserUseCase {
-    uow_factory: Arc<dyn UnitOfWorkFactory>,
+    uow_factory: Arc<dyn UserUnitOfWorkFactory>,
 }
 
 impl UserUseCase {
-    pub fn new(uow_factory: Arc<dyn UnitOfWorkFactory>) -> Self {
+    pub fn new(uow_factory: Arc<dyn UserUnitOfWorkFactory>) -> Self {
         Self { uow_factory }
     }
 
