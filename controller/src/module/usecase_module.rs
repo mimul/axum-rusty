@@ -15,9 +15,9 @@ use usecase::usecase::health_check::HealthCheckUseCase;
 /// 인프라 관심사(`HealthCheckUseCase`)를 보유한다.
 /// 새 도메인 추가 시 해당 Module과 Repository만 이곳에 추가하면 된다.
 pub struct UseCaseModules {
-    pub todo: TodoModule,
-    pub user: UserModule,
-    pub health_check: HealthCheckUseCase,
+    pub(crate) todo: TodoModule,
+    pub(crate) user: UserModule,
+    pub(crate) health_check: HealthCheckUseCase,
 }
 
 impl UseCaseModules {

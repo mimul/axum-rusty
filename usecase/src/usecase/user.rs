@@ -38,9 +38,6 @@ impl UserUseCase {
     pub async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
         // CPU-heavy 작업은 트랜잭션 시작 전에 완료
         let hashed_password = bcrypt::hash(source.password.clone(), BCRYPT_COST)?;
-        if hashed_password.is_empty() {
-            return Err(anyhow!("hashed password is empty"));
-        }
 
         let mut tx = self.pool.begin().await?;
 

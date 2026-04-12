@@ -59,7 +59,7 @@ async fn find_todos_without_filter_returns_all_inserted() {
     .await
     .unwrap();
 
-    let found = repo.find(None).await.unwrap();
+    let found = repo.find_tx(&mut tx, None).await.unwrap();
     assert!(
         found.len() >= 2,
         "find(None) should return at least the 2 inserted todos"
