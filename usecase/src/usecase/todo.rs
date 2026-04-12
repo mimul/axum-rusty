@@ -1,119 +1,91 @@
 use crate::model::todo::{
     CreateTodo, SearchTodoCondition, TodoView, UpdateTodoView, UpsertTodoView,
 };
-use crate::module::repos::RepositoriesModuleExt;
 use domain::model::todo::{UpdateTodo, UpsertTodo};
-use domain::repository::todo::status::TodoStatusRepository;
-use domain::repository::todo::TodoRepository;
+use infra::repository::todo::status::PgTodoStatusRepository;
+use infra::repository::todo::PgTodoRepository;
 use sqlx::PgPool;
 use std::sync::Arc;
 
-pub struct TodoUseCase<R: RepositoriesModuleExt> {
+pub struct TodoUseCase {
     pool: PgPool,
-    repositories: Arc<R>,
+    todo_repo: Arc<PgTodoRepository>,
+    todo_status_repo: Arc<PgTodoStatusRepository>,
 }
 
-impl<R: RepositoriesModuleExt> TodoUseCase<R> {
-    pub fn new(pool: PgPool, repositories: Arc<R>) -> Self {
-        Self { pool, repositories }
-    }
-
-    pub async fn get_todo(&self, id: String) -> anyhow::Result<Option<TodoView>> {
-        let resp = self
-            .repositories
-            .todo_repository()
-            .get(&id.try_into()?, &self.pool)
-            .await?;
-
-        match resp {
-            Some(todo) => Ok(Some(todo.into())),
-            None => Ok(None),
+impl TodoUseCase {
+    pub fn new(
+        pool: PgPool,
+        todo_repo: Arc<PgTodoRepository>,
+        todo_status_repo: Arc<PgTodoStatusRepository>,
+    ) -> Self {
+        Self {
+            pool,
+            todo_repo,
+            todo_status_repo,
         }
     }
 
-    pub async fn find_todo(
-        &self,
-        condition: SearchTodoCondition,
-    ) -> anyhow::Result<Vec<TodoView>> {
+    pub async fn get_todo(&self, id: String) -> anyhow::Result<Option<TodoView>> {
+        let resp = self.todo_repo.get(&id.try_into()?).await?;
+        Ok(resp.map(Into::into))
+    }
+
+    pub async fn find_todo(&self, condition: SearchTodoCondition) -> anyhow::Result<Vec<TodoView>> {
         let status = match &condition.status_code {
-            Some(code) => Some(
-                self.repositories
-                    .todo_status_repository()
-                    .get_by_code(code.as_str(), &self.pool)
-                    .await?,
-            ),
+            Some(code) => Some(self.todo_status_repo.get_by_code(code.as_str()).await?),
             None => None,
         };
-
-        let todos = self
-            .repositories
-            .todo_repository()
-            .find(status, &self.pool)
-            .await?;
-        Ok(todos.into_iter().map(|t| t.into()).collect())
+        let todos = self.todo_repo.find(status).await?;
+        Ok(todos.into_iter().map(Into::into).collect())
     }
 
     pub async fn create_todo(&self, source: CreateTodo) -> anyhow::Result<TodoView> {
         let mut tx = self.pool.begin().await?;
-        let todo_view = self
-            .repositories
-            .todo_repository()
-            .insert(source.try_into()?, &mut tx)
+        let todo = self
+            .todo_repo
+            .insert_tx(&mut tx, source.try_into()?)
             .await?;
         tx.commit().await?;
-        Ok(todo_view.into())
+        Ok(todo.into())
     }
 
     pub async fn update_todo(&self, source: UpdateTodoView) -> anyhow::Result<TodoView> {
         let mut tx = self.pool.begin().await?;
         let status = match &source.status_code {
             Some(code) => Some(
-                self.repositories
-                    .todo_status_repository()
-                    .get_by_code(code.as_str(), &mut tx)
+                self.todo_status_repo
+                    .get_by_code_tx(&mut tx, code.as_str())
                     .await?,
             ),
             None => None,
         };
-
         let update_todo = UpdateTodo::new(
             source.id.try_into()?,
             source.title,
             source.description,
             status,
         );
-
-        let todo_view = self
-            .repositories
-            .todo_repository()
-            .update(update_todo, &mut tx)
-            .await?;
+        let todo = self.todo_repo.update_tx(&mut tx, update_todo).await?;
         tx.commit().await?;
-        Ok(todo_view.into())
+        Ok(todo.into())
     }
 
     pub async fn upsert_todo(&self, source: UpsertTodoView) -> anyhow::Result<TodoView> {
         let mut tx = self.pool.begin().await?;
         let status = self
-            .repositories
-            .todo_status_repository()
-            .get_by_code(&source.status_code, &mut tx)
+            .todo_status_repo
+            .get_by_code_tx(&mut tx, &source.status_code)
             .await?;
-
         let upsert_todo = UpsertTodo::new(
             source.id.try_into()?,
             source.title,
             source.description,
             status,
         );
-
-        let todo_view = self
-            .repositories
-            .todo_repository()
-            .upsert(upsert_todo, &mut tx)
-            .await?;
+        let todo = self.todo_repo.upsert_tx(&mut tx, upsert_todo).await?;
         tx.commit().await?;
-        Ok(todo_view.into())
+        Ok(todo.into())
     }
 
     /// create와 update를 단일 트랜잭션에서 실행한다.
@@ -126,49 +98,33 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
         let mut tx = self.pool.begin().await?;
 
         let created = self
-            .repositories
-            .todo_repository()
-            .insert(create_source.try_into()?, &mut tx)
+            .todo_repo
+            .insert_tx(&mut tx, create_source.try_into()?)
             .await?;
 
         let status = match &update_source.status_code {
             Some(code) => Some(
-                self.repositories
-                    .todo_status_repository()
-                    .get_by_code(code.as_str(), &mut tx)
+                self.todo_status_repo
+                    .get_by_code_tx(&mut tx, code.as_str())
                     .await?,
             ),
             None => None,
         };
-
         let update_todo = UpdateTodo::new(
             update_source.id.try_into()?,
             update_source.title,
             update_source.description,
             status,
         );
-
-        let updated = self
-            .repositories
-            .todo_repository()
-            .update(update_todo, &mut tx)
-            .await?;
-
+        let updated = self.todo_repo.update_tx(&mut tx, update_todo).await?;
         tx.commit().await?;
         Ok((created.into(), updated.into()))
     }
 
     pub async fn delete_todo(&self, id: String) -> anyhow::Result<Option<TodoView>> {
         let mut tx = self.pool.begin().await?;
-        let resp = self
-            .repositories
-            .todo_repository()
-            .delete(&id.try_into()?, &mut tx)
-            .await?;
+        let resp = self.todo_repo.delete_tx(&mut tx, &id.try_into()?).await?;
         tx.commit().await?;
-        match resp {
-            Some(t) => Ok(Some(t.into())),
-            None => Ok(None),
-        }
+        Ok(resp.map(Into::into))
     }
 }

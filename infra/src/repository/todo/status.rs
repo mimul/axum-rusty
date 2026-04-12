@@ -1,34 +1,42 @@
 use crate::model::todo::status::StoredTodoStatus;
-use anyhow::{anyhow, Context};
-use async_trait::async_trait;
-use derive_new::new;
+use crate::repository::todo::PgTx;
+use anyhow::anyhow;
 use domain::model::todo::status::TodoStatus;
-use domain::repository::todo::status::TodoStatusRepository;
-use sqlx::query_as;
-use domain::transaction::PgAcquire;
+use sqlx::{query_as, PgPool};
 
-#[derive(new)]
-pub struct TodoStatusRepositoryImpl {}
+pub struct PgTodoStatusRepository {
+    pool: PgPool,
+}
 
-#[async_trait]
-impl TodoStatusRepository for TodoStatusRepositoryImpl {
-    async fn get_by_code(&self, code: &str, executor: impl PgAcquire<'_>) -> anyhow::Result<TodoStatus> {
-        let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
+impl PgTodoStatusRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    pub async fn get_by_code(&self, code: &str) -> anyhow::Result<TodoStatus> {
+        Self::get_by_code_impl(code, &self.pool).await
+    }
+
+    pub async fn get_by_code_tx(&self, tx: &mut PgTx, code: &str) -> anyhow::Result<TodoStatus> {
+        Self::get_by_code_impl(code, &mut **tx).await
+    }
+
+    async fn get_by_code_impl<'e>(
+        code: &str,
+        executor: impl sqlx::Executor<'e, Database = sqlx::Postgres>,
+    ) -> anyhow::Result<TodoStatus> {
         let sql = r#"
-            select id, code, name
-            from todo_statuses
-            where code = $1
+            SELECT id, code, name
+            FROM todo_statuses
+            WHERE code = $1
         "#;
-
-        let stored_todo_status = query_as::<_, StoredTodoStatus>(sql)
-            .bind(code.to_string())
-            .fetch_one(&mut *conn)
-            .await
-            .ok();
-
-        match stored_todo_status {
-            Some(todo_status) => Ok(todo_status.try_into()?),
-            None => Err(anyhow!("`statusCode` is invalid.")),
+        let result = query_as::<_, StoredTodoStatus>(sql)
+            .bind(code)
+            .fetch_optional(executor)
+            .await?;
+        match result {
+            Some(st) => Ok(st.try_into()?),
+            None => Err(anyhow!("`statusCode` '{}' is invalid.", code)),
         }
     }
 }

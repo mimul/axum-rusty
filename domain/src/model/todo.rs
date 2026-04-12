@@ -110,7 +110,12 @@ mod tests {
         let ulid = Ulid::new();
         let status = make_status();
         let status_ulid = status.id.value;
-        let ut = UpsertTodo::new(Id::new(ulid), "Title".to_string(), "Desc".to_string(), status);
+        let ut = UpsertTodo::new(
+            Id::new(ulid),
+            "Title".to_string(),
+            "Desc".to_string(),
+            status,
+        );
         assert_eq!(ut.id.value, ulid);
         assert_eq!(ut.title, "Title");
         assert_eq!(ut.description, "Desc");

@@ -9,7 +9,9 @@ static DIGIT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d").unwrap());
 static SPECIAL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"[^\da-zA-Z]").unwrap());
 static LENGTH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r".{7,}").unwrap());
 fn validate_password(value: &str) -> Result<(), ValidationError> {
-    if DIGIT_REGEX.is_match(value).unwrap() && SPECIAL_REGEX.is_match(value).unwrap() && LENGTH_REGEX.is_match(value).unwrap()
+    if DIGIT_REGEX.is_match(value).unwrap()
+        && SPECIAL_REGEX.is_match(value).unwrap()
+        && LENGTH_REGEX.is_match(value).unwrap()
     {
         Ok(())
     } else {
@@ -27,11 +29,14 @@ pub struct JsonCreateUser {
         message = "password must contain one digit, one special character and must be at least 8 characters long"
     ))]
     pub password: Option<String>,
-    #[validate(length(
-        min = 2,
-        max = 30,
-        message = "fullname must be between 3 and 30 characters"
-    ), required(message = "fullname is null"))]
+    #[validate(
+        length(
+            min = 2,
+            max = 30,
+            message = "fullname must be between 3 and 30 characters"
+        ),
+        required(message = "fullname is null")
+    )]
     pub fullname: Option<String>,
 }
 

@@ -1,14 +1,14 @@
 use crate::context::errors::AppError;
 use crate::context::errors::AppError::InvalidJwt;
 use crate::model::user::TokenClaims;
-use axum::{middleware::Next, response::IntoResponse};
-use jsonwebtoken::{decode, DecodingKey, Validation};
-use std::sync::Arc;
+use crate::module::usecase_module::AppState;
 use axum::extract::{Request, State};
-use log::{error, info};
-use usecase::model::user::UserView;
+use axum::{middleware::Next, response::IntoResponse};
 use common::auth::webs::{get_auth_header, get_cookie_from_headers};
-use crate::module::usecase_module::{AppState, UseCaseModulesExt};
+use jsonwebtoken::{decode, DecodingKey, Validation};
+use log::{error, info};
+use std::sync::Arc;
+use usecase::model::user::UserView;
 
 pub async fn auth(
     State(state): State<Arc<AppState>>,
@@ -24,7 +24,7 @@ pub async fn auth(
     match authorize_current_user(access_token, &state).await {
         Ok(current_user) => {
             req.extensions_mut().insert(current_user);
-            return Ok(next.run(req).await)
+            return Ok(next.run(req).await);
         }
         Err(err) => {
             error!("error authorizing user: {:?}", err);
@@ -45,7 +45,7 @@ pub async fn auth(
         match claims {
             Ok(claims) => {
                 let user_id = claims.claims.sub;
-                let user_view = state.modules.user_use_case().get_user(user_id).await;
+                let user_view = state.modules.user.use_case.get_user(user_id).await;
                 match user_view {
                     Ok(user_view) => match user_view {
                         Some(uv) => Ok(uv),
