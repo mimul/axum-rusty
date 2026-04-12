@@ -4,11 +4,11 @@ use anyhow::anyhow;
 use domain::model::todo::status::TodoStatus;
 use sqlx::{query_as, PgPool};
 
-pub struct PgTodoStatusRepository {
+pub struct TodoStatusRepository {
     pool: PgPool,
 }
 
-impl PgTodoStatusRepository {
+impl TodoStatusRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
