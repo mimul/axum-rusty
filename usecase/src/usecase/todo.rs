@@ -34,7 +34,7 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
     pub async fn find_todo(
         &self,
         condition: SearchTodoCondition,
-    ) -> anyhow::Result<Option<Vec<TodoView>>> {
+    ) -> anyhow::Result<Vec<TodoView>> {
         let status = match &condition.status_code {
             Some(code) => Some(
                 self.repositories
@@ -45,18 +45,12 @@ impl<R: RepositoriesModuleExt> TodoUseCase<R> {
             None => None,
         };
 
-        let resp = self
+        let todos = self
             .repositories
             .todo_repository()
             .find(status, &self.pool)
             .await?;
-        match resp {
-            Some(todos) => {
-                let tv_list = todos.into_iter().map(|t| t.into()).collect();
-                Ok(Some(tv_list))
-            }
-            None => Ok(None),
-        }
+        Ok(todos.into_iter().map(|t| t.into()).collect())
     }
 
     pub async fn create_todo(&self, source: CreateTodo) -> anyhow::Result<TodoView> {

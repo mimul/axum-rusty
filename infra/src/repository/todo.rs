@@ -37,10 +37,10 @@ impl TodoRepository for TodoRepositoryImpl {
         }
     }
 
-    async fn find(&self, status: Option<TodoStatus>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<Vec<Todo>>> {
+    async fn find(&self, status: Option<TodoStatus>, executor: impl PgAcquire<'_>) -> anyhow::Result<Vec<Todo>> {
         let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
 
-        let stored_todo_list = match status {
+        let stored_todo_list: Vec<StoredTodo> = match status {
             Some(s) => {
                 let sql = r#"
                     select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
@@ -53,8 +53,7 @@ impl TodoRepository for TodoRepositoryImpl {
                 query_as::<_, StoredTodo>(sql)
                     .bind(s.id.value.to_string())
                     .fetch_all(&mut *conn)
-                    .await
-                    .ok()
+                    .await?
             }
             None => {
                 let sql = r#"
@@ -66,18 +65,14 @@ impl TodoRepository for TodoRepositoryImpl {
                 "#;
                 query_as::<_, StoredTodo>(sql)
                     .fetch_all(&mut *conn)
-                    .await
-                    .ok()
+                    .await?
             }
         };
 
-        match stored_todo_list {
-            Some(todo_list) => {
-                let todos = todo_list.into_iter().flat_map(|st| st.try_into()).collect();
-                Ok(Some(todos))
-            }
-            None => Ok(None),
-        }
+        stored_todo_list
+            .into_iter()
+            .map(|st| st.try_into())
+            .collect::<anyhow::Result<Vec<Todo>>>()
     }
 
     async fn insert(&self, source: NewTodo, executor: impl PgAcquire<'_>) -> anyhow::Result<Todo> {
@@ -186,33 +181,27 @@ impl TodoRepository for TodoRepositoryImpl {
     async fn delete(&self, id: &Id<Todo>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<Todo>> {
         let mut conn = executor.acquire().await.context("failed to acquire postgres connection")?;
 
+        // CTE로 DELETE와 JOIN을 단일 쿼리로 처리한다.
+        // todos가 존재하지 않으면 deleted CTE가 비어 SELECT도 행을 반환하지 않는다.
         let sql = r#"
-            select t.id as id, t.title as title, t.description as description, ts.id as status_id, ts.code as status_code, ts.name as status_name,
-                t.created_at as created_at, t.updated_at as updated_at
-            from  todos as t
-            inner join todo_statuses as ts on ts.id = t.status_id
-            where t.id = $1
+            WITH deleted AS (
+                DELETE FROM todos WHERE id = $1
+                RETURNING id, title, description, status_id, created_at, updated_at
+            )
+            SELECT d.id, d.title, d.description,
+                   ts.id as status_id, ts.code as status_code, ts.name as status_name,
+                   d.created_at, d.updated_at
+            FROM deleted d
+            INNER JOIN todo_statuses ts ON ts.id = d.status_id
         "#;
 
         let stored_todo = query_as::<_, StoredTodo>(sql)
             .bind(id.value.to_string())
-            .fetch_one(&mut *conn)
-            .await
-            .ok();
+            .fetch_optional(&mut *conn)
+            .await?;
 
         match stored_todo {
-            Some(st) => {
-                let delete_sql = r#"
-                    delete from todos where id = $1
-                "#;
-
-                let _ = query(delete_sql)
-                    .bind(id.value.to_string())
-                    .execute(&mut *conn)
-                    .await?;
-
-                Ok(Some(st.try_into()?))
-            }
+            Some(st) => Ok(Some(st.try_into()?)),
             None => Ok(None),
         }
     }

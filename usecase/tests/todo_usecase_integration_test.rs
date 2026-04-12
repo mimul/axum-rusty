@@ -129,8 +129,7 @@ async fn create_and_update_todo_when_update_fails_rolls_back_create() {
     let all_todos = todo_repo
         .find(None, &mut verify_tx)
         .await
-        .unwrap()
-        .unwrap_or_default();
+        .unwrap();
     verify_tx.rollback().await.unwrap();
 
     let rolled_back = all_todos
@@ -228,8 +227,7 @@ async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
     let all = todo_repo
         .find(None, &mut verify_tx)
         .await
-        .unwrap()
-        .unwrap_or_default();
+        .unwrap();
     verify_tx.rollback().await.unwrap();
 
     let rolled_back = all

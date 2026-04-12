@@ -83,31 +83,22 @@ pub async fn find_todo(
     }
     let resp = state.modules.todo_use_case().find_todo(query.into()).await;
     match resp {
-        Ok(tv_list) => match tv_list {
-            Some(tv) => {
-                let todos = tv.into_iter().map(|t| t.into()).collect();
-                let json = JsonTodoList::new(todos);
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    result: true,
-                    message: "success".to_string(),
-                    data: Some(json!({
-                        "todoView": json,
-                    })),
-                };
-                Ok((StatusCode::OK, Json(response)))
-            }
-            None => {
-                let json = JsonTodoList::new(vec![]);
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    result: true,
-                    message: "todo not found.".to_string(),
-                    data: Some(json!({
-                        "todoView": json,
-                    })),
-                };
-                Ok((StatusCode::OK, Json(response)))
-            }
-        },
+        Ok(todos) => {
+            let message = if todos.is_empty() {
+                "todo not found.".to_string()
+            } else {
+                "success".to_string()
+            };
+            let json = JsonTodoList::new(todos.into_iter().map(|t| t.into()).collect());
+            let response: ApiResponse<Value> = ApiResponse::<Value> {
+                result: true,
+                message,
+                data: Some(json!({
+                    "todoView": json,
+                })),
+            };
+            Ok((StatusCode::OK, Json(response)))
+        }
         Err(err) => {
             error!("Unexpected error: {:?}", err);
             Err(AppError::Error(err.to_string()))

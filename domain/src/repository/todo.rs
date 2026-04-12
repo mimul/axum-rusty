@@ -9,7 +9,7 @@ pub mod status;
 #[async_trait]
 pub trait TodoRepository {
     async fn get(&self, id: &Id<Todo>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<Todo>>;
-    async fn find(&self, status: Option<TodoStatus>, executor: impl PgAcquire<'_>) -> anyhow::Result<Option<Vec<Todo>>>;
+    async fn find(&self, status: Option<TodoStatus>, executor: impl PgAcquire<'_>) -> anyhow::Result<Vec<Todo>>;
     async fn insert(&self, source: NewTodo, executor: impl PgAcquire<'_>) -> anyhow::Result<Todo>;
     async fn update(&self, source: UpdateTodo, executor: impl PgAcquire<'_>) -> anyhow::Result<Todo>;
     async fn upsert(&self, source: UpsertTodo, executor: impl PgAcquire<'_>) -> anyhow::Result<Todo>;
