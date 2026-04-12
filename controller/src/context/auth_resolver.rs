@@ -45,7 +45,7 @@ pub async fn auth(
         match claims {
             Ok(claims) => {
                 let user_id = claims.claims.sub;
-                let user_view = state.modules.user_use_case.get_user(user_id).await;
+                let user_view = state.modules.user.use_case.get_user(user_id).await;
                 match user_view {
                     Ok(user_view) => match user_view {
                         Some(uv) => Ok(uv),

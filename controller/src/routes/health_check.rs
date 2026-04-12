@@ -15,7 +15,7 @@ pub async fn hc_postgres(
     _: ApiVersion,
     State(state): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    state.modules.health_check_use_case.diagnose_db_conn().await
+    state.modules.health_check.diagnose_db_conn().await
         .map(|_| {
             debug!("Access postgres health check endpoint.");
             StatusCode::NO_CONTENT

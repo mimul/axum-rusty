@@ -34,7 +34,7 @@ pub async fn create_user(
     ValidatedRequest(source): ValidatedRequest<JsonCreateUser>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("create_user request param={:?}", source);
-    let resp = state.modules.user_use_case.create_user(source.into()).await;
+    let resp = state.modules.user.use_case.create_user(source.into()).await;
     resp.map(|tv| {
         info!("create_user: response user: {}", tv.id);
         let json: JsonUser = tv.into();
@@ -72,7 +72,7 @@ pub async fn get_user(
     Extension(current_user): Extension<UserView>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("get_user: request param id={}, current_user={:?}", id, current_user);
-    let resp = state.modules.user_use_case.get_user(id).await;
+    let resp = state.modules.user.use_case.get_user(id).await;
     match resp {
         Ok(uv) => uv
             .map(|uv| {
@@ -122,7 +122,7 @@ pub async fn get_user_by_username(
         info!("get_user_by_username: username is empty. id={:?}", query);
         return Err(AppError::Error("username is empty".to_string()));
     }
-    let user_view = state.modules.user_use_case.get_user_by_username(query.into()).await;
+    let user_view = state.modules.user.use_case.get_user_by_username(query.into()).await;
     match user_view {
         Ok(user_view) => match user_view {
             Some(uv) => {
@@ -172,7 +172,7 @@ pub async fn login_user(
     ValidatedRequest(source): ValidatedRequest<JsonLoginUser>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("login_user: request param={:?}", source);
-    let user_view = state.modules.user_use_case.login_user(source.into()).await;
+    let user_view = state.modules.user.use_case.login_user(source.into()).await;
     match user_view {
         Ok(uv) => {
             info!("login_user: response user `{:?}`.", uv);
