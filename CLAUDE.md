@@ -48,6 +48,17 @@ migrations/   테이블, 기초 데이터, 인덱스
 
 - 항상 한국어로 대화하기
 
+## Code Style Guidelines
+
+- 자명한 코드 코멘트를 작성하지 마십시오.
+- 불필요한 공백은 삭제하십시오
+- 신규 파일을 작성할 때는 반드시 말미에 개행을 더하는 것
+
+## GitHub Operations
+
+- GitHub 리소스(리포지토리, Issue, PR, 코드 등)를 조작할 때는 `gh` 명령(GitHub CLI)을 사용한다.
+- WebFetch 나 WebSearch 대신`gh`명령 우선
+
 ## Development Philosophy
 
 ### Before Implementation
