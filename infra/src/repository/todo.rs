@@ -9,11 +9,11 @@ use sqlx::{query, query_as, PgPool, Postgres, Transaction};
 
 pub type PgTx = Transaction<'static, Postgres>;
 
-pub struct PgTodoRepository {
+pub struct TodoRepository {
     pool: PgPool,
 }
 
-impl PgTodoRepository {
+impl TodoRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }

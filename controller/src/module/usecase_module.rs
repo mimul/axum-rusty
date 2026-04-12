@@ -1,11 +1,11 @@
 use crate::module::todo_module::TodoModule;
 use crate::module::user_module::UserModule;
 use common::config::ApplicationConfig;
-use infra::persistence::postgres::Db;
+use infra::db::Db;
 use infra::repository::health_check::HealthCheckRepository;
-use infra::repository::todo::status::PgTodoStatusRepository;
-use infra::repository::todo::PgTodoRepository;
-use infra::repository::user::PgUserRepository;
+use infra::repository::todo::status::TodoStatusRepository;
+use infra::repository::todo::TodoRepository;
+use infra::repository::user::UserRepository;
 use std::sync::Arc;
 use usecase::usecase::health_check::HealthCheckUseCase;
 
@@ -24,9 +24,9 @@ impl UseCaseModules {
     pub fn new(db: Db) -> Self {
         let pool = (*db.0).clone();
 
-        let todo_repo = Arc::new(PgTodoRepository::new(pool.clone()));
-        let todo_status_repo = Arc::new(PgTodoStatusRepository::new(pool.clone()));
-        let user_repo = Arc::new(PgUserRepository::new(pool.clone()));
+        let todo_repo = Arc::new(TodoRepository::new(pool.clone()));
+        let todo_status_repo = Arc::new(TodoStatusRepository::new(pool.clone()));
+        let user_repo = Arc::new(UserRepository::new(pool.clone()));
 
         Self {
             todo: TodoModule::new(pool.clone(), todo_repo, todo_status_repo),

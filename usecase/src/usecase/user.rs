@@ -1,7 +1,7 @@
 use crate::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView};
 use anyhow::anyhow;
 use domain::model::user::User;
-use infra::repository::user::PgUserRepository;
+use infra::repository::user::UserRepository;
 use log::{error, info};
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -11,11 +11,11 @@ const BCRYPT_COST: u32 = 12;
 
 pub struct UserUseCase {
     pool: PgPool,
-    user_repo: Arc<PgUserRepository>,
+    user_repo: Arc<UserRepository>,
 }
 
 impl UserUseCase {
-    pub fn new(pool: PgPool, user_repo: Arc<PgUserRepository>) -> Self {
+    pub fn new(pool: PgPool, user_repo: Arc<UserRepository>) -> Self {
         Self { pool, user_repo }
     }
 

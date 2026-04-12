@@ -1,4 +1,4 @@
-use infra::repository::user::PgUserRepository;
+use infra::repository::user::UserRepository;
 use sqlx::PgPool;
 use std::sync::Arc;
 use usecase::usecase::user::UserUseCase;
@@ -11,7 +11,7 @@ pub struct UserModule {
 }
 
 impl UserModule {
-    pub fn new(pool: PgPool, user_repo: Arc<PgUserRepository>) -> Self {
+    pub fn new(pool: PgPool, user_repo: Arc<UserRepository>) -> Self {
         Self {
             use_case: UserUseCase::new(pool, user_repo),
         }
