@@ -23,11 +23,7 @@ use usecase::usecase::todo::TodoUseCase;
 
 fn build_usecase(
     pool: sqlx::PgPool,
-) -> (
-    TodoUseCase,
-    Arc<TodoRepository>,
-    Arc<TodoStatusRepository>,
-) {
+) -> (TodoUseCase, Arc<TodoRepository>, Arc<TodoStatusRepository>) {
     let todo_repo = Arc::new(TodoRepository::new(pool.clone()));
     let todo_status_repo = Arc::new(TodoStatusRepository::new(pool.clone()));
     let usecase = TodoUseCase::new(pool, todo_repo.clone(), todo_status_repo.clone());
