@@ -133,4 +133,14 @@ mod tests {
         let headers = HeaderMap::new();
         assert!(get_cookie_from_headers("access_token", &headers).is_none());
     }
+
+    #[test]
+    fn create_cookie_headers_contains_set_cookie_header() {
+        let headers = create_cookie_headers("access_token", "mytoken");
+        assert!(headers.contains_key(header::SET_COOKIE));
+        let val = headers.get(header::SET_COOKIE).unwrap().to_str().unwrap();
+        assert!(val.contains("access_token=mytoken"));
+        assert!(val.contains("HttpOnly"));
+        assert!(val.contains("SameSite=Strict"));
+    }
 }

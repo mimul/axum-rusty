@@ -114,3 +114,53 @@ impl From<JsonLoginUser> for LoginUser {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use usecase::model::user::UserView;
+
+    #[test]
+    fn validate_password_with_valid_password_returns_ok() {
+        assert!(validate_password("Secret1!").is_ok());
+    }
+
+    #[test]
+    fn validate_password_without_digit_returns_error() {
+        assert!(validate_password("NoDigit!").is_err());
+    }
+
+    #[test]
+    fn validate_password_without_special_char_returns_error() {
+        assert!(validate_password("NoSpecial1").is_err());
+    }
+
+    #[test]
+    fn validate_password_too_short_returns_error() {
+        assert!(validate_password("Sh0rt!").is_err());
+    }
+
+    #[test]
+    fn json_user_from_user_view_maps_all_fields() {
+        let view = UserView {
+            id: "user-id-01".to_string(),
+            username: "alice@example.com".to_string(),
+            email: "alice@example.com".to_string(),
+            password: "hashed".to_string(),
+            fullname: "Alice".to_string(),
+        };
+        let json = JsonUser::from(view);
+        assert_eq!(json.id, "user-id-01");
+        assert_eq!(json.username, "alice@example.com");
+        assert_eq!(json.fullname, "Alice");
+    }
+
+    #[test]
+    fn user_query_from_search_condition_maps_username() {
+        let query = UserQuery {
+            username: "bob@example.com".to_string(),
+        };
+        let condition: SearchUserCondition = query.into();
+        assert_eq!(condition.username, Some("bob@example.com".to_string()));
+    }
+}
