@@ -2,15 +2,19 @@ mod common;
 
 use common::db::setup_test_db;
 use common::fixtures::fixture_new_user;
+use common::module::build_test_module;
 use domain::model::user::{NewUser, User};
 use domain::model::Id;
-use infra::repository::user::UserRepository;
+use infra::repository::user::IUserRepository;
+use shaku::HasComponent;
+use std::sync::Arc;
 
 /// insert → get_user (id 조회)
 #[tokio::test]
 async fn insert_user_stores_and_retrieves_by_id() {
     let pool = setup_test_db().await;
-    let repo = UserRepository::new(pool.clone());
+    let module = build_test_module(pool.clone());
+    let repo: Arc<dyn IUserRepository> = module.resolve();
     let mut tx = pool.begin().await.unwrap();
 
     let inserted = repo
@@ -28,7 +32,8 @@ async fn insert_user_stores_and_retrieves_by_id() {
 #[tokio::test]
 async fn insert_user_then_get_by_username_returns_user() {
     let pool = setup_test_db().await;
-    let repo = UserRepository::new(pool.clone());
+    let module = build_test_module(pool.clone());
+    let repo: Arc<dyn IUserRepository> = module.resolve();
     let mut tx = pool.begin().await.unwrap();
 
     let new_user = fixture_new_user("by_username");
@@ -52,7 +57,8 @@ async fn insert_user_then_get_by_username_returns_user() {
 #[tokio::test]
 async fn get_user_with_nonexistent_id_returns_none() {
     let pool = setup_test_db().await;
-    let repo = UserRepository::new(pool.clone());
+    let module = build_test_module(pool);
+    let repo: Arc<dyn IUserRepository> = module.resolve();
 
     let id: Id<User> = Id::gen();
     let found = repo.get_user(&id).await.unwrap();
@@ -64,7 +70,8 @@ async fn get_user_with_nonexistent_id_returns_none() {
 #[tokio::test]
 async fn get_user_by_username_nonexistent_returns_none() {
     let pool = setup_test_db().await;
-    let repo = UserRepository::new(pool.clone());
+    let module = build_test_module(pool);
+    let repo: Arc<dyn IUserRepository> = module.resolve();
 
     let found = repo
         .get_user_by_username("no_such_user_xyz_99999")
@@ -78,7 +85,8 @@ async fn get_user_by_username_nonexistent_returns_none() {
 #[tokio::test]
 async fn insert_duplicate_username_returns_error() {
     let pool = setup_test_db().await;
-    let repo = UserRepository::new(pool.clone());
+    let module = build_test_module(pool.clone());
+    let repo: Arc<dyn IUserRepository> = module.resolve();
     let mut tx = pool.begin().await.unwrap();
 
     let first = fixture_new_user("dup_user");

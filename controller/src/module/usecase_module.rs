@@ -1,51 +1,59 @@
-use crate::module::todo_module::TodoModule;
-use crate::module::user_module::UserModule;
-use common::config::ApplicationConfig;
+// shaku module! 매크로가 아래 import들을 내부적으로 참조하므로 unused_imports 억제
+#[allow(unused_imports)]
 use infra::db::Db;
+#[allow(unused_imports)]
 use infra::repository::health_check::HealthCheckRepository;
+#[allow(unused_imports)]
 use infra::repository::todo::status::TodoStatusRepository;
+#[allow(unused_imports)]
 use infra::repository::todo::TodoRepository;
+#[allow(unused_imports)]
 use infra::repository::user::UserRepository;
-use std::sync::Arc;
+#[allow(unused_imports)]
 use usecase::usecase::health_check::HealthCheckUseCase;
+#[allow(unused_imports)]
+use usecase::usecase::todo::TodoUseCase;
+#[allow(unused_imports)]
+use usecase::usecase::user::UserUseCase;
 
-/// 전체 도메인 모듈을 조합하는 DI 루트.
-///
-/// 도메인별 모듈(`TodoModule`, `UserModule`)과
-/// 인프라 관심사(`HealthCheckUseCase`)를 보유한다.
-/// 새 도메인 추가 시 해당 Module과 Repository만 이곳에 추가하면 된다.
-pub struct UseCaseModules {
-    pub(crate) todo: TodoModule,
-    pub(crate) user: UserModule,
-    pub(crate) health_check: HealthCheckUseCase,
-}
+use common::config::ApplicationConfig;
+use shaku::module;
+use std::sync::Arc;
 
-impl UseCaseModules {
-    pub fn new(db: Db) -> Self {
-        let pool = (*db.0).clone();
-
-        let todo_repo = Arc::new(TodoRepository::new(pool.clone()));
-        let todo_status_repo = Arc::new(TodoStatusRepository::new(pool.clone()));
-        let user_repo = Arc::new(UserRepository::new(pool.clone()));
-
-        Self {
-            todo: TodoModule::new(pool.clone(), todo_repo, todo_status_repo),
-            user: UserModule::new(pool.clone(), user_repo),
-            health_check: HealthCheckUseCase::new(HealthCheckRepository::new(pool)),
-        }
+// 새 도메인 추가 시:
+// 1. infra에 Repository + `#[derive(Component)]`
+// 2. usecase에 UseCase + `#[derive(Component)]`
+// 3. 아래 components 목록에 등록
+module! {
+    pub AppModule {
+        components = [
+            Db,
+            TodoRepository,
+            TodoStatusRepository,
+            UserRepository,
+            HealthCheckRepository,
+            TodoUseCase,
+            UserUseCase,
+            HealthCheckUseCase,
+        ],
+        providers = []
     }
 }
 
+/// Axum 공유 상태.
+///
+/// 핸들러에서 `state.module.resolve::<dyn IFooUseCase>()` 로 유스케이스를 주입받는다.
 #[derive(Clone)]
 pub struct AppState {
-    pub modules: Arc<UseCaseModules>,
+    pub module: Arc<AppModule>,
     pub config: Arc<ApplicationConfig>,
 }
 
 impl AppState {
-    pub fn new(db: Db, config: ApplicationConfig) -> Self {
-        let modules = Arc::new(UseCaseModules::new(db));
-        let config = Arc::new(config);
-        Self { modules, config }
+    pub fn new(module: Arc<AppModule>, config: ApplicationConfig) -> Self {
+        Self {
+            module,
+            config: Arc::new(config),
+        }
     }
 }

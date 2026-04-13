@@ -1,30 +1,46 @@
 use crate::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView};
 use anyhow::anyhow;
+use async_trait::async_trait;
 use domain::model::user::User;
-use infra::repository::user::UserRepository;
+use infra::db::IDatabasePool;
+use infra::repository::user::IUserRepository;
 use log::{error, info};
-use sqlx::PgPool;
+use shaku::Component;
 use std::sync::Arc;
 
 /// bcrypt 해시 cost factor (OWASP 권고: 10 이상)
 const BCRYPT_COST: u32 = 12;
 
-pub struct UserUseCase {
-    pool: PgPool,
-    user_repo: Arc<UserRepository>,
+/// User 유스케이스 인터페이스.
+#[async_trait]
+pub trait IUserUseCase: shaku::Interface {
+    async fn get_user(&self, id: String) -> anyhow::Result<Option<UserView>>;
+    async fn get_user_by_username(
+        &self,
+        condition: SearchUserCondition,
+    ) -> anyhow::Result<Option<UserView>>;
+    async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView>;
+    async fn login_user(&self, source: LoginUser) -> anyhow::Result<UserView>;
 }
 
-impl UserUseCase {
-    pub fn new(pool: PgPool, user_repo: Arc<UserRepository>) -> Self {
-        Self { pool, user_repo }
-    }
+/// User 유스케이스 구현체.
+#[derive(Component)]
+#[shaku(interface = IUserUseCase)]
+pub struct UserUseCase {
+    #[shaku(inject)]
+    db: Arc<dyn IDatabasePool>,
+    #[shaku(inject)]
+    user_repo: Arc<dyn IUserRepository>,
+}
 
-    pub async fn get_user(&self, id: String) -> anyhow::Result<Option<UserView>> {
+#[async_trait]
+impl IUserUseCase for UserUseCase {
+    async fn get_user(&self, id: String) -> anyhow::Result<Option<UserView>> {
         let resp = self.user_repo.get_user(&id.try_into()?).await?;
         Ok(resp.map(Into::into))
     }
 
-    pub async fn get_user_by_username(
+    async fn get_user_by_username(
         &self,
         condition: SearchUserCondition,
     ) -> anyhow::Result<Option<UserView>> {
@@ -35,11 +51,11 @@ impl UserUseCase {
         Ok(resp.map(Into::into))
     }
 
-    pub async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
+    async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
         // CPU-heavy 작업은 트랜잭션 시작 전에 완료
-        let hashed_password = bcrypt::hash(source.password.clone(), BCRYPT_COST)?;
+        let hashed_password = bcrypt::hash(&source.password, BCRYPT_COST)?;
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.db.pool().begin().await?;
 
         // 읽기: username 중복 확인
         if self
@@ -59,7 +75,7 @@ impl UserUseCase {
         Ok(user_view.into())
     }
 
-    pub async fn login_user(&self, source: LoginUser) -> anyhow::Result<UserView> {
+    async fn login_user(&self, source: LoginUser) -> anyhow::Result<UserView> {
         let user: User = self
             .user_repo
             .get_user_by_username(&source.username)
@@ -70,7 +86,7 @@ impl UserUseCase {
             })?;
 
         // CPU-heavy 검증
-        let login_result = bcrypt::verify(source.password.clone(), user.password.as_str())?;
+        let login_result = bcrypt::verify(&source.password, user.password.as_str())?;
         if login_result {
             info!("login succeeded!");
             Ok(user.into())

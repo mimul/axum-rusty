@@ -12,8 +12,10 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use log::{error, info};
 use serde_json::{json, Value};
+use shaku::HasComponent;
 use std::sync::Arc;
 use usecase::model::user::UserView;
+use usecase::usecase::user::IUserUseCase;
 
 #[utoipa::path(
     post,
@@ -34,7 +36,8 @@ pub async fn create_user(
     ValidatedRequest(source): ValidatedRequest<JsonCreateUser>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("create_user request param={:?}", source);
-    let resp = state.modules.user.use_case.create_user(source.into()).await;
+    let uc: Arc<dyn IUserUseCase> = state.module.resolve();
+    let resp = uc.create_user(source.into()).await;
     resp.map(|tv| {
         info!("create_user: response user: {}", tv.id);
         let json: JsonUser = tv.into();
@@ -75,7 +78,8 @@ pub async fn get_user(
         "get_user: request param id={}, current_user={:?}",
         id, current_user
     );
-    let resp = state.modules.user.use_case.get_user(id).await;
+    let uc: Arc<dyn IUserUseCase> = state.module.resolve();
+    let resp = uc.get_user(id).await;
     match resp {
         Ok(uv) => uv
             .map(|uv| {
@@ -128,12 +132,8 @@ pub async fn get_user_by_username(
         info!("get_user_by_username: username is empty. id={:?}", query);
         return Err(AppError::Error("username is empty".to_string()));
     }
-    let user_view = state
-        .modules
-        .user
-        .use_case
-        .get_user_by_username(query.into())
-        .await;
+    let uc: Arc<dyn IUserUseCase> = state.module.resolve();
+    let user_view = uc.get_user_by_username(query.into()).await;
     match user_view {
         Ok(user_view) => match user_view {
             Some(uv) => {
@@ -183,7 +183,8 @@ pub async fn login_user(
     ValidatedRequest(source): ValidatedRequest<JsonLoginUser>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("login_user: request param={:?}", source);
-    let user_view = state.modules.user.use_case.login_user(source.into()).await;
+    let uc: Arc<dyn IUserUseCase> = state.module.resolve();
+    let user_view = uc.login_user(source.into()).await;
     match user_view {
         Ok(uv) => {
             info!("login_user: response user `{:?}`.", uv);

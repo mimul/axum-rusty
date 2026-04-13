@@ -11,6 +11,7 @@ infra = { path = "../infra" }
 common = { path = "../common" }
 sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres"] }
 anyhow = "1.0.86"
+shaku = "0.6"
 axum = "0.7.9"
 axum-extra = { version = "0.7.7", features = ["cookie"] }
 dotenvy = "0.15"
