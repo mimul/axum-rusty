@@ -1,3 +1,4 @@
+use anyhow::Context;
 use common::config::ApplicationConfig;
 use log::LevelFilter;
 use shaku::Component;
@@ -5,6 +6,8 @@ use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{ConnectOptions, Pool, Postgres};
 use std::str::FromStr;
 use std::time::Duration;
+
+const MAX_POOL_CONNECTIONS: u32 = 10;
 
 pub type PgPool = Pool<Postgres>;
 
@@ -35,17 +38,16 @@ impl IDatabasePool for Db {
 /// ApplicationConfig 로부터 PgPool 을 생성한다.
 ///
 /// bootstrap 에서 한 번 호출하여 AppModule 에 파라미터로 전달한다.
-pub async fn create_pool(config: &ApplicationConfig) -> PgPool {
+pub async fn create_pool(config: &ApplicationConfig) -> anyhow::Result<PgPool> {
     let pg_options = PgConnectOptions::from_str(config.database_url.as_str())
-        .unwrap_or_else(|_| panic!("Error connecting to {}", config.database_url.as_str()))
+        .with_context(|| format!("DB URL 파싱 실패: {}", config.database_url))?;
+    let pg_options = pg_options
         .log_statements(LevelFilter::Trace)
         .log_slow_statements(LevelFilter::Info, Duration::from_millis(250))
         .clone();
     PgPoolOptions::new()
-        .max_connections(10)
+        .max_connections(MAX_POOL_CONNECTIONS)
         .connect_with(pg_options)
         .await
-        .unwrap_or_else(|_| {
-            panic!("Cannot connect to the database. Please check your configuration.")
-        })
+        .context("DB 연결 실패. 설정을 확인해 주세요.")
 }

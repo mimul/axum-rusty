@@ -53,7 +53,7 @@ impl IUserUseCase for UserUseCase {
 
     async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
         // CPU-heavy 작업은 트랜잭션 시작 전에 완료
-        let hashed_password = bcrypt::hash(source.password.clone(), BCRYPT_COST)?;
+        let hashed_password = bcrypt::hash(&source.password, BCRYPT_COST)?;
 
         let mut tx = self.db.pool().begin().await?;
 
@@ -86,7 +86,7 @@ impl IUserUseCase for UserUseCase {
             })?;
 
         // CPU-heavy 검증
-        let login_result = bcrypt::verify(source.password.clone(), user.password.as_str())?;
+        let login_result = bcrypt::verify(&source.password, user.password.as_str())?;
         if login_result {
             info!("login succeeded!");
             Ok(user.into())

@@ -13,7 +13,7 @@ async fn main() -> anyhow::Result<()> {
     let config = ApplicationConfig::init();
     info!("main: config={:?}", config);
 
-    let pool = create_pool(&config).await;
+    let pool = create_pool(&config).await?;
     let module = Arc::new(
         AppModule::builder()
             .with_component_parameters::<Db>(DbParameters { pool })
