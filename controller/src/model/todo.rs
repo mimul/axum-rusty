@@ -141,3 +141,94 @@ impl From<TodoQuery> for SearchTodoCondition {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_update_todo_validate_with_all_fields_returns_update_view() {
+        let contents = JsonUpdateTodoContents {
+            title: Some("New Title".to_string()),
+            description: Some("New Desc".to_string()),
+            status_code: Some("DONE".to_string()),
+        };
+        let result = contents.validate("abc123".to_string());
+        assert!(result.is_ok());
+        let view = result.unwrap();
+        assert_eq!(view.id, "abc123");
+        assert_eq!(view.title, Some("New Title".to_string()));
+        assert_eq!(view.status_code, Some("DONE".to_string()));
+    }
+
+    #[test]
+    fn json_update_todo_validate_with_empty_title_returns_error() {
+        let contents = JsonUpdateTodoContents {
+            title: Some("".to_string()),
+            description: None,
+            status_code: None,
+        };
+        let result = contents.validate("id1".to_string());
+        assert!(result.is_err());
+        let errs = result.err().unwrap();
+        assert!(errs.iter().any(|e| e.contains("title")));
+    }
+
+    #[test]
+    fn json_update_todo_validate_with_empty_status_code_returns_error() {
+        let contents = JsonUpdateTodoContents {
+            title: None,
+            description: None,
+            status_code: Some("".to_string()),
+        };
+        let result = contents.validate("id2".to_string());
+        assert!(result.is_err());
+        let errs = result.err().unwrap();
+        assert!(errs.iter().any(|e| e.contains("statusCode")));
+    }
+
+    #[test]
+    fn json_update_todo_validate_with_both_empty_returns_two_errors() {
+        let contents = JsonUpdateTodoContents {
+            title: Some("".to_string()),
+            description: None,
+            status_code: Some("".to_string()),
+        };
+        let result = contents.validate("id3".to_string());
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn json_update_todo_validate_with_no_fields_returns_ok() {
+        let contents = JsonUpdateTodoContents {
+            title: None,
+            description: None,
+            status_code: None,
+        };
+        let result = contents.validate("id4".to_string());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn todo_query_from_search_condition_with_status_maps_correctly() {
+        let query = TodoQuery {
+            status: Some("OPEN".to_string()),
+        };
+        let condition: SearchTodoCondition = query.into();
+        assert_eq!(condition.status_code, Some("OPEN".to_string()));
+    }
+
+    #[test]
+    fn todo_query_from_search_condition_without_status_maps_none() {
+        let query = TodoQuery { status: None };
+        let condition: SearchTodoCondition = query.into();
+        assert!(condition.status_code.is_none());
+    }
+
+    #[test]
+    fn json_todo_list_new_with_empty_vec_stores_empty_todos() {
+        let list = JsonTodoList::new(vec![]);
+        assert!(list.todos.is_empty());
+    }
+}
