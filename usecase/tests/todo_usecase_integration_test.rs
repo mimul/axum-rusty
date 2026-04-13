@@ -39,10 +39,7 @@ async fn update_todo_with_invalid_status_rolls_back_transaction() {
         "Original Description".to_string(),
     );
     let mut setup_tx = pool.begin().await.unwrap();
-    let inserted = todo_repo
-        .insert_tx(&mut setup_tx, new_todo)
-        .await
-        .unwrap();
+    let inserted = todo_repo.insert_tx(&mut setup_tx, new_todo).await.unwrap();
     let inserted_id = inserted.id.value.to_string();
     setup_tx.commit().await.unwrap();
 

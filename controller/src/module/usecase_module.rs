@@ -1,4 +1,4 @@
-use common::config::ApplicationConfig;
+// shaku module! 매크로가 아래 import들을 내부적으로 참조하므로 unused_imports 억제
 #[allow(unused_imports)]
 use infra::db::Db;
 #[allow(unused_imports)]
@@ -9,14 +9,16 @@ use infra::repository::todo::status::TodoStatusRepository;
 use infra::repository::todo::TodoRepository;
 #[allow(unused_imports)]
 use infra::repository::user::UserRepository;
-use shaku::module;
-use std::sync::Arc;
 #[allow(unused_imports)]
 use usecase::usecase::health_check::HealthCheckUseCase;
 #[allow(unused_imports)]
 use usecase::usecase::todo::TodoUseCase;
 #[allow(unused_imports)]
 use usecase::usecase::user::UserUseCase;
+
+use common::config::ApplicationConfig;
+use shaku::module;
+use std::sync::Arc;
 
 // 새 도메인 추가 시:
 // 1. infra에 Repository + `#[derive(Component)]`
