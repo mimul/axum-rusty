@@ -8,6 +8,7 @@ domain = { path = "../domain" }
 infra = { path = "../infra" }
 anyhow = "1.0.86"
 async-trait = "0.1.80"
+shaku = "0.6"
 bcrypt = "0.15.1"
 chrono = "0.4.38"
 log = "0.4.22"

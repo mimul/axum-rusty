@@ -4,7 +4,9 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use log::{debug, error};
+use shaku::HasComponent;
 use std::sync::Arc;
+use usecase::usecase::health_check::IHealthCheckUseCase;
 
 pub async fn hc(_: ApiVersion) -> impl IntoResponse {
     debug!("Access health check endpoint.");
@@ -15,10 +17,8 @@ pub async fn hc_postgres(
     _: ApiVersion,
     State(state): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    state
-        .modules
-        .health_check
-        .diagnose_db_conn()
+    let uc: Arc<dyn IHealthCheckUseCase> = state.module.resolve();
+    uc.diagnose_db_conn()
         .await
         .map(|_| {
             debug!("Access postgres health check endpoint.");

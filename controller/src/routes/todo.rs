@@ -12,7 +12,9 @@ use axum::http::StatusCode;
 use axum::Json;
 use log::{error, info};
 use serde_json::{json, Value};
+use shaku::HasComponent;
 use std::sync::Arc;
+use usecase::usecase::todo::ITodoUseCase;
 
 #[utoipa::path(
     get,
@@ -32,7 +34,8 @@ pub async fn get_todo(
     State(state): State<Arc<AppState>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("get_todo: id={}", id);
-    let resp = state.modules.todo.use_case.get_todo(id).await;
+    let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
+    let resp = uc.get_todo(id).await;
     match resp {
         Ok(tv) => tv
             .map(|tv| {
@@ -81,7 +84,8 @@ pub async fn find_todo(
         info!("status is none. id={:?}", query);
         return Err(AppError::Error("status is none".to_string()));
     }
-    let resp = state.modules.todo.use_case.find_todo(query.into()).await;
+    let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
+    let resp = uc.find_todo(query.into()).await;
     match resp {
         Ok(todos) => {
             let message = if todos.is_empty() {
@@ -128,7 +132,8 @@ pub async fn create_todo(
     ValidatedRequest(source): ValidatedRequest<JsonCreateTodo>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("create_todo: {:?}", source);
-    let resp = state.modules.todo.use_case.create_todo(source.into()).await;
+    let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
+    let resp = uc.create_todo(source.into()).await;
     resp.map(|tv| {
         info!("created todo: {}", tv.id);
         let json: JsonTodo = tv.into();
@@ -172,7 +177,8 @@ pub async fn update_todo(
     info!("update_todo: {:?}", source);
     match source.validate(id) {
         Ok(todo) => {
-            let resp = state.modules.todo.use_case.update_todo(todo).await;
+            let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
+            let resp = uc.update_todo(todo).await;
             resp.map(|tv| {
                 info!("updated todo {}", tv.id);
                 let json: JsonTodo = tv.into();
@@ -223,12 +229,8 @@ pub async fn upsert_todo(
     ValidatedRequest(source): ValidatedRequest<JsonUpsertTodoContents>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("upsert_todo: {:?}", source);
-    let resp = state
-        .modules
-        .todo
-        .use_case
-        .upsert_todo(source.to_view(id))
-        .await;
+    let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
+    let resp = uc.upsert_todo(source.to_view(id)).await;
     resp.map(|tv| {
         info!("created or updated todo {}", tv.id);
         let json: JsonTodo = tv.into();
@@ -265,7 +267,8 @@ pub async fn delete_todo(
     State(state): State<Arc<AppState>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("delete_todo: id={}", id);
-    let resp = state.modules.todo.use_case.delete_todo(id).await;
+    let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
+    let resp = uc.delete_todo(id).await;
     match resp {
         Ok(tv) => tv
             .map(|tv| {

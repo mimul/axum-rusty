@@ -1,18 +1,25 @@
-use infra::repository::health_check::HealthCheckRepository;
+use async_trait::async_trait;
+use infra::repository::health_check::IHealthCheckRepository;
+use shaku::Component;
 use std::sync::Arc;
 
-pub struct HealthCheckUseCase {
-    repository: Arc<HealthCheckRepository>,
+/// HealthCheck 유스케이스 인터페이스.
+#[async_trait]
+pub trait IHealthCheckUseCase: shaku::Interface {
+    async fn diagnose_db_conn(&self) -> anyhow::Result<()>;
 }
 
-impl HealthCheckUseCase {
-    pub fn new(repository: HealthCheckRepository) -> Self {
-        Self {
-            repository: Arc::new(repository),
-        }
-    }
+/// HealthCheck 유스케이스 구현체.
+#[derive(Component)]
+#[shaku(interface = IHealthCheckUseCase)]
+pub struct HealthCheckUseCase {
+    #[shaku(inject)]
+    repository: Arc<dyn IHealthCheckRepository>,
+}
 
-    pub async fn diagnose_db_conn(&self) -> anyhow::Result<()> {
+#[async_trait]
+impl IHealthCheckUseCase for HealthCheckUseCase {
+    async fn diagnose_db_conn(&self) -> anyhow::Result<()> {
         self.repository.check_connection().await
     }
 }

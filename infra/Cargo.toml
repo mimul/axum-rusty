@@ -8,6 +8,7 @@ domain = { path = "../domain" }
 common = { path = "../common" }
 anyhow = "1.0.86"
 async-trait = "0.1.80"
+shaku = "0.6"
 chrono = "0.4.38"
 sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "chrono", "migrate"] }
 log = "0.4.22"

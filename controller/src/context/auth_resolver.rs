@@ -7,8 +7,10 @@ use axum::{middleware::Next, response::IntoResponse};
 use common::auth::webs::{get_auth_header, get_cookie_from_headers};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use log::{error, info};
+use shaku::HasComponent;
 use std::sync::Arc;
 use usecase::model::user::UserView;
+use usecase::usecase::user::IUserUseCase;
 
 pub async fn auth(
     State(state): State<Arc<AppState>>,
@@ -45,7 +47,8 @@ pub async fn auth(
         match claims {
             Ok(claims) => {
                 let user_id = claims.claims.sub;
-                let user_view = state.modules.user.use_case.get_user(user_id).await;
+                let uc: Arc<dyn IUserUseCase> = state.module.resolve();
+                let user_view = uc.get_user(user_id).await;
                 match user_view {
                     Ok(user_view) => match user_view {
                         Some(uv) => Ok(uv),

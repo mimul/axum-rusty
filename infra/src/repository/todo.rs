@@ -1,28 +1,45 @@
 pub mod status;
 
+use crate::db::IDatabasePool;
 use crate::model::todo::{InsertTodo, StoredTodo, UpdateStoredTodo, UpsertStoredTodo};
+use crate::repository::PgTx;
 use anyhow::Context;
+use async_trait::async_trait;
 use domain::model::todo::status::TodoStatus;
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use domain::model::Id;
-use sqlx::{query, query_as, PgPool, Postgres, Transaction};
+use shaku::Component;
+use sqlx::{query, query_as};
+use std::sync::Arc;
 
-pub type PgTx = Transaction<'static, Postgres>;
-
-pub struct TodoRepository {
-    pool: PgPool,
+/// Todo 레포지토리 인터페이스.
+#[async_trait]
+pub trait ITodoRepository: shaku::Interface {
+    async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>>;
+    async fn find(&self, status: Option<TodoStatus>) -> anyhow::Result<Vec<Todo>>;
+    async fn get_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>>;
+    async fn find_tx(
+        &self,
+        tx: &mut PgTx,
+        status: Option<TodoStatus>,
+    ) -> anyhow::Result<Vec<Todo>>;
+    async fn insert_tx(&self, tx: &mut PgTx, todo: NewTodo) -> anyhow::Result<Todo>;
+    async fn update_tx(&self, tx: &mut PgTx, todo: UpdateTodo) -> anyhow::Result<Todo>;
+    async fn upsert_tx(&self, tx: &mut PgTx, todo: UpsertTodo) -> anyhow::Result<Todo>;
+    async fn delete_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>>;
 }
 
-impl TodoRepository {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
-    }
+/// PostgreSQL Todo 레포지토리 구현체.
+#[derive(Component)]
+#[shaku(interface = ITodoRepository)]
+pub struct TodoRepository {
+    #[shaku(inject)]
+    db: Arc<dyn IDatabasePool>,
+}
 
-    // -----------------------------------------------------------------------
-    // 읽기 — PgPool 직접 사용 (트랜잭션 불필요)
-    // -----------------------------------------------------------------------
-
-    pub async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
+#[async_trait]
+impl ITodoRepository for TodoRepository {
+    async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
         let sql = r#"
             SELECT t.id, t.title, t.description,
                    ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
@@ -33,7 +50,7 @@ impl TodoRepository {
         "#;
         let result = query_as::<_, StoredTodo>(sql)
             .bind(id.value.to_string())
-            .fetch_optional(&self.pool)
+            .fetch_optional(self.db.pool())
             .await?;
         match result {
             Some(st) => Ok(Some(st.try_into()?)),
@@ -41,7 +58,44 @@ impl TodoRepository {
         }
     }
 
-    pub async fn get_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
+    async fn find(&self, status: Option<TodoStatus>) -> anyhow::Result<Vec<Todo>> {
+        let stored: Vec<StoredTodo> = match status {
+            Some(s) => {
+                let sql = r#"
+                    SELECT t.id, t.title, t.description,
+                           ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+                           t.created_at, t.updated_at
+                    FROM todos t
+                    INNER JOIN todo_statuses ts ON ts.id = t.status_id
+                    WHERE t.status_id = $1
+                    ORDER BY t.created_at ASC
+                "#;
+                query_as::<_, StoredTodo>(sql)
+                    .bind(s.id.value.to_string())
+                    .fetch_all(self.db.pool())
+                    .await?
+            }
+            None => {
+                let sql = r#"
+                    SELECT t.id, t.title, t.description,
+                           ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+                           t.created_at, t.updated_at
+                    FROM todos t
+                    INNER JOIN todo_statuses ts ON ts.id = t.status_id
+                    ORDER BY t.created_at ASC
+                "#;
+                query_as::<_, StoredTodo>(sql)
+                    .fetch_all(self.db.pool())
+                    .await?
+            }
+        };
+        stored
+            .into_iter()
+            .map(|st| st.try_into())
+            .collect::<anyhow::Result<Vec<Todo>>>()
+    }
+
+    async fn get_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
         let sql = r#"
             SELECT t.id, t.title, t.description,
                    ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
@@ -60,7 +114,7 @@ impl TodoRepository {
         }
     }
 
-    pub async fn find_tx(
+    async fn find_tx(
         &self,
         tx: &mut PgTx,
         status: Option<TodoStatus>,
@@ -99,46 +153,7 @@ impl TodoRepository {
             .collect::<anyhow::Result<Vec<Todo>>>()
     }
 
-    pub async fn find(&self, status: Option<TodoStatus>) -> anyhow::Result<Vec<Todo>> {
-        let stored: Vec<StoredTodo> = match status {
-            Some(s) => {
-                let sql = r#"
-                    SELECT t.id, t.title, t.description,
-                           ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
-                           t.created_at, t.updated_at
-                    FROM todos t
-                    INNER JOIN todo_statuses ts ON ts.id = t.status_id
-                    WHERE t.status_id = $1
-                    ORDER BY t.created_at ASC
-                "#;
-                query_as::<_, StoredTodo>(sql)
-                    .bind(s.id.value.to_string())
-                    .fetch_all(&self.pool)
-                    .await?
-            }
-            None => {
-                let sql = r#"
-                    SELECT t.id, t.title, t.description,
-                           ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
-                           t.created_at, t.updated_at
-                    FROM todos t
-                    INNER JOIN todo_statuses ts ON ts.id = t.status_id
-                    ORDER BY t.created_at ASC
-                "#;
-                query_as::<_, StoredTodo>(sql).fetch_all(&self.pool).await?
-            }
-        };
-        stored
-            .into_iter()
-            .map(|st| st.try_into())
-            .collect::<anyhow::Result<Vec<Todo>>>()
-    }
-
-    // -----------------------------------------------------------------------
-    // 쓰기 — 트랜잭션 컨텍스트(_tx) 필수
-    // -----------------------------------------------------------------------
-
-    pub async fn insert_tx(&self, tx: &mut PgTx, source: NewTodo) -> anyhow::Result<Todo> {
+    async fn insert_tx(&self, tx: &mut PgTx, source: NewTodo) -> anyhow::Result<Todo> {
         let todo: InsertTodo = source.into();
         let id = todo.id.clone();
 
@@ -164,7 +179,7 @@ impl TodoRepository {
         stored.try_into()
     }
 
-    pub async fn update_tx(&self, tx: &mut PgTx, source: UpdateTodo) -> anyhow::Result<Todo> {
+    async fn update_tx(&self, tx: &mut PgTx, source: UpdateTodo) -> anyhow::Result<Todo> {
         let todo: UpdateStoredTodo = source.into();
         let id = todo.id.clone();
 
@@ -200,7 +215,7 @@ impl TodoRepository {
         stored.try_into()
     }
 
-    pub async fn upsert_tx(&self, tx: &mut PgTx, source: UpsertTodo) -> anyhow::Result<Todo> {
+    async fn upsert_tx(&self, tx: &mut PgTx, source: UpsertTodo) -> anyhow::Result<Todo> {
         let todo: UpsertStoredTodo = source.into();
         let id = todo.id.clone();
 
@@ -233,7 +248,7 @@ impl TodoRepository {
         stored.try_into()
     }
 
-    pub async fn delete_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
+    async fn delete_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
         let sql = r#"
             WITH deleted AS (
                 DELETE FROM todos WHERE id = $1

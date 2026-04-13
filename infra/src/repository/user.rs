@@ -1,35 +1,50 @@
+use crate::db::IDatabasePool;
 use crate::model::user::{InsertUser, StoredUser};
-use crate::repository::todo::PgTx;
+use crate::repository::PgTx;
+use async_trait::async_trait;
 use domain::model::user::{NewUser, User};
 use domain::model::Id;
-use sqlx::{query, query_as, PgPool};
+use shaku::Component;
+use sqlx::{query, query_as};
+use std::sync::Arc;
 
-pub struct UserRepository {
-    pool: PgPool,
+/// User 레포지토리 인터페이스.
+#[async_trait]
+pub trait IUserRepository: shaku::Interface {
+    async fn get_user(&self, id: &Id<User>) -> anyhow::Result<Option<User>>;
+    async fn get_user_tx(&self, tx: &mut PgTx, id: &Id<User>) -> anyhow::Result<Option<User>>;
+    async fn get_user_by_username(&self, username: &str) -> anyhow::Result<Option<User>>;
+    async fn get_user_by_username_tx(
+        &self,
+        tx: &mut PgTx,
+        username: &str,
+    ) -> anyhow::Result<Option<User>>;
+    async fn insert_tx(&self, tx: &mut PgTx, source: NewUser) -> anyhow::Result<User>;
 }
 
-impl UserRepository {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+/// PostgreSQL User 레포지토리 구현체.
+#[derive(Component)]
+#[shaku(interface = IUserRepository)]
+pub struct UserRepository {
+    #[shaku(inject)]
+    db: Arc<dyn IDatabasePool>,
+}
+
+#[async_trait]
+impl IUserRepository for UserRepository {
+    async fn get_user(&self, id: &Id<User>) -> anyhow::Result<Option<User>> {
+        find_user_by_id(self.db.pool(), id).await
     }
 
-    // -----------------------------------------------------------------------
-    // 읽기
-    // -----------------------------------------------------------------------
-
-    pub async fn get_user(&self, id: &Id<User>) -> anyhow::Result<Option<User>> {
-        find_user_by_id(&self.pool, id).await
-    }
-
-    pub async fn get_user_tx(&self, tx: &mut PgTx, id: &Id<User>) -> anyhow::Result<Option<User>> {
+    async fn get_user_tx(&self, tx: &mut PgTx, id: &Id<User>) -> anyhow::Result<Option<User>> {
         find_user_by_id(&mut **tx, id).await
     }
 
-    pub async fn get_user_by_username(&self, username: &str) -> anyhow::Result<Option<User>> {
-        find_user_by_username(&self.pool, username).await
+    async fn get_user_by_username(&self, username: &str) -> anyhow::Result<Option<User>> {
+        find_user_by_username(self.db.pool(), username).await
     }
 
-    pub async fn get_user_by_username_tx(
+    async fn get_user_by_username_tx(
         &self,
         tx: &mut PgTx,
         username: &str,
@@ -37,11 +52,7 @@ impl UserRepository {
         find_user_by_username(&mut **tx, username).await
     }
 
-    // -----------------------------------------------------------------------
-    // 쓰기
-    // -----------------------------------------------------------------------
-
-    pub async fn insert_tx(&self, tx: &mut PgTx, source: NewUser) -> anyhow::Result<User> {
+    async fn insert_tx(&self, tx: &mut PgTx, source: NewUser) -> anyhow::Result<User> {
         let user: InsertUser = source.into();
 
         query(
@@ -68,9 +79,9 @@ impl UserRepository {
     }
 }
 
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // Private helpers — generic executor로 pool / tx 모두 처리
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 
 async fn find_user_by_id<'e, E>(executor: E, id: &Id<User>) -> anyhow::Result<Option<User>>
 where

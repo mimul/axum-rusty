@@ -13,22 +13,14 @@
 mod common;
 
 use common::db::setup_test_db;
+use common::module::build_usecase_test_module;
 use domain::model::todo::NewTodo;
 use domain::model::Id;
-use infra::repository::todo::status::TodoStatusRepository;
-use infra::repository::todo::TodoRepository;
+use infra::repository::todo::ITodoRepository;
+use shaku::HasComponent;
 use std::sync::Arc;
 use usecase::model::todo::{CreateTodo, UpdateTodoView, UpsertTodoView};
-use usecase::usecase::todo::TodoUseCase;
-
-fn build_usecase(
-    pool: sqlx::PgPool,
-) -> (TodoUseCase, Arc<TodoRepository>, Arc<TodoStatusRepository>) {
-    let todo_repo = Arc::new(TodoRepository::new(pool.clone()));
-    let todo_status_repo = Arc::new(TodoStatusRepository::new(pool.clone()));
-    let usecase = TodoUseCase::new(pool, todo_repo.clone(), todo_status_repo.clone());
-    (usecase, todo_repo, todo_status_repo)
-}
+use usecase::usecase::todo::ITodoUseCase;
 
 /// update_todo에 존재하지 않는 status_code를 넘기면
 /// get_by_code가 Err를 반환하고 트랜잭션이 롤백되어
@@ -36,7 +28,9 @@ fn build_usecase(
 #[tokio::test]
 async fn update_todo_with_invalid_status_rolls_back_transaction() {
     let pool = setup_test_db().await;
-    let (usecase, todo_repo, _) = build_usecase(pool.clone());
+    let module = build_usecase_test_module(pool.clone());
+    let usecase: Arc<dyn ITodoUseCase> = module.resolve();
+    let todo_repo: Arc<dyn ITodoRepository> = module.resolve();
 
     // Setup: 테스트용 todo를 커밋하여 DB에 영구 저장
     let new_todo = NewTodo::new(
@@ -45,7 +39,10 @@ async fn update_todo_with_invalid_status_rolls_back_transaction() {
         "Original Description".to_string(),
     );
     let mut setup_tx = pool.begin().await.unwrap();
-    let inserted = todo_repo.insert_tx(&mut setup_tx, new_todo).await.unwrap();
+    let inserted = todo_repo
+        .insert_tx(&mut setup_tx, new_todo)
+        .await
+        .unwrap();
     let inserted_id = inserted.id.value.to_string();
     setup_tx.commit().await.unwrap();
 
@@ -84,7 +81,9 @@ async fn update_todo_with_invalid_status_rolls_back_transaction() {
 #[tokio::test]
 async fn create_and_update_todo_when_update_fails_rolls_back_create() {
     let pool = setup_test_db().await;
-    let (usecase, todo_repo, _) = build_usecase(pool.clone());
+    let module = build_usecase_test_module(pool.clone());
+    let usecase: Arc<dyn ITodoUseCase> = module.resolve();
+    let todo_repo: Arc<dyn ITodoRepository> = module.resolve();
 
     // Setup: update 대상 todo를 커밋하여 DB에 저장
     let mut setup_tx = pool.begin().await.unwrap();
@@ -157,7 +156,8 @@ async fn create_and_update_todo_when_update_fails_rolls_back_create() {
 #[tokio::test]
 async fn update_todo_with_nonexistent_id_rolls_back_transaction() {
     let pool = setup_test_db().await;
-    let (usecase, _, _) = build_usecase(pool);
+    let module = build_usecase_test_module(pool);
+    let usecase: Arc<dyn ITodoUseCase> = module.resolve();
 
     let nonexistent_id = Id::<domain::model::todo::Todo>::gen().value.to_string();
     let update_view =
@@ -175,7 +175,9 @@ async fn update_todo_with_nonexistent_id_rolls_back_transaction() {
 #[tokio::test]
 async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
     let pool = setup_test_db().await;
-    let (usecase, todo_repo, _) = build_usecase(pool.clone());
+    let module = build_usecase_test_module(pool.clone());
+    let usecase: Arc<dyn ITodoUseCase> = module.resolve();
+    let todo_repo: Arc<dyn ITodoRepository> = module.resolve();
 
     let unique_title = format!(
         "__ROLLBACK_INVALID_ID_TEST__{}",
@@ -210,7 +212,9 @@ async fn create_and_update_todo_with_invalid_id_format_rolls_back_create() {
 #[tokio::test]
 async fn upsert_todo_with_invalid_status_rolls_back_transaction() {
     let pool = setup_test_db().await;
-    let (usecase, todo_repo, _) = build_usecase(pool.clone());
+    let module = build_usecase_test_module(pool.clone());
+    let usecase: Arc<dyn ITodoUseCase> = module.resolve();
+    let todo_repo: Arc<dyn ITodoRepository> = module.resolve();
 
     let upsert_id = Id::<domain::model::todo::Todo>::gen().value.to_string();
     let upsert_source = UpsertTodoView::new(
