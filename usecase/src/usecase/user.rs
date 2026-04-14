@@ -9,7 +9,8 @@ use shaku::Component;
 use std::sync::Arc;
 
 /// bcrypt 해시 cost factor (OWASP 권고: 10 이상)
-const BCRYPT_COST: u32 = 12;
+/// cost=10: ~80~150ms / cost=12: ~400~1000ms (2의 지수 증가)
+const BCRYPT_COST: u32 = 10;
 
 /// User 유스케이스 인터페이스.
 #[async_trait]
@@ -52,8 +53,12 @@ impl IUserUseCase for UserUseCase {
     }
 
     async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
-        // CPU-heavy 작업은 트랜잭션 시작 전에 완료
-        let hashed_password = bcrypt::hash(&source.password, BCRYPT_COST)?;
+        // bcrypt::hash는 CPU-blocking → spawn_blocking으로 tokio worker thread 분리
+        let password = source.password.clone();
+        let hashed_password: String =
+            tokio::task::spawn_blocking(move || bcrypt::hash(&password, BCRYPT_COST))
+                .await
+                .map_err(|e| anyhow!("bcrypt hash task panicked: {e}"))??;
 
         let mut tx = self.db.pool().begin().await?;
 
@@ -85,8 +90,13 @@ impl IUserUseCase for UserUseCase {
                 anyhow!("username {} is not registered", source.username)
             })?;
 
-        // CPU-heavy 검증
-        let login_result = bcrypt::verify(&source.password, user.password.as_str())?;
+        // bcrypt::verify는 CPU-blocking → spawn_blocking으로 tokio worker thread 분리
+        let input_password = source.password.clone();
+        let stored_hash = user.password.clone();
+        let login_result: bool =
+            tokio::task::spawn_blocking(move || bcrypt::verify(&input_password, &stored_hash))
+                .await
+                .map_err(|e| anyhow!("bcrypt verify task panicked: {e}"))??;
         if login_result {
             info!("login succeeded!");
             Ok(user.into())
