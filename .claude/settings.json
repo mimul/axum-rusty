@@ -55,7 +55,7 @@
       "Bash(git push -f *)",
       "Bash(git reset --hard *)",
       "Bash(git clean -f *)",
-      "Bash(git restore .)"
+      "Bash(git restore .)",
       "Bash(gh pr merge *)",
       "Bash(rm -rf *)",
       "Bash(curl * | bash)",
