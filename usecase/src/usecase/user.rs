@@ -58,7 +58,7 @@ impl IUserUseCase for UserUseCase {
         let hashed_password: String =
             tokio::task::spawn_blocking(move || bcrypt::hash(&password, BCRYPT_COST))
                 .await
-                .map_err(|e| anyhow!("bcrypt hash task panicked: {e}"))??;
+                .map_err(|_| anyhow!("비밀번호 처리 중 오류가 발생했습니다"))??;
 
         let mut tx = self.db.pool().begin().await?;
 
@@ -96,7 +96,7 @@ impl IUserUseCase for UserUseCase {
         let login_result: bool =
             tokio::task::spawn_blocking(move || bcrypt::verify(&input_password, &stored_hash))
                 .await
-                .map_err(|e| anyhow!("bcrypt verify task panicked: {e}"))??;
+                .map_err(|_| anyhow!("인증 처리 중 오류가 발생했습니다"))??;
         if login_result {
             info!("login succeeded!");
             Ok(user.into())
