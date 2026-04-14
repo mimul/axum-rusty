@@ -25,12 +25,16 @@ impl ApplicationConfig {
         let jwt_max_age = env::var("JWT_MAX_AGE").expect("JWT_MAX_AGE must be set");
 
         ApplicationConfig {
-            debug: debug.parse::<bool>().unwrap(),
+            debug: debug
+                .parse::<bool>()
+                .expect("DEBUG must be a boolean (true/false)"),
             database_url,
             jwt_secret,
             allowed_origin,
             jwt_duration,
-            jwt_max_age: jwt_max_age.parse::<i64>().unwrap(),
+            jwt_max_age: jwt_max_age
+                .parse::<i64>()
+                .expect("JWT_MAX_AGE must be an integer"),
         }
     }
 }
