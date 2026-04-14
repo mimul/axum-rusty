@@ -69,8 +69,11 @@ impl IUserUseCase for UserUseCase {
             .await?
             .is_some()
         {
-            error!("username {} already exists", source.username);
-            return Err(anyhow!("username {} already exists", source.username));
+            error!(
+                "create_user failed: username already exists ({})",
+                source.username
+            );
+            return Err(anyhow!("이미 사용 중인 사용자명입니다"));
         }
 
         // 쓰기: insert
