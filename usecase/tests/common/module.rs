@@ -2,9 +2,11 @@
 use infra::db::{Db, DbParameters};
 use infra::repository::todo::status::TodoStatusRepository;
 use infra::repository::todo::TodoRepository;
+use infra::repository::user::UserRepository;
 use shaku::module;
 use std::sync::Arc;
 use usecase::usecase::todo::TodoUseCase;
+use usecase::usecase::user::UserUseCase;
 
 module! {
     pub UsecaseTestModule {
@@ -13,6 +15,8 @@ module! {
             TodoRepository,
             TodoStatusRepository,
             TodoUseCase,
+            UserRepository,
+            UserUseCase,
         ],
         providers = []
     }
