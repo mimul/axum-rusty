@@ -145,7 +145,6 @@ impl ITodoRepository for TodoRepository {
 
     async fn insert_tx(&self, tx: &mut PgTx, source: NewTodo) -> anyhow::Result<Todo> {
         let todo: InsertTodo = source.into();
-        let id = todo.id.clone();
 
         query("INSERT INTO todos (id, title, description) VALUES ($1, $2, $3)")
             .bind(&todo.id)
@@ -155,7 +154,7 @@ impl ITodoRepository for TodoRepository {
             .await?;
 
         let stored = query_as::<_, StoredTodo>(SELECT_TODO_BY_ID)
-            .bind(id)
+            .bind(&todo.id)
             .fetch_one(&mut **tx)
             .await?;
         stored.try_into()
@@ -163,7 +162,6 @@ impl ITodoRepository for TodoRepository {
 
     async fn update_tx(&self, tx: &mut PgTx, source: UpdateTodo) -> anyhow::Result<Todo> {
         let todo: UpdateStoredTodo = source.into();
-        let id = todo.id.clone();
 
         let update_sql = r#"
             UPDATE todos AS target SET
@@ -183,7 +181,7 @@ impl ITodoRepository for TodoRepository {
             .await?;
 
         let stored = query_as::<_, StoredTodo>(SELECT_TODO_BY_ID)
-            .bind(id)
+            .bind(&todo.id)
             .fetch_one(&mut **tx)
             .await?;
         stored.try_into()
@@ -191,7 +189,6 @@ impl ITodoRepository for TodoRepository {
 
     async fn upsert_tx(&self, tx: &mut PgTx, source: UpsertTodo) -> anyhow::Result<Todo> {
         let todo: UpsertStoredTodo = source.into();
-        let id = todo.id.clone();
 
         let upsert_sql = r#"
             INSERT INTO todos (id, title, description, status_id) VALUES ($1, $2, $3, $4)
@@ -208,7 +205,7 @@ impl ITodoRepository for TodoRepository {
             .context(format!(r#"failed to upsert "{}" into todos"#, todo.id))?;
 
         let stored = query_as::<_, StoredTodo>(SELECT_TODO_BY_ID)
-            .bind(id)
+            .bind(&todo.id)
             .fetch_one(&mut **tx)
             .await?;
         stored.try_into()
