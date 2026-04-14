@@ -13,6 +13,7 @@ bcrypt = "0.15.1"
 chrono = "0.4.38"
 log = "0.4.22"
 sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "migrate"] }
+tokio = { version = "1", features = ["rt"] }
 
 [dev-dependencies]
-tokio = { version = "1.44", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
