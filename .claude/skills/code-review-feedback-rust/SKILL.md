@@ -2,14 +2,10 @@
 name: code-review-feedback-rust
 description: >
   /code-review-feedback-rust 커맨드로 실행되는 Rust 코드 리뷰 피드백 스킬.
-  /code-review-rust와 동일한 분석(10개 카테고리)을 수행하지만,
-  소스 코드를 직접 수정하지 않고 GitHub PR에 리뷰 코멘트를 게시한다.
-  PR 모드에서는 gh api로 인라인 코멘트·리뷰 본문을 PR에 직접 등록하고,
-  비PR 모드에서는 현재 브랜치의 PR을 자동 감지하거나 Markdown 리포트를 출력한다.
+  /code-review-rust와 동일한 분석(10개 카테고리)을 수행하지만, 소스 코드를 직접 수정하지 않고 GitHub PR에 리뷰 코멘트를 게시한다.
+  PR 모드에서는 gh api로 인라인 코멘트·리뷰 본문을 PR에 직접 등록하고, 비PR 모드에서는 현재 브랜치의 PR을 자동 감지하거나 Markdown 리포트를 출력한다.
   모든 파라미터는 /code-review-rust와 동일하게 지원한다.
 ---
-
-# `/code-review-feedback-rust` 커맨드 스킬
 
 ## 스킬 개요
 
