@@ -16,12 +16,14 @@ use usecase::model::user::{CreateUser, LoginUser, SearchUserCondition};
 use usecase::usecase::user::IUserUseCase;
 
 fn unique_username(prefix: &str) -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let ts = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
-        .subsec_nanos();
-    format!("{prefix}_{ts}")
+        .as_secs();
+    format!("{prefix}_{ts}_{n}")
 }
 
 // ─── create_user ────────────────────────────────────────────────────────────

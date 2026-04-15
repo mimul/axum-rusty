@@ -7,16 +7,23 @@ use serde_json::{json, Value};
 use tower::ServiceExt;
 
 fn unique_email() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
     let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
-        .subsec_nanos();
-    format!("test{}@example.com", ts)
+        .as_secs();
+    format!("test_{ts}_{n}@example.com")
 }
 
 async fn body_json(body: axum::body::Body) -> Value {
-    let bytes = body.collect().await.unwrap().to_bytes();
-    serde_json::from_slice(&bytes).unwrap()
+    let bytes = body
+        .collect()
+        .await
+        .expect("body collection should not fail")
+        .to_bytes();
+    serde_json::from_slice(&bytes).expect("response body should be valid JSON")
 }
 
 async fn create_user_and_login(app: &axum::Router, email: &str) -> String {
@@ -31,7 +38,12 @@ async fn create_user_and_login(app: &axum::Router, email: &str) -> String {
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::from(create_body.to_string()))
         .unwrap();
-    let _ = app.clone().oneshot(req).await.unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(
+        json["result"], true,
+        "setup: create_user must succeed for {email}, got: {json}"
+    );
 
     let login_body = json!({
         "username": email,

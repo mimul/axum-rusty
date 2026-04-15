@@ -16,6 +16,9 @@ pub fn test_config(database_url: String) -> ApplicationConfig {
     }
 }
 
+// 각 테스트마다 독립된 풀을 생성한다.
+// OnceCell 공유 풀은 22개 병렬 테스트가 동시에 DB를 접근할 때
+// 커넥션 경합으로 인한 쿼리 실패를 일으키므로 사용하지 않는다.
 pub async fn build_test_app() -> Router {
     let db_url = std::env::var("TEST_DATABASE_URL")
         .unwrap_or_else(|_| "postgresql://postgres:postgres@localhost:5432/postgres".to_string());
