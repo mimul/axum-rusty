@@ -30,7 +30,11 @@ use utoipa::openapi::{Info, OpenApiBuilder};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-pub async fn startup(app_state: Arc<AppState>) {
+/// 라우터와 미들웨어를 조합하여 `Router`를 반환한다.
+///
+/// 테스트에서 `tower::ServiceExt::oneshot`으로 직접 호출하거나
+/// `startup`에서 서버를 기동할 때 사용한다.
+pub fn build_router(app_state: Arc<AppState>) -> Router {
     let cors = CorsLayer::new()
         .allow_credentials(true)
         .allow_methods(vec![
@@ -94,7 +98,7 @@ pub async fn startup(app_state: Arc<AppState>) {
         .route("/:id", get(get_user))
         .route_layer(middleware::from_fn_with_state(app_state.clone(), auth));
 
-    let app = Router::new()
+    Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/swagger.json", openapi))
         .nest("/:v/hc", hc_router)
         .nest("/:v/auth", auth_router)
@@ -115,7 +119,11 @@ pub async fn startup(app_state: Arc<AppState>) {
                 .timeout(Duration::from_secs(10))
                 .layer(TraceLayer::new_for_http())
                 .into_inner(),
-        );
+        )
+}
+
+pub async fn startup(app_state: Arc<AppState>) {
+    let app = build_router(app_state);
 
     let addr = SocketAddr::from(init_addr());
     let listener: TcpListener = TcpListener::bind(&addr)
@@ -131,10 +139,6 @@ pub async fn startup(app_state: Arc<AppState>) {
 async fn fallback() -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     Err(AppError::Error("abnormal uri".to_string()))
 }
-
-// pub fn init_app() {
-//     dotenv().ok();
-// }
 
 fn init_addr() -> (IpAddr, u16) {
     let env_host = env::var_os("HOST").expect("HOST is undefined.");

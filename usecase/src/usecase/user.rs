@@ -69,8 +69,11 @@ impl IUserUseCase for UserUseCase {
             .await?
             .is_some()
         {
-            error!("username {} already exists", source.username);
-            return Err(anyhow!("username {} already exists", source.username));
+            error!(
+                "create_user failed: username already exists ({})",
+                source.username
+            );
+            return Err(anyhow!("이미 사용 중인 사용자명입니다"));
         }
 
         // 쓰기: insert
@@ -86,8 +89,11 @@ impl IUserUseCase for UserUseCase {
             .get_user_by_username(&source.username)
             .await?
             .ok_or_else(|| {
-                error!("username {} is not registered.", source.username);
-                anyhow!("username {} is not registered", source.username)
+                error!(
+                    "login failed: username not registered ({})",
+                    source.username
+                );
+                anyhow!("잘못된 사용자명 또는 비밀번호입니다")
             })?;
 
         // bcrypt::verify는 CPU-blocking → spawn_blocking으로 tokio worker thread 분리
@@ -101,8 +107,8 @@ impl IUserUseCase for UserUseCase {
             info!("login succeeded!");
             Ok(user.into())
         } else {
-            error!("bad password.");
-            Err(anyhow!("bad password."))
+            error!("login failed: bad password for existing user");
+            Err(anyhow!("잘못된 사용자명 또는 비밀번호입니다"))
         }
     }
 }

@@ -190,8 +190,15 @@ pub async fn login_user(
             info!("login_user: response user `{:?}`.", uv);
             let now = Utc::now();
             let iat = now.timestamp() as usize;
-            let exp = (now + Duration::minutes(state.config.jwt_duration.parse().unwrap()))
-                .timestamp() as usize;
+            let exp = (now
+                + Duration::minutes(
+                    state
+                        .config
+                        .jwt_duration
+                        .parse::<i64>()
+                        .map_err(|e| AppError::Error(format!("jwt_duration 설정 오류: {e}")))?,
+                ))
+            .timestamp() as usize;
             let claims: TokenClaims = TokenClaims {
                 sub: uv.id.clone().to_string(),
                 username: uv.username.clone(),

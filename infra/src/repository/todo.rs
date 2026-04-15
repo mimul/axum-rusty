@@ -34,18 +34,19 @@ pub struct TodoRepository {
     db: Arc<dyn IDatabasePool>,
 }
 
+const SELECT_TODO_BY_ID: &str = r#"
+    SELECT t.id, t.title, t.description,
+           ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+           t.created_at, t.updated_at
+    FROM todos t
+    INNER JOIN todo_statuses ts ON ts.id = t.status_id
+    WHERE t.id = $1
+"#;
+
 #[async_trait]
 impl ITodoRepository for TodoRepository {
     async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
-        let sql = r#"
-            SELECT t.id, t.title, t.description,
-                   ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
-                   t.created_at, t.updated_at
-            FROM todos t
-            INNER JOIN todo_statuses ts ON ts.id = t.status_id
-            WHERE t.id = $1
-        "#;
-        let result = query_as::<_, StoredTodo>(sql)
+        let result = query_as::<_, StoredTodo>(SELECT_TODO_BY_ID)
             .bind(id.value.to_string())
             .fetch_optional(self.db.pool())
             .await?;
@@ -93,15 +94,7 @@ impl ITodoRepository for TodoRepository {
     }
 
     async fn get_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
-        let sql = r#"
-            SELECT t.id, t.title, t.description,
-                   ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
-                   t.created_at, t.updated_at
-            FROM todos t
-            INNER JOIN todo_statuses ts ON ts.id = t.status_id
-            WHERE t.id = $1
-        "#;
-        let result = query_as::<_, StoredTodo>(sql)
+        let result = query_as::<_, StoredTodo>(SELECT_TODO_BY_ID)
             .bind(id.value.to_string())
             .fetch_optional(&mut **tx)
             .await?;
@@ -152,7 +145,6 @@ impl ITodoRepository for TodoRepository {
 
     async fn insert_tx(&self, tx: &mut PgTx, source: NewTodo) -> anyhow::Result<Todo> {
         let todo: InsertTodo = source.into();
-        let id = todo.id.clone();
 
         query("INSERT INTO todos (id, title, description) VALUES ($1, $2, $3)")
             .bind(&todo.id)
@@ -161,16 +153,8 @@ impl ITodoRepository for TodoRepository {
             .execute(&mut **tx)
             .await?;
 
-        let sql = r#"
-            SELECT t.id, t.title, t.description,
-                   ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
-                   t.created_at, t.updated_at
-            FROM todos t
-            INNER JOIN todo_statuses ts ON ts.id = t.status_id
-            WHERE t.id = $1
-        "#;
-        let stored = query_as::<_, StoredTodo>(sql)
-            .bind(id)
+        let stored = query_as::<_, StoredTodo>(SELECT_TODO_BY_ID)
+            .bind(&todo.id)
             .fetch_one(&mut **tx)
             .await?;
         stored.try_into()
@@ -178,7 +162,6 @@ impl ITodoRepository for TodoRepository {
 
     async fn update_tx(&self, tx: &mut PgTx, source: UpdateTodo) -> anyhow::Result<Todo> {
         let todo: UpdateStoredTodo = source.into();
-        let id = todo.id.clone();
 
         let update_sql = r#"
             UPDATE todos AS target SET
@@ -197,16 +180,8 @@ impl ITodoRepository for TodoRepository {
             .execute(&mut **tx)
             .await?;
 
-        let sql = r#"
-            SELECT t.id, t.title, t.description,
-                   ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
-                   t.created_at, t.updated_at
-            FROM todos t
-            INNER JOIN todo_statuses ts ON ts.id = t.status_id
-            WHERE t.id = $1
-        "#;
-        let stored = query_as::<_, StoredTodo>(sql)
-            .bind(id)
+        let stored = query_as::<_, StoredTodo>(SELECT_TODO_BY_ID)
+            .bind(&todo.id)
             .fetch_one(&mut **tx)
             .await?;
         stored.try_into()
@@ -214,7 +189,6 @@ impl ITodoRepository for TodoRepository {
 
     async fn upsert_tx(&self, tx: &mut PgTx, source: UpsertTodo) -> anyhow::Result<Todo> {
         let todo: UpsertStoredTodo = source.into();
-        let id = todo.id.clone();
 
         let upsert_sql = r#"
             INSERT INTO todos (id, title, description, status_id) VALUES ($1, $2, $3, $4)
@@ -230,16 +204,8 @@ impl ITodoRepository for TodoRepository {
             .await
             .context(format!(r#"failed to upsert "{}" into todos"#, todo.id))?;
 
-        let sql = r#"
-            SELECT t.id, t.title, t.description,
-                   ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
-                   t.created_at, t.updated_at
-            FROM todos t
-            INNER JOIN todo_statuses ts ON ts.id = t.status_id
-            WHERE t.id = $1
-        "#;
-        let stored = query_as::<_, StoredTodo>(sql)
-            .bind(id)
+        let stored = query_as::<_, StoredTodo>(SELECT_TODO_BY_ID)
+            .bind(&todo.id)
             .fetch_one(&mut **tx)
             .await?;
         stored.try_into()
