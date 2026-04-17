@@ -36,7 +36,10 @@ fn generate_jwt_token(
         &claims,
         &EncodingKey::from_secret(jwt_secret.as_ref()),
     )
-    .map_err(|e| AppError::Error(format!("token encoding failed: {e}")))
+    .map_err(|e| {
+        error!("JWT 인코딩 실패: {:?}", e);
+        AppError::Error("서버 오류가 발생했습니다".to_string())
+    })
 }
 
 #[utoipa::path(
@@ -255,9 +258,8 @@ mod tests {
 
     #[test]
     fn generate_jwt_token_with_valid_inputs_returns_token() {
-        let result = generate_jwt_token("user123", "alice", "secret_key_for_test", 60);
-        assert!(result.is_ok());
-        let token = result.unwrap();
+        let token = generate_jwt_token("user123", "alice", "secret_key_for_test", 60)
+            .expect("유효한 파라미터로 토큰 생성 성공해야 함");
         assert!(!token.is_empty());
     }
 

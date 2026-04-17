@@ -146,7 +146,8 @@ mod tests {
 
     #[test]
     fn create_cookie_headers_with_valid_input_returns_ok() {
-        let result = create_cookie_headers("token", "abc123");
-        assert!(result.is_ok());
+        let headers = create_cookie_headers("token", "abc123")
+            .expect("유효한 입력으로 헤더 생성 성공해야 함");
+        assert!(headers.contains_key(header::SET_COOKIE));
     }
 }
