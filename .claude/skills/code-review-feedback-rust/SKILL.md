@@ -220,20 +220,17 @@ gh pr list --head $(git branch --show-current) --state open --json number,title,
 🚨 발견된 이슈 ([N]건)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🚫 Blocking Issues
-  🔴 Critical ([N]건)
+🚫 Blocking Issues ([N]건)
   • [C-CR-XX] [파일명:행번호] [이슈 제목]
     → [설명] / 근거: [security.md §섹션 또는 test.md §섹션]
 
-  🟠 High ([N]건)
+⚠️ Recommended Changes ([N]건)
   • ...
 
-⚠️ Recommended Changes
-  🟡 Medium ([N]건)
+💡 Suggestions ([N]건)
   • ...
 
-💡 Suggestions / 📝 Tech Debt
-  🔵 Low ([N]건)
+📝 Tech Debt ([N]건)
   • ...
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
