@@ -17,6 +17,28 @@ use std::sync::Arc;
 use usecase::model::user::UserView;
 use usecase::usecase::user::IUserUseCase;
 
+/// JWT 토큰을 생성한다.
+fn generate_jwt_token(
+    user_id: &str,
+    username: &str,
+    jwt_secret: &str,
+    jwt_duration: i64,
+) -> Result<String, AppError> {
+    let now = Utc::now();
+    let claims = TokenClaims {
+        sub: user_id.to_string(),
+        username: username.to_string(),
+        exp: (now + Duration::minutes(jwt_duration)).timestamp() as usize,
+        iat: now.timestamp() as usize,
+    };
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(jwt_secret.as_ref()),
+    )
+    .map_err(|e| AppError::Error(format!("token encoding failed: {e}")))
+}
+
 #[utoipa::path(
     post,
     path = "/v1/auth/create",
@@ -188,29 +210,13 @@ pub async fn login_user(
     match user_view {
         Ok(uv) => {
             info!("login_user: response user `{:?}`.", uv);
-            let now = Utc::now();
-            let iat = now.timestamp() as usize;
-            let exp = (now
-                + Duration::minutes(
-                    state
-                        .config
-                        .jwt_duration
-                        .parse::<i64>()
-                        .map_err(|e| AppError::Error(format!("jwt_duration 설정 오류: {e}")))?,
-                ))
-            .timestamp() as usize;
-            let claims: TokenClaims = TokenClaims {
-                sub: uv.id.clone().to_string(),
-                username: uv.username.clone(),
-                exp,
-                iat,
-            };
-            let token = encode(
-                &Header::default(),
-                &claims,
-                &EncodingKey::from_secret(state.config.jwt_secret.as_ref()),
-            )
-            .map_err(|e| AppError::Error(format!("token encoding failed: {e}")))?;
+            let jwt_duration = state
+                .config
+                .jwt_duration
+                .parse::<i64>()
+                .map_err(|e| AppError::Error(format!("jwt_duration 설정 오류: {e}")))?;
+            let token =
+                generate_jwt_token(&uv.id, &uv.username, &state.config.jwt_secret, jwt_duration)?;
             let cookie = Cookie::build("token", token.to_owned())
                 .path("/")
                 .max_age(time::Duration::hours(state.config.jwt_max_age.to_owned()))
@@ -240,5 +246,25 @@ pub async fn login_user(
             error!("Unexpected error: {:?}", err);
             Err(AppError::Error(err.to_string()))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_jwt_token_with_valid_inputs_returns_token() {
+        let result = generate_jwt_token("user123", "alice", "secret_key_for_test", 60);
+        assert!(result.is_ok());
+        let token = result.unwrap();
+        assert!(!token.is_empty());
+    }
+
+    #[test]
+    fn generate_jwt_token_produces_three_part_jwt() {
+        let token = generate_jwt_token("user123", "alice", "secret_key_for_test", 60).unwrap();
+        let parts: Vec<&str> = token.split('.').collect();
+        assert_eq!(parts.len(), 3);
     }
 }
