@@ -31,7 +31,7 @@ description: >
 - **security.md 적용** — C-CR-01·05·07 판단 시 보안 규칙을 판단 기준으로 사용
 - **test.md 적용** — C-CR-10 판단 시 테스트 규칙의 커버리지·네이밍 기준 적용
 - **보여주고 확인받기** — Before/After 제시 → 인간 승인 후에만 수정 적용
-- **심각도 우선** — Critical → High → Medium → Low 순서로 처리
+- **분류 우선** — 🚫 Blocking → ⚠️ Recommended → 💡 Suggestions 순서로 처리
 - **항상 그린** — 수정 후 `cargo test` + `cargo clippy` 통과 확인
 
 ---
@@ -66,8 +66,8 @@ description: >
 /code-review-rust --scope unsafe            C-CR-07 unsafe만
 /code-review-rust --scope test              C-CR-10 테스트만
 /code-review-rust --scope security          security.md 전체 기준 집중 리뷰
-/code-review-rust --severity critical       Critical 이슈만 보고
-/code-review-rust --severity high           High 이상 이슈만 보고
+/code-review-rust --severity blocking       🚫 Blocking 이슈만 보고
+/code-review-rust --severity recommended    ⚠️ Recommended 이상 보고
 
 # 정보
 /code-review-rust --catalog                 카테고리 목록 출력
@@ -433,27 +433,27 @@ Read(file_path: "[지정된 파일 경로]")
 ### security.md → C-CR-01 · C-CR-05 · C-CR-07 판단 기준
 
 **C-CR-01 에러 처리** 판단 시 security.md §에러 응답 적용:
-- `unwrap()`/`expect()`가 라이브러리 코드에 있으면 Critical
-- 에러 메시지에 DB 쿼리·파일 경로 등 내부 정보가 포함되면 High로 격상
+- `unwrap()`/`expect()`가 라이브러리 코드에 있으면 🚫 Blocking (Critical)
+- 에러 메시지에 DB 쿼리·파일 경로 등 내부 정보가 포함되면 🚫 Blocking (High)으로 격상
 - `thiserror` 미사용 시 외부 노출 에러 타입의 `Display` 구현 여부 확인
 
 **C-CR-05 동시성** 판단 시 security.md §인증·권한 적용:
-- `static mut` 사용 시 Critical (데이터 레이스 = 보안 위험)
-- async 컨텍스트에서 `std::sync::Mutex` 사용 시 High
+- `static mut` 사용 시 🚫 Blocking (Critical) (데이터 레이스 = 보안 위험)
+- async 컨텍스트에서 `std::sync::Mutex` 사용 시 🚫 Blocking (High)
 
 **C-CR-07 unsafe** 판단 시 security.md §unsafe 적용:
-- `unsafe` 블록에 `// SAFETY:` 주석 없으면 **Critical**로 판정
-- 원시 포인터 null 체크 없으면 **Critical**
-- FFI 경계 ABI 미검증이면 **High**
+- `unsafe` 블록에 `// SAFETY:` 주석 없으면 **🚫 Blocking (Critical)**으로 판정
+- 원시 포인터 null 체크 없으면 **🚫 Blocking (Critical)**
+- FFI 경계 ABI 미검증이면 **🚫 Blocking (High)**
 
 ### test.md → C-CR-10 판단 기준
 
 **C-CR-10 테스트** 판단 시 test.md 전체 적용:
 - test.md §커버리지 기준: `domain/` 90%, 전체 80% 목표 기준으로 테스트 부족 여부 판단
-- test.md §에러 케이스 필수 목록: `Result` 반환 함수에 에러 케이스 테스트 없으면 High
-- test.md §네이밍: `test1()`, `test_order()` 등 의미 없는 이름이면 Low
-- test.md §금지 패턴: `#[ignore]` 무단 추가, 공유 상태 테스트 있으면 Medium
-- test.md §Result 반환 테스트: `#[should_panic]` 사용 시 Medium (Result 반환 방식 권고)
+- test.md §에러 케이스 필수 목록: `Result` 반환 함수에 에러 케이스 테스트 없으면 ⚠️ Recommended (High)
+- test.md §네이밍: `test1()`, `test_order()` 등 의미 없는 이름이면 💡 Suggestions (Low)
+- test.md §금지 패턴: `#[ignore]` 무단 추가, 공유 상태 테스트 있으면 ⚠️ Recommended (Medium)
+- test.md §Result 반환 테스트: `#[should_panic]` 사용 시 ⚠️ Recommended (Medium) (Result 반환 방식 권고)
 
 ### 분석 리포트 형식
 
@@ -477,17 +477,20 @@ Read(file_path: "[지정된 파일 경로]")
 🚨 발견된 이슈 ([N]건)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🔴 Critical ([N]건)
+🚫 Blocking Issues
+  🔴 Critical ([N]건)
   • [C-CR-XX] [파일명:행번호] [이슈 제목]
     → [설명] / 근거: [security.md §섹션 또는 test.md §섹션]
 
-🟠 High ([N]건)
+  🟠 High ([N]건)
   • ...
 
-🟡 Medium ([N]건)
+⚠️ Recommended Changes
+  🟡 Medium ([N]건)
   • ...
 
-🔵 Low ([N]건)
+💡 Suggestions / 📝 Tech Debt
+  🔵 Low ([N]건)
   • ...
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -508,17 +511,17 @@ Read(file_path: "[지정된 파일 경로]")
 📋  수정 계획 — 총 [N]건
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🔴 즉시 수정 권장 (Critical + High: [N]건)
+🚫 Blocking — 즉시 수정 필수 (Critical + High: [N]건)
   1. [C-CR-XX] [이슈 제목] — [파일명:행번호]
 
-🟡 선택적 수정 (Medium: [N]건)
+⚠️ Recommended — 권장 수정 (Medium: [N]건)
   2. [C-CR-XX] [이슈 제목] — [파일명:행번호]
 
-🔵 참고 사항 (Low: [N]건)
+💡 Suggestions / 📝 Tech Debt — 선택 사항 (Low: [N]건)
   3. [C-CR-XX] [이슈 제목] — [파일명:행번호]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  "전체 수정" / "Critical만" / "High 이상만" / "[번호]번만" / "리포트만"
+  "전체 수정" / "Blocking만" / "Recommended 이상" / "[번호]번만" / "리포트만"
 ```
 
 ---
@@ -532,13 +535,13 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[심각도 이모지] [C-CR-XX] [이슈 제목]  —  Before/After 비교
+[분류 이모지] [C-CR-XX] [이슈 제목]  —  Before/After 비교
     ([진행 현황: N/M번째])
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📍 위치:   [파일명 : 행번호]
 📖 문제:   [위험한 이유 1~2줄]
-⚠️  심각도: [🔴 Critical / 🟠 High / 🟡 Medium / 🔵 Low]
+🏷️  분류:   [🚫 Blocking / ⚠️ Recommended / 💡 Suggestion / 📝 Tech Debt]
 📏 규칙:   [해당 시 — security.md §섹션 또는 test.md §섹션]
 
 ─── BEFORE ──────────────────────────────
@@ -581,7 +584,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 | `"수정해줘: [내용]"` | After 재제안 → 재출력 |
 | `"왜?"` / `"설명해줘"` | 근거 상세 설명 → 같은 비교 유지 |
 | `"여기서 멈춰"` / `"stop"` | 루프 종료 → STEP 5 |
-| `"전체 적용"` | 일괄 적용 (**Critical + 보안 이슈는 개별 확인 유지**) |
+| `"전체 적용"` | 일괄 적용 (**🚫 Blocking + 보안 이슈는 개별 확인 유지**) |
 
 ### 4-C. 수정 적용 시 출력
 
@@ -602,9 +605,9 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 4-D. Critical + 보안 이슈 특별 처리
+### 4-D. 🚫 Blocking + 보안 이슈 특별 처리
 
-`🔴 Critical` 이슈와 `security.md`에서 비롯된 보안 이슈는
+`🚫 Blocking` 이슈와 `security.md`에서 비롯된 보안 이슈는
 `"전체 적용"` 명령에도 **반드시 개별 확인**을 받는다.
 
 ```
@@ -692,7 +695,7 @@ cargo tarpaulin --out Stdout 2>&1 | tail -5
 건너뛴 이슈 ([M]건):
   ⏭️  [C-CR-XX] [제목] — [사유]
 
-참고 사항 (Low):
+💡 Suggestions / 📝 Tech Debt:
   🔵 [C-CR-XX] [제목] — [내용]
 
 최종 검증 커맨드:
@@ -705,7 +708,7 @@ PR 체크리스트:
   □ cargo test --all 전체 통과
   □ cargo clippy -D warnings 경고 0건
   □ cargo fmt --check 포맷 위반 없음
-  □ Critical / High 이슈 전부 해결
+  □ 🚫 Blocking 이슈 전부 해결 (Critical + High)
   □ unsafe SAFETY 주석 완비 (security.md §unsafe)
   □ 비밀 정보 하드코딩 없음 (security.md §비밀 정보)
   □ 에러 케이스 테스트 존재 (test.md §필수 목록)
@@ -751,16 +754,15 @@ PR 체크리스트:
 
 ### 📊 이슈 요약
 
-| 심각도 | 건수 | 처리 |
-|--------|------|------|
-| 🔴 Critical | [N]건 | [처리 내용] |
-| 🟠 High     | [N]건 | [처리 내용] |
-| 🟡 Medium   | [N]건 | [처리 내용] |
-| 🔵 Low      | [N]건 | 참고 사항 |
+| 분류 | 건수 | 처리 |
+|------|------|------|
+| 🚫 Blocking (Critical+High) | [N]건 | [처리 내용] |
+| ⚠️ Recommended (Medium)     | [N]건 | [처리 내용] |
+| 💡 Suggestions (Low)        | [N]건 | 참고 사항 |
 
 ### 🚨 이슈 상세
 
-#### 🔴 Critical
+#### 🚫 Blocking Issues (Critical + High)
 
 **[C-CR-XX] [제목]** — `[파일명:행번호]`
 [설명] / 근거: [security.md §섹션 또는 test.md §섹션]
@@ -776,7 +778,7 @@ PR 체크리스트:
 ```
 </details>
 
-#### 🟠 High / 🟡 Medium
+#### ⚠️ Recommended Changes (Medium) / 💡 Suggestions (Low)
 [동일 형식]
 
 ### ✅ 이상 없는 카테고리
@@ -845,18 +847,18 @@ PR 체크리스트:
 
 ## 카테고리 빠른 참조 (`/code-review-rust --catalog`)
 
-| 코드 | 카테고리 | 핵심 탐지 신호 | 심각도 | 적용 규칙 |
-|------|----------|----------------|--------|-----------|
-| **C-CR-01** | 에러 처리 | `unwrap()`, `panic!` in lib | 🔴🟠 | security.md §에러 응답 |
-| **C-CR-02** | 소유권·차용 | `.clone()` 남발, `&mut T` 과용 | 🟡 | — |
-| **C-CR-03** | 에지 케이스 | `v[0]`, 0 나누기, 오버플로우 | 🔴🟠 | — |
-| **C-CR-04** | 타입 설계 | `bool` 파라미터, `u64` 혼동 | 🟡 | — |
-| **C-CR-05** | 동시성·스레드 | `static mut`, `std::Mutex` in async | 🔴 | security.md §인증·권한 |
-| **C-CR-06** | 비동기 | `std::fs` in async, `.await` 누락 | 🟠 | — |
-| **C-CR-07** | unsafe | SAFETY 주석 없음, null 체크 없음 | 🔴🟠 | **security.md §unsafe** |
-| **C-CR-08** | 코드 품질 | 매직 넘버, `pub` 과노출, rustdoc 없음 | 🔵 | — |
-| **C-CR-09** | Rust 관용 표현 | 수동 루프, 장황한 match | 🟡 | — |
-| **C-CR-10** | 테스트 | 에러 케이스 없음, 의미없는 이름 | 🟡🔵 | **test.md 전체** |
+| 코드 | 카테고리 | 핵심 탐지 신호 | 분류 | 적용 규칙 |
+|------|----------|----------------|------|-----------|
+| **C-CR-01** | 에러 처리 | `unwrap()`, `panic!` in lib | 🚫⚠️ | security.md §에러 응답 |
+| **C-CR-02** | 소유권·차용 | `.clone()` 남발, `&mut T` 과용 | ⚠️ | — |
+| **C-CR-03** | 에지 케이스 | `v[0]`, 0 나누기, 오버플로우 | 🚫 | — |
+| **C-CR-04** | 타입 설계 | `bool` 파라미터, `u64` 혼동 | ⚠️ | — |
+| **C-CR-05** | 동시성·스레드 | `static mut`, `std::Mutex` in async | 🚫 | security.md §인증·권한 |
+| **C-CR-06** | 비동기 | `std::fs` in async, `.await` 누락 | 🚫 | — |
+| **C-CR-07** | unsafe | SAFETY 주석 없음, null 체크 없음 | 🚫 | **security.md §unsafe** |
+| **C-CR-08** | 코드 품질 | 매직 넘버, `pub` 과노출, rustdoc 없음 | 💡 | — |
+| **C-CR-09** | Rust 관용 표현 | 수동 루프, 장황한 match | ⚠️ | — |
+| **C-CR-10** | 테스트 | 에러 케이스 없음, 의미없는 이름 | ⚠️💡 | **test.md 전체** |
 
 ---
 
@@ -870,7 +872,7 @@ PR 체크리스트:
 🚫 기능 변경 (리뷰는 품질 개선만)
 🚫 Cargo.toml 크레이트 추가 (명시적 요청 없이)
 🚫 테스트 삭제 또는 비활성화 (test.md §금지 패턴 참조)
-🚫 Low 이슈를 Critical로 과장 보고
+🚫 Suggestions 이슈를 Blocking으로 과장 보고
 ```
 
 ---

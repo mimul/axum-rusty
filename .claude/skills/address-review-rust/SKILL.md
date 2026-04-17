@@ -63,7 +63,7 @@ Claude가 직전 대화 이력에서 리뷰 내용을 자동으로 특정한다:
 
 **추출 기준:**
 - `/code-review-rust` 실행 결과 리포트
-- 분석 리포트 내 이슈 항목 (`🔴 Critical`, `🟠 High`, `🟡 Medium`, `🔵 Low`)
+- 분석 리포트 내 이슈 항목 (🚫 Blocking / ⚠️ Recommended / 💡 Suggestions / 📝 Tech Debt)
 - 수정 계획 목록 (STEP 3 출력물)
 
 **추출 후 출력 형식:**
@@ -73,7 +73,7 @@ Claude가 직전 대화 이력에서 리뷰 내용을 자동으로 특정한다:
 📥  리뷰 내용 추출 완료 (대화 이력 기준)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 출처:    직전 /code-review-rust 결과
-지적 수: [N]건 (Critical [N] / High [N] / Medium [N] / Low [N])
+지적 수: [N]건 (🚫 Blocking [N] / ⚠️ Recommended [N] / 💡 Suggestions [N])
 대상:    [리뷰된 파일 또는 모드 정보]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
