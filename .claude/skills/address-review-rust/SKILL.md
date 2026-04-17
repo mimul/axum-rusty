@@ -289,9 +289,23 @@ cargo test 2>&1 | tail -5
 
 ---
 
-## STEP 4 — 최종 요약 출력
+## STEP 4 — 최종 요약 출력 및 push
 
-모든 지적 처리 완료 후 아래 형식으로 요약을 출력한다.
+모든 지적 처리 완료 후 아래 순서대로 실행한다.
+
+### 4-A. PR 모드: 자동 push
+
+PR 모드(`/address-review-rust [번호]`)에서 수정 커밋이 1건 이상 발생한 경우,
+요약 출력 **전에** Claude가 직접 push를 실행한다:
+
+```bash
+cd [worktree 경로]  # PR 브랜치 worktree가 있는 경우
+git push origin [브랜치명]
+```
+
+push 결과를 확인한 후 요약을 출력한다. 대화 모드에서는 push를 실행하지 않는다.
+
+### 4-B. 요약 출력 형식
 
 ````markdown
 ## 리뷰 대응 요약
@@ -313,13 +327,15 @@ cargo test 2>&1 | tail -5
 | [A-RV-03] [제목] | [기술적 근거 / 정책 불일치 / 트레이드오프 판단] |
 
 ### 검증 결과
-- cargo fmt:   ✅ 통과
+- cargo fmt:    ✅ 통과
 - cargo clippy: ✅ 통과 (0 warnings)
 - cargo test:   ✅ [N]개 통과
 
-### 다음 단계 제안
-- [ ] **수정 커밋을 PR에 push**: `git push origin [브랜치명]` — `/reply-review-rust` 실행 전 필수
-- [ ] PR 코멘트에 대응 불필요 이유 명시 권장: `/reply-review-rust [PR번호]` 실행
+### Push 결과 (PR 모드)
+- git push: ✅ origin/[브랜치명] 에 푸시 완료
+
+### 다음 단계
+- [ ] PR 코멘트에 대응 회신: `/reply-review-rust [PR번호]` 실행
 - [ ] 추가 논의가 필요한 지적: [A-RV-XX]
 ````
 
@@ -350,7 +366,7 @@ fix([scope]): [A-RV-XX] [50자 이내 요약]
 - 대응하지 않는 경우, 리뷰어가 납득할 수 있는 **기술적 근거를 반드시** 기재한다
 - 수정으로 인해 새로운 문제(컴파일 에러, 테스트 실패, clippy 경고)가 발생하지 않도록 매 수정 후 검증한다
 - `security.md`, `test.md` 규칙과 충돌하는 리뷰어 제안은 규칙을 우선한다
-- PR 모드에서 모든 수정 커밋 완료 후 **반드시 `git push origin [브랜치명]`** 을 안내한다
+- PR 모드에서 모든 수정 커밋 완료 후 **STEP 4에서 자동으로 `git push origin [브랜치명]`을 실행**한다 (사용자에게 안내하지 않음)
 - push 완료 후 `/reply-review-rust [PR번호]`로 각 리뷰 코멘트에 대응 회신한다
 
 ---
