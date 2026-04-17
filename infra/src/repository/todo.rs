@@ -57,40 +57,7 @@ impl ITodoRepository for TodoRepository {
     }
 
     async fn find(&self, status: Option<TodoStatus>) -> anyhow::Result<Vec<Todo>> {
-        let stored: Vec<StoredTodo> = match status {
-            Some(s) => {
-                let sql = r#"
-                    SELECT t.id, t.title, t.description,
-                           ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
-                           t.created_at, t.updated_at
-                    FROM todos t
-                    INNER JOIN todo_statuses ts ON ts.id = t.status_id
-                    WHERE t.status_id = $1
-                    ORDER BY t.created_at ASC
-                "#;
-                query_as::<_, StoredTodo>(sql)
-                    .bind(s.id.value.to_string())
-                    .fetch_all(self.db.pool())
-                    .await?
-            }
-            None => {
-                let sql = r#"
-                    SELECT t.id, t.title, t.description,
-                           ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
-                           t.created_at, t.updated_at
-                    FROM todos t
-                    INNER JOIN todo_statuses ts ON ts.id = t.status_id
-                    ORDER BY t.created_at ASC
-                "#;
-                query_as::<_, StoredTodo>(sql)
-                    .fetch_all(self.db.pool())
-                    .await?
-            }
-        };
-        stored
-            .into_iter()
-            .map(|st| st.try_into())
-            .collect::<anyhow::Result<Vec<Todo>>>()
+        find_todos(self.db.pool(), status).await
     }
 
     async fn get_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
@@ -109,38 +76,7 @@ impl ITodoRepository for TodoRepository {
         tx: &mut PgTx,
         status: Option<TodoStatus>,
     ) -> anyhow::Result<Vec<Todo>> {
-        let stored: Vec<StoredTodo> = match status {
-            Some(s) => {
-                let sql = r#"
-                    SELECT t.id, t.title, t.description,
-                           ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
-                           t.created_at, t.updated_at
-                    FROM todos t
-                    INNER JOIN todo_statuses ts ON ts.id = t.status_id
-                    WHERE t.status_id = $1
-                    ORDER BY t.created_at ASC
-                "#;
-                query_as::<_, StoredTodo>(sql)
-                    .bind(s.id.value.to_string())
-                    .fetch_all(&mut **tx)
-                    .await?
-            }
-            None => {
-                let sql = r#"
-                    SELECT t.id, t.title, t.description,
-                           ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
-                           t.created_at, t.updated_at
-                    FROM todos t
-                    INNER JOIN todo_statuses ts ON ts.id = t.status_id
-                    ORDER BY t.created_at ASC
-                "#;
-                query_as::<_, StoredTodo>(sql).fetch_all(&mut **tx).await?
-            }
-        };
-        stored
-            .into_iter()
-            .map(|st| st.try_into())
-            .collect::<anyhow::Result<Vec<Todo>>>()
+        find_todos(&mut **tx, status).await
     }
 
     async fn insert_tx(&self, tx: &mut PgTx, source: NewTodo) -> anyhow::Result<Todo> {
@@ -232,4 +168,46 @@ impl ITodoRepository for TodoRepository {
             None => Ok(None),
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Private helpers — 제네릭 Executor로 pool / tx 모두 처리 (user.rs와 동일 패턴)
+// ---------------------------------------------------------------------------
+
+async fn find_todos<'e, E>(executor: E, status: Option<TodoStatus>) -> anyhow::Result<Vec<Todo>>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+{
+    let stored: Vec<StoredTodo> = match status {
+        Some(s) => {
+            let sql = r#"
+                SELECT t.id, t.title, t.description,
+                       ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+                       t.created_at, t.updated_at
+                FROM todos t
+                INNER JOIN todo_statuses ts ON ts.id = t.status_id
+                WHERE t.status_id = $1
+                ORDER BY t.created_at ASC
+            "#;
+            query_as::<_, StoredTodo>(sql)
+                .bind(s.id.value.to_string())
+                .fetch_all(executor)
+                .await?
+        }
+        None => {
+            let sql = r#"
+                SELECT t.id, t.title, t.description,
+                       ts.id AS status_id, ts.code AS status_code, ts.name AS status_name,
+                       t.created_at, t.updated_at
+                FROM todos t
+                INNER JOIN todo_statuses ts ON ts.id = t.status_id
+                ORDER BY t.created_at ASC
+            "#;
+            query_as::<_, StoredTodo>(sql).fetch_all(executor).await?
+        }
+    };
+    stored
+        .into_iter()
+        .map(|st| st.try_into())
+        .collect::<anyhow::Result<Vec<Todo>>>()
 }

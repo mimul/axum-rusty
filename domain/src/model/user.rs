@@ -1,12 +1,24 @@
 use crate::model::Id;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct User {
     pub id: Id<User>,
     pub username: String,
     pub email: String,
     pub password: String,
     pub fullname: String,
+}
+
+impl std::fmt::Debug for User {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("User")
+            .field("id", &self.id)
+            .field("username", &self.username)
+            .field("email", &self.email)
+            .field("password", &"****")
+            .field("fullname", &self.fullname)
+            .finish()
+    }
 }
 
 impl User {
@@ -81,5 +93,20 @@ mod tests {
         assert_eq!(nu.username, "bob");
         assert_eq!(nu.password, "secret");
         assert_eq!(nu.fullname, "Bob Jones");
+    }
+
+    #[test]
+    fn user_debug_masks_password() {
+        let ulid = Ulid::new();
+        let user = User::new(
+            Id::new(ulid),
+            "alice".to_string(),
+            "alice@example.com".to_string(),
+            "secret_hash".to_string(),
+            "Alice Smith".to_string(),
+        );
+        let debug_str = format!("{:?}", user);
+        assert!(!debug_str.contains("secret_hash"));
+        assert!(debug_str.contains("****"));
     }
 }
