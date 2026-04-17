@@ -3,27 +3,21 @@ name: code-review-rust
 description: >
   /code-review-rust 커맨드로 실행되는 Rust 코드 리뷰 스킬.
   일곱 가지 모드를 지원한다:
-    PR 모드          — MCP로 PR 정보(제목·설명·대상 브랜치) 확인 후 전용 worktree를
-                       생성하고, git diff로 변경 파일만 정확히 추출하여 리뷰한다.
-    로컬 변경 모드   — 인수 없이 실행 시 기본값. git diff HEAD로 staged + unstaged
-                       변경사항을 자동 감지하여 즉시 리뷰한다.
+    PR 모드          — MCP로 PR 정보(제목·설명·대상 브랜치) 확인 후 전용 worktree를 생성하고, git diff로 변경 파일만 정확히 추출하여 리뷰한다.
+    로컬 변경 모드     — 인수 없이 실행 시 기본값. git diff HEAD로 staged + unstaged 변경사항을 자동 감지하여 즉시 리뷰한다.
     staged 모드      — --staged 옵션. git diff --cached로 staged 변경사항만 리뷰한다.
-    커밋 모드        — --commit <hash>. 특정 커밋 단독 변경사항을 리뷰한다.
-    브랜치 모드      — --branch. 현재 브랜치와 기본 브랜치(main)의 diff를 리뷰한다.
-    지정 브랜치 모드 — --branch <name>. 지정 브랜치와 기본 브랜치(main)의 diff를 리뷰한다.
-    로컬 파일 모드   — 파일 경로 또는 모듈명 지정 시 해당 파일을 직접 리뷰한다.
-  모든 모드에서 CODE_REVIEW_RUST.md의 10개 카테고리(C-CR-01~C-CR-10) 기준으로
-  분석하고, 이슈마다 Before/After를 제시하고 인간 확인 후에만 수정을 적용한다.
+    커밋 모드         — --commit <hash>. 특정 커밋 단독 변경사항을 리뷰한다.
+    브랜치 모드       — --branch. 현재 브랜치와 기본 브랜치(main)의 diff를 리뷰한다.
+    지정 브랜치 모드   — --branch <name>. 지정 브랜치와 기본 브랜치(main)의 diff를 리뷰한다.
+    로컬 파일 모드     — 파일 경로 또는 모듈명 지정 시 해당 파일을 직접 리뷰한다.
+  모든 모드에서 CODE_REVIEW_RUST.md의 10개 카테고리(C-CR-01~C-CR-10) 기준으로 분석하고, 이슈마다 Before/After를 제시하고 인간 확인 후에만 수정을 적용한다.
 ---
 
 # `/code-review-rust` 커맨드 스킬
 
 ## 스킬 개요
 
-이 스킬은 **`/code-review-rust` 커맨드가 입력될 때 자동으로 실행**된다.
-`CODE_REVIEW_RUST.md`의 10개 카테고리를 기준으로 Rust 코드를 분석하고,
-**`security.md`와 `test.md` 규칙을 STEP 2 분석 시작 전에 로드하여**
-해당 규칙을 각 카테고리 판단 기준으로 직접 적용한다.
+이 스킬은 **`/code-review-rust` 커맨드가 입력될 때 자동으로 실행**된다. `CODE_REVIEW_RUST.md`의 10개 카테고리를 기준으로 Rust 코드를 분석하고, **`security.md`와 `test.md` 규칙을 STEP 2 분석 시작 전에 로드하여** 해당 규칙을 각 카테고리 판단 기준으로 직접 적용한다.
 
 리뷰의 핵심 불변 조건:
 - **PR 기반 격리** — PR 리뷰는 전용 worktree에서 수행, main 브랜치 보호
@@ -110,7 +104,6 @@ description: >
 STEP 1~5는 모든 모드 공통이다.
 
 **우선순위**: `--pr` > `--staged` > `--commit` > `--branch` > 파일경로 > 인수 없음(기본값)
-
 **조합 가능 필터**: `--scope`, `--severity`는 위 모든 모드와 함께 사용 가능하다.
 
 ---
@@ -403,15 +396,10 @@ main에서 수정 필요   → fix/cr-{module-name} 생성
 ## STEP 1 — 리뷰 대상 코드 접수
 
 **PR 모드**: worktree 완료 확인 후, diff 결과 기반으로 리뷰 대상 파일 안내
-
 **로컬 변경 모드**: STEP 0-DIFF에서 수집한 `git diff HEAD -- '*.rs'` 결과를 자동 사용. 사용자에게 코드를 요청하지 않고 바로 분석으로 진행한다.
-
 **staged 모드**: STEP 0-STAGED에서 수집한 `git diff --cached -- '*.rs'` 결과를 자동 사용한다.
-
 **커밋 모드**: STEP 0-COMMIT에서 수집한 `git show [해시] -- '*.rs'` 결과를 자동 사용한다.
-
 **브랜치 모드 / 지정 브랜치 모드**: STEP 0-BRANCH에서 수집한 `git diff origin/main...[TARGET] -- '*.rs'` 결과를 자동 사용한다.
-
 **로컬 파일 모드**: Claude가 Read 도구로 지정된 파일을 직접 읽는다. 사용자에게 코드 붙여넣기를 요청하지 않는다.
 
 ```bash
@@ -427,8 +415,7 @@ Read(file_path: "[지정된 파일 경로]")
 
 ## STEP 2 — rules 로드 및 10개 카테고리 분석
 
-**분석 시작 전 `security.md`와 `test.md`를 로드하고,
-각 파일의 규칙을 아래와 같이 해당 카테고리 판단에 직접 적용한다.**
+**분석 시작 전 `security.md`와 `test.md`를 로드하고, 각 파일의 규칙을 아래와 같이 해당 카테고리 판단에 직접 적용한다.**
 
 ### security.md → C-CR-01 · C-CR-05 · C-CR-07 판단 기준
 
