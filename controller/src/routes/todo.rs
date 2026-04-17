@@ -56,7 +56,7 @@ pub async fn get_todo(
             }),
         Err(err) => {
             error!("Unexpected error: {:?}", err);
-            Err(AppError::Error(err.to_string()))
+            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
         }
     }
 }
@@ -105,7 +105,7 @@ pub async fn find_todo(
         }
         Err(err) => {
             error!("Unexpected error: {:?}", err);
-            Err(AppError::Error(err.to_string()))
+            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
         }
     }
 }
@@ -148,7 +148,7 @@ pub async fn create_todo(
     })
     .map_err(|err| {
         error!("{:?}", err);
-        AppError::Error("server_error".to_string())
+        AppError::Error("서버 오류가 발생했습니다".to_string())
     })
 }
 
@@ -193,7 +193,7 @@ pub async fn update_todo(
             })
             .map_err(|err| {
                 error!("{:?}", err);
-                AppError::Error(err.to_string())
+                AppError::Error("서버 오류가 발생했습니다".to_string())
             })
         }
         Err(errors) => Err(AppError::Error(
@@ -245,7 +245,7 @@ pub async fn upsert_todo(
     })
     .map_err(|err| {
         error!("{:?}", err);
-        AppError::Error(err.to_string())
+        AppError::Error("서버 오류가 발생했습니다".to_string())
     })
 }
 
@@ -289,7 +289,7 @@ pub async fn delete_todo(
             }),
         Err(err) => {
             error!("Unexpected error: {:?}", err);
-            Err(AppError::Error(err.to_string()))
+            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
         }
     }
 }

@@ -5,7 +5,7 @@ const COOKIE_MAX_AGE_SECS: i64 = 60;
 use log::error;
 use tower_cookies::cookie::{time::Duration, CookieBuilder, SameSite};
 
-pub fn create_cookie_headers(key: &str, value: &str) -> header::HeaderMap {
+pub fn create_cookie_headers(key: &str, value: &str) -> Result<header::HeaderMap, String> {
     let cookie = CookieBuilder::new(key, value)
         .path("/")
         .max_age(Duration::seconds(COOKIE_MAX_AGE_SECS))
@@ -16,10 +16,10 @@ pub fn create_cookie_headers(key: &str, value: &str) -> header::HeaderMap {
     let header_value = cookie
         .to_string()
         .parse::<HeaderValue>()
-        .expect("Failed to parse cookie");
+        .map_err(|e| format!("쿠키 헤더 파싱 실패: {e}"))?;
     let mut headers = header::HeaderMap::new();
-    headers.append(header::SET_COOKIE, header_value); // Will cover!
-    headers
+    headers.append(header::SET_COOKIE, header_value);
+    Ok(headers)
 }
 
 pub fn get_cookie_from_headers(key: &str, headers: &HeaderMap) -> Option<String> {
@@ -136,11 +136,18 @@ mod tests {
 
     #[test]
     fn create_cookie_headers_contains_set_cookie_header() {
-        let headers = create_cookie_headers("access_token", "mytoken");
+        let headers = create_cookie_headers("access_token", "mytoken").unwrap();
         assert!(headers.contains_key(header::SET_COOKIE));
         let val = headers.get(header::SET_COOKIE).unwrap().to_str().unwrap();
         assert!(val.contains("access_token=mytoken"));
         assert!(val.contains("HttpOnly"));
         assert!(val.contains("SameSite=Strict"));
+    }
+
+    #[test]
+    fn create_cookie_headers_with_valid_input_returns_ok() {
+        let headers = create_cookie_headers("token", "abc123")
+            .expect("유효한 입력으로 헤더 생성 성공해야 함");
+        assert!(headers.contains_key(header::SET_COOKIE));
     }
 }
