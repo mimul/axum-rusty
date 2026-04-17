@@ -74,7 +74,7 @@ pub async fn create_user(
     })
     .map_err(|err| {
         error!("{:?}", err);
-        AppError::Error(err.to_string())
+        AppError::Error("서버 오류가 발생했습니다".to_string())
     })
 }
 
@@ -122,7 +122,7 @@ pub async fn get_user(
             }),
         Err(err) => {
             error!("Unexpected error: {:?}", err);
-            Err(AppError::Error(err.to_string()))
+            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
         }
     }
 }
@@ -181,7 +181,7 @@ pub async fn get_user_by_username(
         },
         Err(err) => {
             error!("Unexpected error: {:?}", err);
-            Err(AppError::Error(err.to_string()))
+            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
         }
     }
 }
@@ -244,7 +244,7 @@ pub async fn login_user(
         }
         Err(err) => {
             error!("Unexpected error: {:?}", err);
-            Err(AppError::Error(err.to_string()))
+            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
         }
     }
 }
