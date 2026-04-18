@@ -55,10 +55,15 @@ STEP 0  →  STEP 1  →  STEP 2  →  STEP 3  ─→  STEP 4  ──┐
                                           cargo test 실행    │
                                           ↓ [다음 항목]  ←──┘
                                          STEP 5
-                                         완료 요약 + PR 초안
+                                         완료 요약
+                                          ↓
+                                         STEP 6
+                                         PR 초안 제시
+                                          ↓ [승인 대기]
+                                         push + gh pr create 실행
 ```
 
-**STEP 0은 Claude가 자동으로 실행한다. STEP 3의 각 항목에서만 인간의 응답을 기다린다.**
+**STEP 0은 Claude가 자동으로 실행한다. STEP 3 각 항목과 STEP 6에서 인간의 응답을 기다린다.**
 
 ---
 
@@ -415,12 +420,21 @@ open coverage/tarpaulin-report.html
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 5-C. PR 초안
+---
+
+## STEP 6 — PR 생성 확인 및 실행
+
+완료 요약 출력 후 PR 초안을 제시하고 사용자 승인을 받은 뒤에만 실제로 push + PR 생성을 수행한다.
+**사용자가 명시적으로 승인하기 전까지 `git push`와 `gh pr create`를 절대 실행하지 않는다.**
+
+### 6-A. PR 초안 제시
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📝  PR 초안
+📝  PR 초안 확인
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 브랜치:  feature/test-[module-name]  →  main
 
 ■ PR 제목
   test([모듈명]): [테스트 종류 요약] [N]개 추가
@@ -435,9 +449,9 @@ open coverage/tarpaulin-report.html
 | 종류 | 위치 | 개수 | 카탈로그 |
 |------|------|------|---------|
 | 단위 테스트 | src/**/*.rs #[cfg(test)] | [N]개 | T-T-01 |
-| DB 테스트 | tests/db/ | [N]개 | T-T-02 |
-| 통합 테스트 | tests/integration/ | [N]개 | T-T-03 |
-| HTTP API 테스트 | tests/api/ | [N]개 | T-T-04 |
+| DB 테스트 | {crate}/tests/ | [N]개 | T-T-02 |
+| 통합 테스트 | {crate}/tests/ | [N]개 | T-T-03 |
+| HTTP API 테스트 | controller/tests/ | [N]개 | T-T-04 |
 | 공통 헬퍼 | tests/common/ | — | T-T-06 |
 
 ## 커버리지 변화
@@ -446,17 +460,70 @@ open coverage/tarpaulin-report.html
 ## 검증
 - [ ] cargo test --all 전체 통과
 - [ ] cargo tarpaulin 80%+ 확인
-- [ ] DB 테스트: 트랜잭션 롤백 확인
+- [ ] DB/통합 테스트: testcontainers 기반, 트랜잭션 롤백 확인
+- [ ] 내부 mock 미사용 (rules/test.md §Mocking Rules)
 - [ ] 에러 케이스 테스트 포함
+
+🤖 Generated with Claude Code
 ────────────────────────────────────────
 
-■ gh CLI
-  git push -u origin feature/test-[module-name]
-  gh pr create \
-    --title "test([모듈명]): [요약]" \
-    --body "위 본문" \
-    --base main
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚦  위 PR을 생성할까요?
 
+   ✅ "PR 생성" / "ok" / "ㅇ"     → push + gh pr create 실행
+   ✏️  "제목 수정: [새 제목]"       → 제목 변경 후 재확인
+   ✏️  "본문 수정: [요청]"          → 본문 변경 후 재확인
+   ❌ "취소" / "skip"              → PR 생성 없이 종료
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### 6-B. 사용자 응답별 처리
+
+| 응답 | Claude 행동 |
+|------|-------------|
+| `"PR 생성"` / `"ok"` / `"ㅇ"` | 6-C 실행 (push + PR 생성) |
+| `"제목 수정: [내용]"` | 제목 변경 → 6-A 재출력 |
+| `"본문 수정: [내용]"` | 본문 변경 → 6-A 재출력 |
+| `"취소"` / `"skip"` / `"ㄴ"` | 종료. 수동 실행용 커맨드 출력 |
+
+### 6-C. push 및 PR 생성 실행
+
+승인 후 Claude가 Bash 도구로 직접 실행한다:
+
+```bash
+# 1. push (upstream 설정 포함)
+git push -u origin feature/test-[module-name]
+
+# 2. PR 생성
+gh pr create \
+  --title "test([모듈명]): [요약]" \
+  --body "$(cat <<'EOF'
+## 개요
+[본문 내용]
+EOF
+)" \
+  --base main
+```
+
+### 6-D. 결과 출력
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅  PR 생성 완료
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PR URL: [GitHub PR URL]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**6-E. 취소 시 수동 실행 안내**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PR 생성을 건너뜁니다.
+수동으로 생성하려면:
+
+  git push -u origin feature/test-[module-name]
+  gh pr create --title "..." --body "..." --base main
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
