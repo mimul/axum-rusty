@@ -1,10 +1,5 @@
-use axum::Router;
-use common::config::ApplicationConfig;
-use controller::module::usecase_module::{AppModule, AppState};
-use infra::db::{Db, DbParameters};
-use sqlx::postgres::PgPoolOptions;
-use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use sqlx::PgPool;
+use std::sync::{Mutex, OnceLock};
 use testcontainers::{core::ImageExt, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres;
 
@@ -58,7 +53,7 @@ fn binary_base_name() -> String {
 /// # 중첩 런타임 회피
 /// `std::thread::spawn`으로 별도 OS 스레드를 만들어
 /// `#[tokio::test]`의 런타임과 완전히 분리된다.
-fn postgres_url() -> String {
+pub fn postgres_url() -> String {
     POSTGRES_URL
         .get_or_init(|| {
             std::thread::spawn(|| {
@@ -90,7 +85,7 @@ fn postgres_url() -> String {
                             port
                         );
 
-                        let pool = sqlx::PgPool::connect(&url)
+                        let pool = PgPool::connect(&url)
                             .await
                             .expect("마이그레이션용 DB 연결 실패");
                         sqlx::migrate!("../migrations")
@@ -110,40 +105,4 @@ fn postgres_url() -> String {
             .expect("Container setup thread panicked")
         })
         .clone()
-}
-
-fn test_config(database_url: String) -> ApplicationConfig {
-    ApplicationConfig {
-        debug: true,
-        database_url,
-        jwt_secret: "test-jwt-secret-key-for-testing".to_string(),
-        allowed_origin: "http://localhost:3000".to_string(),
-        jwt_duration: "60".to_string(),
-        jwt_max_age: 1,
-    }
-}
-
-/// 각 테스트마다 독립된 풀을 생성한다.
-/// PostgreSQL 컨테이너는 Docker를 통해 자동으로 기동되고
-/// 프로세스 종료 시 `#[ctor::dtor]`가 명시적으로 삭제한다.
-pub async fn build_test_app() -> Router {
-    let db_url = postgres_url();
-
-    // min_connections(1): 항상 idle 연결 1개 유지 → hc/postgres의 try_acquire() 보장
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .min_connections(1)
-        .acquire_timeout(Duration::from_secs(30))
-        .connect(&db_url)
-        .await
-        .expect("테스트 DB 연결 실패");
-
-    let config = test_config(db_url);
-    let module = Arc::new(
-        AppModule::builder()
-            .with_component_parameters::<Db>(DbParameters { pool })
-            .build(),
-    );
-    let state = Arc::new(AppState::new(module, config));
-    controller::startup::build_router(state)
 }

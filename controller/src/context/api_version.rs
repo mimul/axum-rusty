@@ -32,3 +32,21 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn api_version_v1_deserializes_from_string() {
+        // rename_all = "camelCase": V1 → "v1"
+        let v: ApiVersion = serde_json::from_str(r#""v1""#).unwrap();
+        assert!(matches!(v, ApiVersion::V1));
+    }
+
+    #[test]
+    fn api_version_unknown_fails_deserialization() {
+        let result: Result<ApiVersion, _> = serde_json::from_str(r#""v99""#);
+        assert!(result.is_err());
+    }
+}

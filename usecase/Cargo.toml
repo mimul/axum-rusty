@@ -17,3 +17,6 @@ tokio = { version = "1", features = ["rt"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
+testcontainers = "0.23"
+testcontainers-modules = { version = "0.11", features = ["postgres"] }
+ctor = "0.2"
