@@ -230,7 +230,10 @@ async fn get_user_with_invalid_ulid_format_returns_error() {
     let uc: Arc<dyn IUserUseCase> = module.resolve();
 
     let result = uc.get_user("not-a-valid-ulid".to_string()).await;
-    assert!(result.is_err(), "invalid ULID format must return Err before DB call");
+    assert!(
+        result.is_err(),
+        "invalid ULID format must return Err before DB call"
+    );
 }
 
 #[tokio::test]

@@ -155,7 +155,10 @@ async fn update_todo_with_title_change_returns_updated_view() {
     let view = result.expect("update_todo must succeed with valid input");
     assert_eq!(view.id, created.id);
     assert_eq!(view.title, "Updated Title");
-    assert_eq!(view.description, "Original Desc", "description must be unchanged");
+    assert_eq!(
+        view.description, "Original Desc",
+        "description must be unchanged"
+    );
 }
 
 #[tokio::test]
@@ -165,16 +168,14 @@ async fn update_todo_with_status_code_changes_status() {
     let uc: Arc<dyn ITodoUseCase> = module.resolve();
 
     let created = uc
-        .create_todo(CreateTodo::new("Status Test".to_string(), "desc".to_string()))
+        .create_todo(CreateTodo::new(
+            "Status Test".to_string(),
+            "desc".to_string(),
+        ))
         .await
         .expect("setup: create_todo must succeed");
 
-    let update = UpdateTodoView::new(
-        created.id.clone(),
-        None,
-        None,
-        Some("done".to_string()),
-    );
+    let update = UpdateTodoView::new(created.id.clone(), None, None, Some("done".to_string()));
     let view = uc
         .update_todo(update)
         .await
@@ -280,7 +281,10 @@ async fn get_todo_with_invalid_ulid_format_returns_error() {
     let uc: Arc<dyn ITodoUseCase> = module.resolve();
 
     let result = uc.get_todo("not-a-valid-ulid".to_string()).await;
-    assert!(result.is_err(), "invalid ULID format must return Err before DB call");
+    assert!(
+        result.is_err(),
+        "invalid ULID format must return Err before DB call"
+    );
 }
 
 #[tokio::test]
@@ -296,5 +300,8 @@ async fn delete_todo_with_nonexistent_valid_id_returns_none() {
         .delete_todo(nonexistent_id)
         .await
         .expect("delete of nonexistent id must not return Err");
-    assert!(result.is_none(), "deleting nonexistent todo must return None");
+    assert!(
+        result.is_none(),
+        "deleting nonexistent todo must return None"
+    );
 }
