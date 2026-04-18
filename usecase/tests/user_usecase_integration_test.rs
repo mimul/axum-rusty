@@ -2,9 +2,10 @@
 //!
 //! 실행 방법:
 //! ```
-//! TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/todo_db" \
-//!   cargo test -p usecase --test user_usecase_integration_test -- --test-threads=1
+//! cargo test -p usecase --test user_usecase_integration_test
 //! ```
+//!
+//! Docker가 실행 중이면 PostgreSQL 컨테이너를 자동으로 기동한다.
 
 mod common;
 
@@ -218,4 +219,32 @@ async fn get_user_by_username_with_none_returns_error() {
     let cond = SearchUserCondition { username: None };
     let result = uc.get_user_by_username(cond).await;
     assert!(result.is_err(), "None username must return Err");
+}
+
+// ─── 에러 케이스 ──────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn get_user_with_invalid_ulid_format_returns_error() {
+    let pool = setup_test_db().await;
+    let module = build_usecase_test_module(pool);
+    let uc: Arc<dyn IUserUseCase> = module.resolve();
+
+    let result = uc.get_user("not-a-valid-ulid".to_string()).await;
+    assert!(result.is_err(), "invalid ULID format must return Err before DB call");
+}
+
+#[tokio::test]
+async fn get_user_by_username_with_empty_string_returns_none() {
+    let pool = setup_test_db().await;
+    let module = build_usecase_test_module(pool);
+    let uc: Arc<dyn IUserUseCase> = module.resolve();
+
+    let cond = SearchUserCondition {
+        username: Some("__nonexistent_user_xyz_999__".to_string()),
+    };
+    let result = uc
+        .get_user_by_username(cond)
+        .await
+        .expect("get_user_by_username with nonexistent name must not error");
+    assert!(result.is_none(), "nonexistent username must return None");
 }

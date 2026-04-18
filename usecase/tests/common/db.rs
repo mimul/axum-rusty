@@ -1,27 +1,17 @@
-use sqlx::postgres::PgPoolOptions;
-use sqlx::PgPool;
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::time::Duration;
 
-/// TEST_DATABASE_URL 환경변수로 연결 후 마이그레이션을 실행한 PgPool을 반환.
-/// 각 테스트는 트랜잭션 시작 → 검증 → 롤백 패턴으로 DB 상태를 오염시키지 않는다.
+/// 테스트 컨테이너의 PostgreSQL에 연결된 PgPool을 반환한다.
 ///
-/// max_connections=2 로 제한하여 병렬 테스트 실행 시 커넥션 풀 고갈을 방지한다.
-/// (#[tokio::test]는 테스트마다 독립 런타임을 생성하므로 OnceCell 공유 불가)
-/// 테스트마다 독립 런타임이 풀을 생성하므로 커넥션 고갈 방지를 위해 제한
-const TEST_POOL_MAX_CONNECTIONS: u32 = 2;
-
+/// 컨테이너는 최초 접근 시 자동으로 기동된다 (Docker 필요).
+/// 마이그레이션은 컨테이너 초기화 시 1회만 실행된다.
+/// 각 테스트는 트랜잭션 시작 → 검증 → 롤백 패턴으로 DB 상태를 격리한다.
 pub async fn setup_test_db() -> PgPool {
-    let url = std::env::var("TEST_DATABASE_URL")
-        .expect("TEST_DATABASE_URL env var is required for DB tests");
-    let pool = PgPoolOptions::new()
-        .max_connections(TEST_POOL_MAX_CONNECTIONS)
+    let url = super::container::postgres_url();
+    PgPoolOptions::new()
+        .max_connections(2)
         .acquire_timeout(Duration::from_secs(30))
         .connect(&url)
         .await
-        .expect("Failed to connect to test database");
-    sqlx::migrate!("../migrations")
-        .run(&pool)
-        .await
-        .expect("Failed to run migrations on test database");
-    pool
+        .expect("Failed to connect to test PostgreSQL container")
 }

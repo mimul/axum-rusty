@@ -2,13 +2,10 @@
 //!
 //! 실행 방법:
 //! ```
-//! TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/todo_db" \
-//!   cargo test -p usecase --test todo_usecase_integration_test -- --test-threads=1
+//! cargo test -p usecase --test todo_usecase_integration_test
 //! ```
 //!
-//! `--test-threads=1` 필수:
-//! `#[tokio::test]`는 테스트마다 독립 tokio 런타임을 생성한다.
-//! 병렬 실행 시 각 테스트가 별도 커넥션 풀을 만들어 DB 커넥션이 고갈될 수 있다.
+//! Docker가 실행 중이면 PostgreSQL 컨테이너를 자동으로 기동한다.
 
 mod common;
 
