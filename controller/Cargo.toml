@@ -39,3 +39,4 @@ http-body-util = "0.1"
 tokio = { version = "1.44", features = ["full"] }
 testcontainers = "0.23"
 testcontainers-modules = { version = "0.11", features = ["postgres"] }
+ctor = "0.2"
