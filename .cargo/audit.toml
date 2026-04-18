@@ -9,4 +9,15 @@ ignore = [
     # sqlx-postgres 0.8.6 내부 의존으로 직접 제어 불가.
     # sqlx 메이저 업그레이드 시 재검토 필요.
     "RUSTSEC-2026-0097",
+
+    # RUSTSEC-2025-0111: tokio-tar 0.3.1 — PAX extended headers 파싱 오류
+    # 수정 버전 없음. testcontainers 0.23.3 내부 의존으로 직접 제어 불가.
+    # 테스트 전용(dev-dependencies) 의존이며, 프로덕션 바이너리에 포함되지 않음.
+    # testcontainers 업스트림 수정 시 재검토 필요.
+    "RUSTSEC-2025-0111",
+
+    # RUSTSEC-2025-0134: rustls-pemfile 2.2.0 — unmaintained 경고
+    # testcontainers → bollard 경유 transitive 의존. 테스트 전용.
+    # bollard가 rustls-pemfile 후속 크레이트로 마이그레이션 시 자동 해결 예상.
+    "RUSTSEC-2025-0134",
 ]
