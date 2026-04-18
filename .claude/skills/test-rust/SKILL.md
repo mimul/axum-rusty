@@ -528,42 +528,6 @@ PR 생성을 건너뜁니다.
 
 ---
 
-## tests/ 디렉토리 구조
-
-이 스킬이 생성하는 전체 파일 레이아웃:
-
-```
-{crate}/tests/
-├── common/
-│   ├── mod.rs            ← T-T-06: pub mod container; pub mod fixtures;
-│   ├── container.rs      ← T-T-06: postgres_url() — testcontainers 기반
-│   └── fixtures.rs       ← T-T-06: fixture_new_user() 등 팩토리 함수
-│
-├── {entity}_repository_test.rs   ← T-T-02: Repository CRUD (infra 크레이트)
-├── {usecase}_integration_test.rs ← T-T-03: Usecase 비즈니스 흐름 (usecase 크레이트)
-└── {endpoint}_api_test.rs        ← T-T-04: HTTP 엔드포인트 (controller 크레이트)
-
-src/  (기존 파일 내부에 추가)
-├── domain/src/model/**.rs        ← T-T-01: #[cfg(test)] 블록
-├── domain/src/value_object/**.rs ← T-T-01: #[cfg(test)] 블록
-└── {기타 순수 로직 파일}          ← T-T-01 또는 T-T-05
-```
-
----
-
-## 카탈로그 빠른 참조 (`/test-rust --catalog`)
-
-| 코드 | 종류 | 위치 | 외부 의존 | 핵심 패턴 |
-|------|------|------|-----------|-----------|
-| **T-T-01** | 단위 테스트 | `src/` 내 `#[cfg(test)]` | 없음 | 순수 도메인 로직, mock 금지 |
-| **T-T-02** | Repository DB 테스트 | `{crate}/tests/` | PostgreSQL (testcontainers) | 트랜잭션 롤백 필수 |
-| **T-T-03** | Usecase 통합 테스트 | `{crate}/tests/` | PostgreSQL (testcontainers) | 실제 DB, 비즈니스 흐름 |
-| **T-T-04** | HTTP API 테스트 | `controller/tests/` | axum TestClient | `tower::ServiceExt::oneshot` |
-| **T-T-05** | 프로퍼티 기반 테스트 | `src/` 내 `#[cfg(test)]` | 없음 | `proptest!`, 순수 로직만 |
-| **T-T-06** | 공통 헬퍼 | `{crate}/tests/common/` | testcontainers | container.rs, fixtures.rs |
-
----
-
 ## 금지 사항 (`rules/test.md §PR Red Flags` 전체 적용)
 
 ```
