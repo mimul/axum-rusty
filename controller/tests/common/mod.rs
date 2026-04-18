@@ -67,8 +67,7 @@ fn postgres_url() -> String {
                     .build()
                     .expect("Failed to build runtime")
                     .block_on(async {
-                        let name =
-                            format!("test_pg_{}_{}", binary_base_name(), std::process::id());
+                        let name = format!("test_pg_{}_{}", binary_base_name(), std::process::id());
                         let container = Postgres::default()
                             .with_container_name(&name)
                             .start()
@@ -85,10 +84,8 @@ fn postgres_url() -> String {
                             .get_host_port_ipv4(5432)
                             .await
                             .expect("Failed to get host port");
-                        let url = format!(
-                            "postgres://postgres:postgres@127.0.0.1:{}/postgres",
-                            port
-                        );
+                        let url =
+                            format!("postgres://postgres:postgres@127.0.0.1:{}/postgres", port);
 
                         let pool = sqlx::PgPool::connect(&url)
                             .await
