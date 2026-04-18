@@ -150,4 +150,29 @@ mod tests {
             .expect("유효한 입력으로 헤더 생성 성공해야 함");
         assert!(headers.contains_key(header::SET_COOKIE));
     }
+
+    #[test]
+    fn get_cookie_from_headers_with_key_not_in_cookie_returns_none() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::COOKIE, "session=xyz; other=val".parse().unwrap());
+        assert!(get_cookie_from_headers("access_token", &headers).is_none());
+    }
+
+    #[test]
+    fn get_cookie_from_headers_with_no_value_returns_empty_string() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::COOKIE, "access_token=".parse().unwrap());
+        assert_eq!(
+            get_cookie_from_headers("access_token", &headers),
+            Some("".to_string())
+        );
+    }
+
+    #[test]
+    fn get_cookie_from_headers_with_key_only_no_equals_returns_none() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::COOKIE, "access_token".parse().unwrap());
+        let result = get_cookie_from_headers("access_token", &headers);
+        assert_eq!(result, Some("".to_string()));
+    }
 }
