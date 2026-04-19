@@ -58,6 +58,12 @@
       "Bash(git restore .)",
       "Bash(gh pr merge *)",
       "Bash(rm -rf *)",
+      "Bash(killall *)",
+      "Bash(pkill *)",
+      "Bash(kill -9 *)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(rsync *)",
       "Bash(curl * | bash)",
       "Bash(wget * | bash)",
       "Read(.env)",
@@ -67,6 +73,15 @@
       "Read(**/*.pem)",
       "Read(**/*.key)",
       "Read(**/*.secret)"
+    ],
+    "ask": [
+      "Bash(npm install *)",
+      "Bash(pip install *)",
+      "Bash(brew install *)",
+      "Bash(psql *)",
+      "Bash(mysql *)",
+      "Bash(mongosh *)",
+      "Bash(sqlite3 *)"
     ]
   },
   "hooks": {
@@ -78,6 +93,33 @@
             "type": "command",
             "command": "BRANCH=$(git branch --show-current 2>/dev/null); if [ \"$BRANCH\" = \"main\" ] || [ \"$BRANCH\" = \"master\" ] || [ \"$BRANCH\" = \"develop\" ]; then echo '{\"block\": true, \"message\": \"보호 브랜치 직접 수정 불가.\\n\\n리팩토링: git worktree add 로 feature/refactor-{module} 생성\\n코드리뷰: git checkout -b fix/cr-{module} 으로 수정 브랜치 생성\"}' >&2; exit 2; fi",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-destructive-sql.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-sensitive-reads.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-push-to-main.sh"
           }
         ]
       }
