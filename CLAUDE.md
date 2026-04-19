@@ -179,3 +179,4 @@ type: feat | fix | refactor | test | docs | chore
 | `/update-codemaps` | 코드맵 전용 업데이트 |
 | `/bench` | 벤치마크 실행 |
 | `/check` | 빌드·lint·테스트 일괄 확인 |
+| `/skill-tunning <커맨드명>` | 스킬 프롬프트 측정 기반 반복 개선 (--eval: 채점만) |
