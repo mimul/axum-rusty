@@ -14,6 +14,16 @@ pub struct ApiResponse<Data> {
     pub data: Option<Data>,
 }
 
+impl<Data> ApiResponse<Data> {
+    pub fn success(message: impl Into<String>, data: Data) -> Self {
+        Self {
+            result: true,
+            message: message.into(),
+            data: Some(data),
+        }
+    }
+}
+
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status_code, error_message) = match self {

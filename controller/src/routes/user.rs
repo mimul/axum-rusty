@@ -17,6 +17,11 @@ use std::sync::Arc;
 use usecase::model::user::UserView;
 use usecase::usecase::user::IUserUseCase;
 
+fn internal_error(err: impl std::fmt::Debug) -> AppError {
+    error!("{:?}", err);
+    AppError::Error("서버 오류가 발생했습니다".to_string())
+}
+
 /// JWT 토큰을 생성한다.
 fn generate_jwt_token(
     user_id: &str,
@@ -66,19 +71,10 @@ pub async fn create_user(
     resp.map(|tv| {
         info!("create_user: response user: {}", tv.id);
         let json: JsonUser = tv.into();
-        let response: ApiResponse<Value> = ApiResponse::<Value> {
-            result: true,
-            message: "success".to_string(),
-            data: Some(json!({
-                "userView": json,
-            })),
-        };
+        let response = ApiResponse::success("success", json!({ "userView": json }));
         (StatusCode::OK, Json(response))
     })
-    .map_err(|err| {
-        error!("{:?}", err);
-        AppError::Error("서버 오류가 발생했습니다".to_string())
-    })
+    .map_err(internal_error)
 }
 
 #[utoipa::path(
@@ -110,23 +106,14 @@ pub async fn get_user(
             .map(|uv| {
                 info!("get_user: response user={:?}.", uv);
                 let json: JsonUser = uv.into();
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    result: true,
-                    message: "success".to_string(),
-                    data: Some(json!({
-                        "userView": json,
-                    })),
-                };
+                let response = ApiResponse::success("success", json!({ "userView": json }));
                 (StatusCode::OK, Json(response))
             })
             .ok_or_else(|| {
                 error!("user is not found.");
                 AppError::Error("data not found".to_string())
             }),
-        Err(err) => {
-            error!("Unexpected error: {:?}", err);
-            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
-        }
+        Err(err) => Err(internal_error(err)),
     }
 }
 
@@ -164,17 +151,11 @@ pub async fn get_user_by_username(
             Some(uv) => {
                 info!("get_user_by_username: response user `{:?}`.", uv);
                 let json: JsonUser = uv.into();
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    result: true,
-                    message: "success".to_string(),
-                    data: Some(json!({
-                        "userView": json,
-                    })),
-                };
+                let response = ApiResponse::success("success", json!({ "userView": json }));
                 Ok((StatusCode::OK, Json(response)))
             }
             None => {
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
+                let response: ApiResponse<Value> = ApiResponse {
                     result: true,
                     message: "user not found.".to_string(),
                     data: None,
@@ -182,10 +163,7 @@ pub async fn get_user_by_username(
                 Ok((StatusCode::OK, Json(response)))
             }
         },
-        Err(err) => {
-            error!("Unexpected error: {:?}", err);
-            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
-        }
+        Err(err) => Err(internal_error(err)),
     }
 }
 
@@ -235,20 +213,10 @@ pub async fn login_user(
                     .map_err(|e| AppError::Error(format!("cookie header parse failed: {e}")))?,
             );
             let json_user: JsonUser = uv.into();
-            let response: ApiResponse<Value> = ApiResponse::<Value> {
-                result: true,
-                message: "success.".to_string(),
-                data: Some(json!({
-                    "userView": json_user,
-                    "token": token,
-                })),
-            };
+            let response = ApiResponse::success("success.", json!({ "userView": json_user, "token": token }));
             Ok((StatusCode::OK, Json(response)))
         }
-        Err(err) => {
-            error!("Unexpected error: {:?}", err);
-            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
-        }
+        Err(err) => Err(internal_error(err)),
     }
 }
 
