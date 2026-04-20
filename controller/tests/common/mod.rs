@@ -115,7 +115,7 @@ fn test_config(database_url: String) -> ApplicationConfig {
         database_url,
         jwt_secret: "test-jwt-secret-key-for-testing".to_string(),
         allowed_origin: "http://localhost:3000".to_string(),
-        jwt_duration: "60".to_string(),
+        jwt_duration: 60,
         jwt_max_age: 1,
     }
 }

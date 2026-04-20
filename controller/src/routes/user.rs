@@ -191,13 +191,11 @@ pub async fn login_user(
     match user_view {
         Ok(uv) => {
             info!("login_user: response user `{:?}`.", uv);
-            let jwt_duration = state
-                .config
-                .jwt_duration
-                .parse::<i64>()
-                .map_err(|e| AppError::Error(format!("jwt_duration 설정 오류: {e}")))?;
-            let token =
-                generate_jwt_token(&uv.id, &uv.username, &state.config.jwt_secret, jwt_duration)?;
+            let token = generate_jwt_token(
+                &uv.id, &uv.username,
+                &state.config.jwt_secret,
+                state.config.jwt_duration,
+            )?;
             let cookie = Cookie::build("token", token.to_owned())
                 .path("/")
                 .max_age(time::Duration::hours(state.config.jwt_max_age.to_owned()))
