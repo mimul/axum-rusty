@@ -56,7 +56,6 @@ pub struct JsonUser {
     pub id: String,
     pub username: String,
     pub email: String,
-    pub password: String,
     pub fullname: String,
 }
 
@@ -66,7 +65,6 @@ impl From<UserView> for JsonUser {
             id: uv.id,
             username: uv.username,
             email: uv.email,
-            password: uv.password,
             fullname: uv.fullname,
         }
     }
@@ -146,7 +144,6 @@ mod tests {
             id: "user-id-01".to_string(),
             username: "alice@example.com".to_string(),
             email: "alice@example.com".to_string(),
-            password: "hashed".to_string(),
             fullname: "Alice".to_string(),
         };
         let json = JsonUser::from(view);
