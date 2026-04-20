@@ -53,7 +53,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 - 테스트는 도메인을 검증해야 한다
 - 보안은 기본적으로 포함되어야 한다
 
-### 2. 도메인 모델
+### 2. 도메인 모델 `R-01`
 
 **2.1 체크**
 
@@ -67,7 +67,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 - Value Object로 의미를 강제
 - Smart Constructor로 invariant 보장
 
-### 3. 상태 & 모델링
+### 3. 상태 & 모델링 `R-02`
 
 **3.1 체크**
 
@@ -80,12 +80,12 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 - Enum State Machine
 - 상태 전이 메서드로 제한
 
-### 4. 경계 조건 & 에지 케이스
+### 4. 경계 조건 & 에지 케이스 `R-03`
 
 **4.1 체크**
 
 - `Option` / `Result`로 상태를 표현했는가?
-- `unwrap()`이 제거되었는가?
+- 경계값(빈 컬렉션, 0, 최대값, 오버플로우)이 안전하게 처리되는가?
 - 경계 입력이 검증되는가?
 
 **4.2 패턴**
@@ -94,10 +94,11 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 - Fail Fast
 - Boundary Validation
 
-### 5. 에러 처리
+### 5. 에러 처리 `R-04`
 
 **5.1 체크**
 
+- `unwrap()`/`expect()`가 라이브러리 코드에 없는가?
 - 에러가 enum으로 정의되어 있는가?
 - 문자열 기반 에러가 아닌가?
 - 에러가 도메인 의미를 가지는가?
@@ -107,7 +108,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 - `Result<T, DomainError>`
 - Explicit Error Model
 
-### 6. 소유권 & 메모리
+### 6. 소유권 & 메모리 `R-05`
 
 **6.1 체크**
 
@@ -120,7 +121,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 - Ownership 기반 설계
 - Immutable 우선 설계
 
-### 7. 제어 흐름
+### 7. 제어 흐름 `R-06`
 
 **7.1 체크**
 
@@ -133,7 +134,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 - exhaustive match
 - early return
 
-### 8. 추상화 & trait
+### 8. 추상화 & trait `R-07`
 
 **8.1 체크**
 
@@ -146,7 +147,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 - 최소 추상화
 - 명시적 trait
 
-### 9. 테스트
+### 9. 테스트 `R-08`
 
 **9.1 체크**
 
@@ -160,7 +161,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 - Edge Case 테스트
 - 실패 케이스 테스트
 
-### 10. 보안
+### 10. 보안 `R-09`
 
 **10.1 체크**
 
@@ -176,12 +177,15 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 
 ### 11. 안티 패턴
 
-- unwrap 남용
-- primitive obsession
-- String 기반 에러 처리
-- 도메인 없는 util
-- 과도한 trait / 제네릭
-- silent failure
+- unwrap 남용 → R-04
+- primitive obsession → R-01
+- String 기반 에러 처리 → R-04
+- 빈약한 도메인 모델 (Anemic Domain Model) → R-01, R-02
+- 도메인 없는 util → R-01
+- 과도한 trait / 제네릭 → R-07
+- silent failure → R-04
+- invalid state 허용 → R-02
+- 경계 미처리 (암묵적 기본값, 인덱스 무방비) → R-03
 
 ### 12. 리뷰 요약 기준
 
@@ -220,21 +224,21 @@ CI에서 Claude가 **자동으로 코드를 수정하고 커밋**하는 이슈:
 
 | 카테고리 | 자동 수정 가능 | 이유 |
 |----------|---------------|------|
-| C-CR-01 unwrap→? | ✅ 단순 패턴 | 로직 변경 없이 기계적 변환 가능 |
-| C-CR-02 clone 제거 | ✅ 참조 변환 | &str/&[T]로 서명 변경, 컴파일로 검증 |
-| C-CR-05 std→tokio Mutex | ✅ import 교체 | 타입 교체만으로 해결 가능 |
-| 공통 매직 넘버→const | ✅ 명명 추출 | 의미 변경 없는 리팩토링 |
-| C-CR-09 루프→Iterator | ✅ 기계적 변환 | 결과 동일, 컴파일로 검증 |
-| C-CR-10 fmt/clippy 위반 | ✅ 도구 자동화 | cargo fmt/clippy --fix |
+| R-04 에러 처리 — unwrap→? 변환 | ✅ 단순 패턴 | 로직 변경 없이 기계적 변환 가능 |
+| R-05 소유권 — clone 제거·참조 변환 | ✅ 참조 변환 | &str/&[T]로 서명 변경, 컴파일로 검증 |
+| R-06 제어 흐름 — 수동 루프→Iterator | ✅ 기계적 변환 | 결과 동일, 컴파일로 검증 |
+| 공통 매직 넘버→const 추출 | ✅ 명명 추출 | 의미 변경 없는 리팩토링 |
+| fmt/clippy 위반 | ✅ 도구 자동화 | cargo fmt/clippy --fix |
 
 Claude가 **자동 수정하지 않고 코멘트만** 남기는 이슈:
 
 | 카테고리 | 수동 처리 이유 |
 |----------|---------------|
-| C-CR-03 에지 케이스 | 비즈니스 의도 파악 필요 |
-| C-CR-04 타입 설계 | API 시그니처 변경 → 영향 범위 큼 |
-| C-CR-06 async 구조 | 런타임 아키텍처 변경 |
-| C-CR-07 unsafe | 안전 불변식 인간 검토 필수 |
+| R-01 도메인 모델 | API 시그니처 변경 → 영향 범위 큼 |
+| R-02 상태 & 모델링 | 상태 전이 의미 파악 필요 |
+| R-03 경계 조건 | 비즈니스 의도 파악 필요 |
+| R-07 추상화 & trait | 설계 의도 판단 필요 |
+| R-09 보안 (unsafe 포함) | 안전 불변식 인간 검토 필수 |
 
 ### 인간 리뷰어가 반드시 확인해야 할 체크포인트
 
