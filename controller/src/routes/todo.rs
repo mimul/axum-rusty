@@ -1,4 +1,4 @@
-use crate::context::api_response::ApiResponse;
+use crate::context::api_response::{internal_error, ApiResponse};
 use crate::context::api_version::ApiVersion;
 use crate::context::errors::AppError;
 use crate::context::validate::ValidatedRequest;
@@ -15,11 +15,6 @@ use serde_json::{json, Value};
 use shaku::HasComponent;
 use std::sync::Arc;
 use usecase::usecase::todo::ITodoUseCase;
-
-fn internal_error(err: impl std::fmt::Debug) -> AppError {
-    error!("{:?}", err);
-    AppError::Error("서버 오류가 발생했습니다".to_string())
-}
 
 #[utoipa::path(
     get,

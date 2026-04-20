@@ -1,4 +1,4 @@
-use crate::context::api_response::ApiResponse;
+use crate::context::api_response::{internal_error, ApiResponse};
 use crate::context::api_version::ApiVersion;
 use crate::context::errors::AppError;
 use crate::context::validate::ValidatedRequest;
@@ -16,11 +16,6 @@ use shaku::HasComponent;
 use std::sync::Arc;
 use usecase::model::user::UserView;
 use usecase::usecase::user::IUserUseCase;
-
-fn internal_error(err: impl std::fmt::Debug) -> AppError {
-    error!("{:?}", err);
-    AppError::Error("서버 오류가 발생했습니다".to_string())
-}
 
 /// JWT 토큰을 생성한다.
 fn generate_jwt_token(
@@ -192,7 +187,8 @@ pub async fn login_user(
         Ok(uv) => {
             info!("login_user: response user `{:?}`.", uv);
             let token = generate_jwt_token(
-                &uv.id, &uv.username,
+                &uv.id,
+                &uv.username,
                 &state.config.jwt_secret,
                 state.config.jwt_duration,
             )?;
@@ -211,7 +207,8 @@ pub async fn login_user(
                     .map_err(|e| AppError::Error(format!("cookie header parse failed: {e}")))?,
             );
             let json_user: JsonUser = uv.into();
-            let response = ApiResponse::success("success.", json!({ "userView": json_user, "token": token }));
+            let response =
+                ApiResponse::success("success.", json!({ "userView": json_user, "token": token }));
             Ok((StatusCode::OK, Json(response)))
         }
         Err(err) => Err(internal_error(err)),
