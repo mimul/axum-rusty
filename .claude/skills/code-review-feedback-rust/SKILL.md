@@ -152,7 +152,7 @@ head SHA:  [SHA 7자리]  (인라인 코멘트 연결용)
 
 ---
 
-## [비PR 모드] STEP 0-DIFF / STEP 0-STAGED / STEP 0-COMMIT / STEP 0-BRANCH / STEP 0-FILE
+## [비PR 모드] STEP 0-DIFF / STEP 0-STAGED / STEP 0-COMMIT / STEP 0-BRANCH / STEP 0-LOCAL
 
 코드 수집은 `/code-review-rust`의 동일 STEP과 완전히 동일하게 수행한다.
 
