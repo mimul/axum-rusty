@@ -237,7 +237,7 @@ gh api repos/{owner}/{repo}/pulls/{번호}/reviews \
 🔖 대응:   ✅ 수정 완료
 
 --- 게시될 내용 ---
-수정했습니다. `unwrap()` を `?` 연산자를 사용한 Result 전파로 교체했습니다.
+수정했습니다. `unwrap()`을 `?` 연산자를 사용한 Result 전파로 교체했습니다.
 관련 커밋: fix(handler): [A-RV-01] unwrap() → Result 전파로 교체
 
 > 🤖 Claude Code

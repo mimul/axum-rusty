@@ -105,9 +105,9 @@ description: >
                                지정 브랜치 vs origin/main → PR 자동 탐색
                                STEP 0-BRANCH → STEP 1 → STEP 2 → STEP 3 → STEP 4
 
-파일경로 / 모듈명 있음      → [파일 모드]
+파일경로 / 모듈명 있음      → [로컬 파일 모드]
                                Read로 직접 읽기 → PR 자동 탐색
-                               STEP 0-FILE → STEP 1 → STEP 2 → STEP 3 → STEP 4
+                               STEP 0-LOCAL → STEP 1 → STEP 2 → STEP 3 → STEP 4
 ```
 
 STEP 1~4는 모든 모드 공통이다.
@@ -203,72 +203,8 @@ gh pr list --head $(git branch --show-current) --state open --json number,title,
 
 ## STEP 2 — rules 로드 및 9개 카테고리 분석
 
-**분석 시작 전 아래 세 파일을 반드시 이 순서대로 로드한다:**
-
-1. `.claude/rules/coding-style.md` — **1차 판단 기준** (모든 카테고리의 근거)
-2. `.claude/rules/security.md` — R-04·R-05·R-09 보완 기준
-3. `.claude/rules/test.md` — R-08 보완 기준
-
----
-
-### coding-style.md → R-01~R-09 전체 판단 기준 (1차 기준)
-
-모든 카테고리 판단의 **근본 기준**은 coding-style.md다. 이슈를 보고할 때 반드시 어느 §섹션을 근거로 판단했는지 명시한다.
-
-| 카테고리 | coding-style.md 근거 | 핵심 판단 원칙 |
-|----------|----------------------|----------------|
-| **R-01** 도메인 모델 | §1.3 도메인 중심 설계, §2.2 도메인 모델, §4 네이밍 규칙 | 도메인 개념이 타입으로 표현되는가? primitive 집착인가? 이름이 도메인 용어인가? 로직이 엔티티 내부에 캡슐화되어 있는가? |
-| **R-02** 상태 & 모델링 | §2.2 도메인 모델, §2.4 제어 흐름 | 상태가 enum으로 표현되는가? invalid state가 타입으로 방지되는가? Tell, Don't Ask 원칙이 적용되는가? |
-| **R-03** 경계 조건 & 에지 케이스 | §5 에지 케이스 & 경계 조건 전체 | 에지 케이스를 도메인의 일부로 처리하는가? 경계 조건이 코드에 명시적으로 드러나는가? 숨겨진 가정이 없는가? |
-| **R-04** 에러 처리 | §5.3 처리 방식, §5.4 금지, §1.2 의도를 드러내는 코드 | 에러가 의도를 드러내는가? 침묵하는 실패가 없는가? 에러 타입이 도메인 의미를 가지는가? |
-| **R-05** 소유권 & 메모리 | §1.1 변화 용이성 우선, §2.1 구조 | 변경하기 쉬운 소유권 구조인가? 불필요한 clone()이 없는가? mutable 상태가 최소화되어 있는가? |
-| **R-06** 제어 흐름 | §2.4 제어 흐름, §2.1 구조 | 명확한 흐름이 선택되었는가? 중첩 깊이가 2 이하인가? Tell, Don't Ask 원칙을 따르는가? |
-| **R-07** 추상화 & trait | §2.3 추상화, §1.1 변화 용이성 우선 | 추상화가 3번 반복(Rule of Three) 이후에 도입되었는가? 테스트 편의만을 위한 추상화가 아닌가? |
-| **R-08** 테스트 | §6 테스트 철학 전체 | 테스트가 도메인 행동을 검증하는가? 구현이 아닌 관찰 가능한 동작을 테스트하는가? 경계 조건이 검증되는가? |
-| **R-09** 보안 | §7 보안 기본 원칙 전체 | 신뢰하지 않은 입력이 검증되는가? 최소 권한 원칙을 따르는가? 민감 정보가 보호되는가? |
-
-coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
-- 성급한 추상화 → R-07 이슈
-- 빈약한 도메인 모델 → R-01, R-02 이슈
-- 깊은 중첩 구조 → R-06 이슈
-- 암묵적 경계 처리 → R-03, R-04 이슈
-- 테스트 없는 핵심 로직 → R-08 이슈
-- 보안을 고려하지 않은 설계 → R-09 이슈
-
----
-
-### security.md → R-04 · R-05 · R-09 보완 기준
-
-**R-04 에러 처리** 판단 시 security.md §에러 응답 추가 적용:
-- `unwrap()`/`expect()`가 라이브러리 코드에 있으면 🚫 Blocking (Critical)
-- 에러 메시지에 DB 쿼리·파일 경로 등 내부 정보가 포함되면 🚫 Blocking (High)으로 격상
-- `thiserror` 미사용 시 외부 노출 에러 타입의 `Display` 구현 여부 확인
-
-**R-05 소유권 & 메모리** 판단 시 동시성 안전성 추가 적용:
-- `static mut` 사용 시 🚫 Blocking (Critical) (데이터 레이스 — 정의되지 않은 동작)
-- async 컨텍스트에서 `std::sync::Mutex` 사용 시 🚫 Blocking (High) (교착 가능)
-
-**R-09 보안** 판단 시 security.md §unsafe 추가 적용:
-- `unsafe` 블록에 `// SAFETY:` 주석 없으면 **🚫 Blocking (Critical)**
-- 원시 포인터 null 체크 없으면 **🚫 Blocking (Critical)**
-- FFI 경계 ABI 미검증이면 **🚫 Blocking (High)**
-- 외부 입력 미검증 시 **🚫 Blocking (High)**
-- 하드코딩된 시크릿(API 키, 비밀번호 등) **🚫 Blocking (Critical)**
-
----
-
-### test.md → R-08 보완 기준
-
-**R-08 테스트** 판단 시 test.md 전체 추가 적용:
-- test.md §커버리지 기준: `domain/` 90%, 전체 80% 목표 기준으로 테스트 부족 여부 판단
-- test.md §에러 케이스 필수 목록: `Result` 반환 함수에 에러 케이스 테스트 없으면 ⚠️ Recommended (High)
-- test.md §네이밍: `test1()`, `test_order()` 등 의미 없는 이름이면 💡 Suggestions (Low)
-- test.md §금지 패턴: `#[ignore]` 무단 추가, 공유 상태 테스트 있으면 ⚠️ Recommended (Medium)
-- test.md §Result 반환 테스트: `#[should_panic]` 사용 시 ⚠️ Recommended (Medium) (Result 반환 방식 권고)
-
----
-
-### 분석 리포트 형식
+**분석 기준은 `/code-review-rust`의 STEP 2와 완전히 동일하게 수행한다.**
+rules 로드 순서·R-01~R-09 coding-style.md 매핑 테이블·§9 안티 패턴 횡단 체크·security.md 보완 기준·test.md 보완 기준은 `../code-review-rust/SKILL.md`의 STEP 2를 그대로 따른다.
 
 분석 리포트는 `/code-review-rust`와 동일한 형식을 따르되 헤더만 스킬명을 반영한다:
 
@@ -460,9 +396,13 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
 
 **STEP 3-C에서 사용자가 "게시" / "ok" / "ㅇ" / "인라인만" / "전체만" 중 하나로 승인한 경우에만 이 단계를 실행한다.**
 **`--dry-run`이면 승인을 받더라도 이 단계를 건너뛰고 초안 출력으로 종료한다.**
-**PR이 없는 모드에서 PR 미감지 시 Markdown 리포트 출력으로 대체한다.**
 
-### 4-A. head SHA 확인
+### 4-A. PR 존재 여부 확인 및 분기
+
+**PR 없는 모드**에서 PR이 감지되지 않은 경우 즉시 4-D로 이동한다.
+**PR 있는 경우** 4-B로 진행한다.
+
+### 4-B. head SHA 확인 (PR 있는 경우)
 
 인라인 코멘트 게시에 `commit_id`(PR head SHA)가 필요하다:
 
@@ -470,7 +410,7 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
 HEAD_SHA=$(gh api repos/{owner}/{repo}/pulls/{번호} --jq '.head.sha')
 ```
 
-### 4-B. 인라인 코멘트 게시
+### 4-C. 인라인 코멘트 게시
 
 각 인라인 이슈에 대해 `/reviews` API의 `comments` 배열로 한 번에 게시한다
 (API 호출 횟수 최소화):
@@ -498,7 +438,7 @@ gh api repos/{owner}/{repo}/pulls/{번호}/reviews \
 **`approve` 사용 조건**: 🚫 Blocking (Critical + High) 이슈가 0건인 경우에만 허용.
 🚫 Blocking (Critical / High)이 있으면 자동으로 `COMMENT`로 강등하고 경고를 출력한다.
 
-### 4-C. 게시 결과 확인
+### 4-D. 게시 결과 확인
 
 ```bash
 # 게시된 리뷰 확인
@@ -533,7 +473,7 @@ URL:        [PR URL]#pullrequestreview-[리뷰ID]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 4-D. PR 미감지 시 Markdown 리포트 출력
+### 4-E. PR 미감지 시 Markdown 리포트 출력 (4-A에서 분기)
 
 PR이 없는 경우 아래 형식으로 클립보드 복사 가능한 리포트를 출력한다:
 

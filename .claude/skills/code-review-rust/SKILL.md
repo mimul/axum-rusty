@@ -791,8 +791,8 @@ PR 체크리스트:
 ## 🤖 Claude 코드 리뷰 결과 (PR #[번호])
 
 > 리뷰 기준: CODE_REVIEW_RUST.md R-01~R-09
-> 보안 기준: .claude/rules/security.md
-> 테스트 기준: .claude/rules/test.md
+> 1차 기준: .claude/rules/coding-style.md (도메인 중심 진화형 코딩 원칙)
+> 보완 기준: .claude/rules/security.md · .claude/rules/test.md
 > 리뷰 대상: [파일 목록]
 
 ### 📊 이슈 요약
