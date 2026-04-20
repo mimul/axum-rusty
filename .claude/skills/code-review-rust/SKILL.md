@@ -10,20 +10,20 @@ description: >
     브랜치 모드       — --branch. 현재 브랜치와 기본 브랜치(main)의 diff를 리뷰한다.
     지정 브랜치 모드   — --branch <name>. 지정 브랜치와 기본 브랜치(main)의 diff를 리뷰한다.
     로컬 파일 모드     — 파일 경로 또는 모듈명 지정 시 해당 파일을 직접 리뷰한다.
-  모든 모드에서 CODE_REVIEW_RUST.md의 10개 카테고리(C-CR-01~C-CR-10) 기준으로 분석하고, 이슈마다 Before/After를 제시하고 인간 확인 후에만 수정을 적용한다.
+  모든 모드에서 CODE_REVIEW_RUST.md의 9개 카테고리(R-01~R-09) 기준으로 분석하고, 이슈마다 Before/After를 제시하고 인간 확인 후에만 수정을 적용한다.
 ---
 
 # `/code-review-rust` 커맨드 스킬
 
 ## 스킬 개요
 
-이 스킬은 **`/code-review-rust` 커맨드가 입력될 때 자동으로 실행**된다. `CODE_REVIEW_RUST.md`의 10개 카테고리를 기준으로 Rust 코드를 분석하고, **`security.md`와 `test.md` 규칙을 STEP 2 분석 시작 전에 로드하여** 해당 규칙을 각 카테고리 판단 기준으로 직접 적용한다.
+이 스킬은 **`/code-review-rust` 커맨드가 입력될 때 자동으로 실행**된다. `CODE_REVIEW_RUST.md`의 9개 카테고리를 기준으로 Rust 코드를 분석하고, **`security.md`와 `test.md` 규칙을 STEP 2 분석 시작 전에 로드하여** 해당 규칙을 각 카테고리 판단 기준으로 직접 적용한다.
 
 리뷰의 핵심 불변 조건:
 - **PR 기반 격리** — PR 리뷰는 전용 worktree에서 수행, main 브랜치 보호
 - **변경분만 리뷰** — `git diff`로 실제 변경 파일만 정확히 추출
-- **security.md 적용** — C-CR-01·05·07 판단 시 보안 규칙을 판단 기준으로 사용
-- **test.md 적용** — C-CR-10 판단 시 테스트 규칙의 커버리지·네이밍 기준 적용
+- **security.md 적용** — R-04·R-05·R-09 판단 시 보안 규칙을 판단 기준으로 사용
+- **test.md 적용** — R-08 판단 시 테스트 규칙의 커버리지·네이밍 기준 적용
 - **보여주고 확인받기** — Before/After 제시 → 인간 승인 후에만 수정 적용
 - **분류 우선** — 🚫 Blocking → ⚠️ Recommended → 💡 Suggestions 순서로 처리
 - **항상 그린** — 수정 후 `cargo test` + `cargo clippy` 통과 확인
@@ -54,12 +54,15 @@ description: >
 /code-review-rust src/order/handler.rs      특정 파일만 리뷰
 
 # 필터 옵션 (모든 모드와 조합 가능)
-/code-review-rust --scope error             C-CR-01 에러 처리만
-/code-review-rust --scope ownership         C-CR-02 소유권·차용만
-/code-review-rust --scope async             C-CR-06 비동기만
-/code-review-rust --scope unsafe            C-CR-07 unsafe만
-/code-review-rust --scope test              C-CR-10 테스트만
-/code-review-rust --scope security          security.md 전체 기준 집중 리뷰
+/code-review-rust --scope domain            R-01 도메인 모델만
+/code-review-rust --scope state             R-02 상태 & 모델링만
+/code-review-rust --scope boundary          R-03 경계 조건만
+/code-review-rust --scope error             R-04 에러 처리만
+/code-review-rust --scope ownership         R-05 소유권 & 메모리만
+/code-review-rust --scope control           R-06 제어 흐름만
+/code-review-rust --scope abstraction       R-07 추상화 & trait만
+/code-review-rust --scope test              R-08 테스트만
+/code-review-rust --scope security          R-09 보안 (security.md 전체 기준 집중 리뷰)
 /code-review-rust --severity blocking       🚫 Blocking 이슈만 보고
 /code-review-rust --severity recommended    ⚠️ Recommended 이상 보고
 
@@ -388,7 +391,7 @@ git branch --show-current
 feature/xxx 작업 중  → 같은 브랜치에 커밋
 main에서 수정 필요   → fix/cr-{module-name} 생성
 
-커밋 메시지: fix([scope]): [C-CR-XX] [50자 이내 요약]
+커밋 메시지: fix([scope]): [R-XX] [50자 이내 요약]
 ```
 
 ---
@@ -413,29 +416,31 @@ Read(file_path: "[지정된 파일 경로]")
 
 ---
 
-## STEP 2 — rules 로드 및 10개 카테고리 분석
+## STEP 2 — rules 로드 및 9개 카테고리 분석
 
 **분석 시작 전 `security.md`와 `test.md`를 로드하고, 각 파일의 규칙을 아래와 같이 해당 카테고리 판단에 직접 적용한다.**
 
-### security.md → C-CR-01 · C-CR-05 · C-CR-07 판단 기준
+### security.md → R-04 · R-05 · R-09 판단 기준
 
-**C-CR-01 에러 처리** 판단 시 security.md §에러 응답 적용:
+**R-04 에러 처리** 판단 시 security.md §에러 응답 적용:
 - `unwrap()`/`expect()`가 라이브러리 코드에 있으면 🚫 Blocking (Critical)
 - 에러 메시지에 DB 쿼리·파일 경로 등 내부 정보가 포함되면 🚫 Blocking (High)으로 격상
 - `thiserror` 미사용 시 외부 노출 에러 타입의 `Display` 구현 여부 확인
 
-**C-CR-05 동시성** 판단 시 security.md §인증·권한 적용:
-- `static mut` 사용 시 🚫 Blocking (Critical) (데이터 레이스 = 보안 위험)
-- async 컨텍스트에서 `std::sync::Mutex` 사용 시 🚫 Blocking (High)
+**R-05 소유권 & 메모리** 판단 시 동시성 안전성 기준 적용:
+- `static mut` 사용 시 🚫 Blocking (Critical) (데이터 레이스 — 정의되지 않은 동작)
+- async 컨텍스트에서 `std::sync::Mutex` 사용 시 🚫 Blocking (High) (교착 가능)
 
-**C-CR-07 unsafe** 판단 시 security.md §unsafe 적용:
+**R-09 보안** 판단 시 security.md §unsafe 적용:
 - `unsafe` 블록에 `// SAFETY:` 주석 없으면 **🚫 Blocking (Critical)**으로 판정
 - 원시 포인터 null 체크 없으면 **🚫 Blocking (Critical)**
 - FFI 경계 ABI 미검증이면 **🚫 Blocking (High)**
+- 외부 입력 미검증 시 **🚫 Blocking (High)**
+- 하드코딩된 시크릿(API 키, 비밀번호 등) **🚫 Blocking (Critical)**
 
-### test.md → C-CR-10 판단 기준
+### test.md → R-08 판단 기준
 
-**C-CR-10 테스트** 판단 시 test.md 전체 적용:
+**R-08 테스트** 판단 시 test.md 전체 적용:
 - test.md §커버리지 기준: `domain/` 90%, 전체 80% 목표 기준으로 테스트 부족 여부 판단
 - test.md §에러 케이스 필수 목록: `Result` 반환 함수에 에러 케이스 테스트 없으면 ⚠️ Recommended (High)
 - test.md §네이밍: `test1()`, `test_order()` 등 의미 없는 이름이면 💡 Suggestions (Low)
@@ -465,7 +470,7 @@ Read(file_path: "[지정된 파일 경로]")
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🚫 Blocking Issues ([N]건)
-  • [C-CR-XX] [파일명:행번호] [이슈 제목]
+  • [R-XX] [파일명:행번호] [이슈 제목]
     → [설명] / 근거: [security.md §섹션 또는 test.md §섹션]
 
 ⚠️ Recommended Changes ([N]건)
@@ -479,7 +484,7 @@ Read(file_path: "[지정된 파일 경로]")
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ 이상 없는 카테고리
-  • [C-CR-XX] [카테고리명] — 문제 없음
+  • [R-XX] [카테고리명] — 문제 없음
 
 📝 종합 평가
   [설계 방향, 잠재 리스크, 개선 제안 3~5줄]
@@ -496,16 +501,21 @@ Read(file_path: "[지정된 파일 경로]")
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🚫 Blocking — 즉시 수정 필수 (Critical + High: [N]건)
-  1. [C-CR-XX] [이슈 제목] — [파일명:행번호]
+  1. [R-XX] [이슈 제목] — [파일명:행번호]
 
 ⚠️ Recommended — 권장 수정 (Medium: [N]건)
-  2. [C-CR-XX] [이슈 제목] — [파일명:행번호]
+  2. [R-XX] [이슈 제목] — [파일명:행번호]
 
 💡 Suggestions / 📝 Tech Debt — 선택 사항 (Low: [N]건)
-  3. [C-CR-XX] [이슈 제목] — [파일명:행번호]
+  3. [R-XX] [이슈 제목] — [파일명:행번호]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  "전체 수정" / "Blocking만" / "Recommended 이상" / "[번호]번만" / "리포트만"
+  어떻게 진행할까요?
+  "전체 수정"         → 모든 이슈를 순서대로 개별 확인 (🚫 Blocking은 항상 개별 확인)
+  "Blocking만"        → 🚫 Blocking 이슈만 처리 후 STEP 5
+  "Recommended 이상"  → 🚫 + ⚠️ 이슈만 처리 후 STEP 5
+  "[번호]번만"        → 지정 이슈만 Before/After 제시
+  "리포트만"          → 수정 없이 STEP 5 완료 요약으로 이동
 ```
 
 ---
@@ -519,7 +529,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[분류 이모지] [C-CR-XX] [이슈 제목]  —  Before/After 비교
+[분류 이모지] [R-XX] [이슈 제목]  —  Before/After 비교
     ([진행 현황: N/M번째])
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -547,7 +557,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
   cargo test [관련_테스트_경로]
 
 ─── 커밋 메시지 제안 ────────────────────
-  fix([scope]): [C-CR-XX] [50자 이내 요약]
+  fix([scope]): [R-XX] [50자 이내 요약]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 👆 이 수정을 적용할까요?
@@ -574,7 +584,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅  [C-CR-XX] 수정 완료
+✅  [R-XX] 수정 완료
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 수정된 파일: [파일 경로]
@@ -585,7 +595,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
   2. cargo clippy -- -D warnings
   3. cargo test [관련_테스트_경로]
   4. git add [파일]
-  5. git commit -m "fix([scope]): [C-CR-XX] [요약]"
+  5. git commit -m "fix([scope]): [R-XX] [요약]"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -609,9 +619,12 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 
 ---
 
-## STEP 5-0 — 커버리지 게이트 (PR 생성 전 필수 통과)
+## STEP 5-0 — 커버리지 게이트 (PR 생성 요청 시 필수 통과)
 
-PR 초안 또는 PR 코멘트를 생성하기 전에 반드시 `cargo tarpaulin`을 실행하고
+**적용 범위**: PR 모드 또는 사용자가 PR 생성을 요청하는 경우에만 실행한다.
+로컬 변경·커밋·브랜치·파일 모드에서 리뷰만 완료하는 경우에는 건너뛴다.
+
+PR 코멘트(5-C) 또는 PR 설명 초안(5-D)을 생성하기 전에 반드시 `cargo tarpaulin`을 실행하고
 커버리지가 **80% 이상**인지 확인한다.
 **이 단계를 통과하지 못하면 PR을 절대 생성하지 않는다.**
 
@@ -625,7 +638,7 @@ cargo tarpaulin --out Stdout 2>&1 | tail -5
 
 | 결과 | 조건 | 다음 단계 |
 |------|------|-----------|
-| ✅ 통과 | 커버리지 ≥ 80% | STEP 5-A PR 초안·코멘트 생성 진행 |
+| ✅ 통과 | 커버리지 ≥ 80% | STEP 5 완료 요약 후 5-C 또는 5-D PR 초안 생성 진행 |
 | 🚫 차단 | 커버리지 < 80% | PR 생성 금지, 커버리지 갭 리포트 출력 |
 
 #### 통과 시 출력 형식
@@ -674,13 +687,13 @@ cargo tarpaulin --out Stdout 2>&1 | tail -5
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 수정된 이슈 ([N]건):
-  ✅ [C-CR-XX] [제목] — [파일명:행번호]
+  ✅ [R-XX] [제목] — [파일명:행번호]
 
 건너뛴 이슈 ([M]건):
-  ⏭️  [C-CR-XX] [제목] — [사유]
+  ⏭️  [R-XX] [제목] — [사유]
 
 💡 Suggestions / 📝 Tech Debt:
-  🔵 [C-CR-XX] [제목] — [내용]
+  🔵 [R-XX] [제목] — [내용]
 
 최종 검증 커맨드:
   cargo fmt --check
@@ -712,8 +725,8 @@ PR 체크리스트:
 베이스: [원본 브랜치]
 
 [최신]
-  xxxxxxx fix([scope]): [C-CR-XX] [요약]
-  xxxxxxx fix([scope]): [C-CR-XX] [요약]
+  xxxxxxx fix([scope]): [R-XX] [요약]
+  xxxxxxx fix([scope]): [R-XX] [요약]
 [기준] origin/[베이스]
 
 확인 커맨드:
@@ -731,7 +744,7 @@ PR 체크리스트:
 
 ## 🤖 Claude 코드 리뷰 결과 (PR #[번호])
 
-> 리뷰 기준: CODE_REVIEW_RUST.md C-CR-01~10
+> 리뷰 기준: CODE_REVIEW_RUST.md R-01~R-09
 > 보안 기준: .claude/rules/security.md
 > 테스트 기준: .claude/rules/test.md
 > 리뷰 대상: [파일 목록]
@@ -748,7 +761,7 @@ PR 체크리스트:
 
 #### 🚫 Blocking Issues (Critical + High)
 
-**[C-CR-XX] [제목]** — `[파일명:행번호]`
+**[R-XX] [제목]** — `[파일명:행번호]`
 [설명] / 근거: [security.md §섹션 또는 test.md §섹션]
 <details><summary>수정 제안</summary>
 
@@ -782,7 +795,7 @@ PR 체크리스트:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 5-C. PR 설명 초안 (로컬 모드 — fix/cr 브랜치)
+### 5-D. PR 설명 초안 (로컬 모드 — fix/cr 브랜치)
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -802,13 +815,13 @@ PR 체크리스트:
 
 | 항목 | 심각도 | 파일 | 변경 내용 | 적용 규칙 |
 |------|--------|------|-----------|-----------|
-| [C-CR-XX] | 🔴 | [파일:행] | [내용] | [security/test.md 해당 시] |
+| [R-XX] | 🔴 | [파일:행] | [내용] | [security/test.md 해당 시] |
 
 ## 수정하지 않은 항목
 
 | 항목 | 사유 |
 |------|------|
-| [C-CR-XX] | [사유] |
+| [R-XX] | [사유] |
 
 ## 테스트
 - [ ] cargo test --all 전체 통과
@@ -833,16 +846,15 @@ PR 체크리스트:
 
 | 코드 | 카테고리 | 핵심 탐지 신호 | 분류 | 적용 규칙 |
 |------|----------|----------------|------|-----------|
-| **C-CR-01** | 에러 처리 | `unwrap()`, `panic!` in lib | 🚫⚠️ | security.md §에러 응답 |
-| **C-CR-02** | 소유권·차용 | `.clone()` 남발, `&mut T` 과용 | ⚠️ | — |
-| **C-CR-03** | 에지 케이스 | `v[0]`, 0 나누기, 오버플로우 | 🚫 | — |
-| **C-CR-04** | 타입 설계 | `bool` 파라미터, `u64` 혼동 | ⚠️ | — |
-| **C-CR-05** | 동시성·스레드 | `static mut`, `std::Mutex` in async | 🚫 | security.md §인증·권한 |
-| **C-CR-06** | 비동기 | `std::fs` in async, `.await` 누락 | 🚫 | — |
-| **C-CR-07** | unsafe | SAFETY 주석 없음, null 체크 없음 | 🚫 | **security.md §unsafe** |
-| **C-CR-08** | 코드 품질 | 매직 넘버, `pub` 과노출, rustdoc 없음 | 💡 | — |
-| **C-CR-09** | Rust 관용 표현 | 수동 루프, 장황한 match | ⚠️ | — |
-| **C-CR-10** | 테스트 | 에러 케이스 없음, 의미없는 이름 | ⚠️💡 | **test.md 전체** |
+| **R-01** | 도메인 모델 | primitive 직접 사용, 유비쿼터스 언어 미반영 | ⚠️💡 | — |
+| **R-02** | 상태 & 모델링 | bool 남용, invalid state 존재, 상태 전이 불명확 | 🚫⚠️ | — |
+| **R-03** | 경계 조건 | `v[0]`, 0 나누기, 오버플로우, 경계값 미처리 | 🚫 | — |
+| **R-04** | 에러 처리 | `unwrap()`, `panic!` in lib, 내부 정보 노출 | 🚫⚠️ | security.md §에러 응답 |
+| **R-05** | 소유권 & 메모리 | `.clone()` 남발, `static mut`, `std::Mutex` in async | 🚫⚠️ | — |
+| **R-06** | 제어 흐름 | 중첩 깊이 >2, 수동 루프, `_` 패턴 남용 | ⚠️💡 | — |
+| **R-07** | 추상화 & trait | 과도한 제네릭, 테스트 편의 추상화, 미사용 trait | 💡 | — |
+| **R-08** | 테스트 | 에러 케이스 없음, 의미없는 이름, 내부 mock | ⚠️💡 | **test.md 전체** |
+| **R-09** | 보안 | SAFETY 주석 없음, null 체크 없음, 하드코딩 시크릿 | 🚫 | **security.md 전체** |
 
 ---
 
@@ -865,7 +877,7 @@ PR 체크리스트:
 
 | 파일 | 용도 | 로드 시점 |
 |------|------|-----------|
-| `CODE_REVIEW_RUST.md` | C-CR-01~10 체크리스트 | 스킬 실행 시 항상 |
+| `CODE_REVIEW_RUST.md` | R-01~R-09 체크리스트 | 스킬 실행 시 항상 |
 | `../../rules/security.md` | 보안 규칙 | **STEP 2 분석 시작 전 로드** |
 | `../../rules/test.md` | 테스트 규칙 | **STEP 2 분석 시작 전 로드** |
 | `SKILL.md` (이 파일) | 실행 지침 및 흐름 정의 | 커맨드 입력 시 |
