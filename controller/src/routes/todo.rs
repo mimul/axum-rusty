@@ -120,7 +120,7 @@ pub async fn create_todo(
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("create_todo: {:?}", source);
     let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
-    let resp = uc.create_todo(source.into()).await;
+    let resp = uc.create_todo(source.try_into()?).await;
     resp.map(|tv| {
         info!("created todo: {}", tv.id);
         let json: JsonTodo = tv.into();
@@ -199,7 +199,7 @@ pub async fn upsert_todo(
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("upsert_todo: {:?}", source);
     let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
-    let resp = uc.upsert_todo(source.to_view(id)).await;
+    let resp = uc.upsert_todo(source.try_to_view(id)?).await;
     resp.map(|tv| {
         info!("created or updated todo {}", tv.id);
         let json: JsonTodo = tv.into();
