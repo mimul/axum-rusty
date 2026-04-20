@@ -2,11 +2,11 @@
 name: refactor-rust
 description: >
   /refactor-rust 커맨드로 실행되는 Rust 코드 리팩토링 스킬.
-  리팩토링 시작 전 git worktree로 feature/refactor-{module-name} 브랜치를
-  격리 환경에 준비한다. 운영 코드를 분석하여 코드 냄새를 탐지하고, 우선순위
-  기반 계획을 수립한 후 항목별로 Before/After 비교를 먼저 제시하고 인간의
-  확인을 받은 뒤에만 변환을 적용한다. 기능 동치를 유지하면서 소유권 명확화,
-  에러 처리 체계화, Trait 추상화, 모듈 구조 개선 등 Rust 고유의 품질을 향상.
+  coding-style.md에서 도출된 R-R-01~08 도메인 중심 카탈로그를 기준으로,
+  git worktree 격리 환경에서 코드 냄새를 탐지하고 우선순위 기반 계획을 수립한다.
+  Before/After 비교를 먼저 제시하고 인간의 확인을 받은 뒤에만 변환을 적용한다.
+  도메인 명확성, 의도를 드러내는 네이밍, 변화 용이성을 핵심 목표로 하며
+  기능 동치를 유지하면서 Rust 코드의 도메인 가시성과 구조적 품질을 향상한다.
 ---
 
 # `/refactor-rust` 커맨드 스킬
@@ -14,13 +14,14 @@ description: >
 ## 스킬 개요
 
 이 스킬은 **`/refactor-rust` 커맨드가 입력될 때 자동으로 실행**된다.
-`REFACTOR_RUST.md` 카탈로그(R-R-01~R-R-10)를 기준으로 리팩토링 계획을
-수립한 뒤, **`security.md`와 `test.md` 규칙을 분석 전 반드시 로드하여**
+`REFACTOR_RUST.md` 카탈로그(R-R-01~R-R-08)와 **`coding-style.md`** 를 기준으로
+리팩토링 계획을 수립한 뒤, **`security.md`와 `test.md` 규칙을 분석 전 반드시 로드하여**
 리팩토링 전 과정에 적용한다.
 
 리팩토링의 핵심 불변 조건:
 - **격리된 환경** — git worktree로 main 브랜치를 보호한 채 작업
 - **기능 동치** — 외부 동작은 변경 전후 100% 동일
+- **도메인 중심** — 리팩토링 후 도메인 개념이 코드에 더 명확히 드러나야 한다
 - **보안 규칙 준수** — `security.md` 로드 후 모든 변환에 적용
 - **테스트 규칙 준수** — `test.md` 로드 후 커버리지 유지 여부 확인
 - **보여주고 확인받기** — Before/After를 먼저 제시, 인간 승인 후에만 적용
@@ -34,11 +35,15 @@ description: >
 ```
 /refactor-rust                         코드를 붙여넣으면 전체 분석 + 계획 수립
 /refactor-rust [파일명 또는 모듈명]    특정 대상 명시
-/refactor-rust --scope ownership       소유권/Clone 관련 항목만
-/refactor-rust --scope error           에러 처리 관련 항목만
-/refactor-rust --scope trait           Trait 추상화 관련 항목만
-/refactor-rust --scope async           비동기 관련 항목만
-/refactor-rust --scope module          모듈 구조 관련 항목만
+/refactor-rust --scope naming          의도를 드러내는 네이밍 항목만
+/refactor-rust --scope domain          빈약한 도메인 모델 항목만
+/refactor-rust --scope state           상태 & 제어 흐름 항목만
+/refactor-rust --scope function        함수 분해 & 단일 책임 항목만
+/refactor-rust --scope abstraction     중복 제거 & 적시 추상화 항목만
+/refactor-rust --scope boundary        경계 조건 & 에러 처리 항목만
+/refactor-rust --scope ownership       소유권 & 변경 용이성 항목만
+/refactor-rust --scope module          모듈 구조 도메인화 항목만
+/refactor-rust --scope security        보안 관련 항목만
 /refactor-rust --catalog               카탈로그 전체 항목 목록 출력
 /refactor-rust --help                  사용법 및 옵션 설명 출력
 ```
@@ -82,7 +87,7 @@ module-name 결정 기준 (우선순위):
 예시:
   src/order/service.rs  → feature/refactor-order-service
   src/db.rs             → feature/refactor-db
-  --scope error 지정 시 → feature/refactor-error-handling
+  --scope naming 지정 시 → feature/refactor-naming
   전체 코드베이스       → feature/refactor-whole-codebase
 ```
 
@@ -153,12 +158,32 @@ cargo clippy -- -D warnings 2>&1 | tee clippy_baseline.txt
 - 외부 크레이트 의존성
 - 비동기 컨텍스트 여부
 - 테스트 존재 여부 및 커버리지 추정
+- 도메인 개념의 코드 가시성 (도메인 용어가 타입·함수명에 드러나는가?)
 
 ---
 
 ### STEP 2 — rules 로드 및 코드 냄새 탐지
 
-**분석 시작 전 `security.md`와 `test.md`를 로드하고, 각 규칙을 분석에 직접 적용한다.**
+**분석 시작 전 `coding-style.md`, `security.md`, `test.md`를 반드시 로드하고,
+각 규칙을 분석에 직접 적용한다.**
+
+로드 순서:
+1. `.claude/rules/coding-style.md` — 도메인 중심 코딩 원칙 (분석 기준)
+2. `.claude/rules/security.md` — 보안 규칙 (각 변환에 체크)
+3. `.claude/rules/test.md` — 테스트 규칙 (커버리지·테스트 구조 확인)
+
+#### coding-style.md 적용 항목
+
+분석 중 아래 도메인 중심 원칙을 체크한다:
+
+- **도메인 가시성**: 타입·함수명이 도메인 용어를 사용하지 않으면 R-R-01 이슈
+- **빈약한 도메인 모델**: primitive 집착 또는 로직이 서비스에만 있으면 R-R-02 이슈
+- **상태 모델링**: bool 플래그 / 문자열 상태 표현 → R-R-03 이슈
+- **함수 책임**: 50줄 초과 or 다중 책임 → R-R-04 이슈
+- **조기 추상화**: 3번 미만 반복에 Trait 도입 → R-R-05 이슈 (성급한 추상화 경고)
+- **경계 암묵 처리**: `.unwrap()`, 인덱스 무방비, `unwrap_or_default()` → R-R-06 이슈
+- **불필요한 clone**: 컴파일 오류 회피용 `.clone()` → R-R-07 이슈
+- **flat 모듈 구조**: 기능 단위 flat 구성, `utils.rs`에 비즈니스 로직 → R-R-08 이슈
 
 #### security.md 적용 항목
 
@@ -168,9 +193,9 @@ cargo clippy -- -D warnings 2>&1 | tee clippy_baseline.txt
   누락 시 R-R 카탈로그 항목과 별개로 `[보안] unsafe SAFETY 주석 누락` 이슈로 보고
 - **비밀 정보**: 하드코딩된 키·토큰·비밀번호가 있으면 `[보안] 비밀 정보 하드코딩` 이슈로 보고
 - **입력 검증**: 외부 입력을 Newtype 없이 원시 타입으로 바로 사용하면
-  R-R-03(Newtype Pattern)과 함께 보안 관점 코멘트 추가
+  R-R-02(도메인 모델)와 함께 보안 관점 코멘트 추가
 - **에러 노출**: 내부 구현 정보(DB 쿼리, 파일 경로 등)가 에러 메시지에 포함되면
-  R-R-02(Error Handling)와 함께 보안 관점 코멘트 추가
+  R-R-06(경계 조건)과 함께 보안 관점 코멘트 추가
 
 #### test.md 적용 항목
 
@@ -183,7 +208,7 @@ cargo clippy -- -D warnings 2>&1 | tee clippy_baseline.txt
 - **커버리지 영향**: 리팩토링 후 기존 테스트가 새 구조를 커버하지 못할 가능성이
   있으면 `[테스트] 리팩토링 후 커버리지 확인 필요` 경고 추가
 - **테스트 네이밍**: `test1()`, `test_order()` 등 의미 없는 이름이 있으면
-  `[테스트] 테스트명 개선 권고` 로 낮은 우선순위 이슈 추가
+  `[테스트] 테스트명 개선 권고`로 낮은 우선순위 이슈 추가
 
 #### 분석 리포트 형식
 
@@ -198,13 +223,15 @@ cargo clippy -- -D warnings 2>&1 | tee clippy_baseline.txt
    - 구성: [주요 struct/fn/trait 목록]
    - 테스트: [있음 / 없음 / 부분적]
    - unsafe: [있음 / 없음]
+   - 도메인 가시성: [높음 / 중간 / 낮음 — 도메인 용어가 코드에 드러나는 정도]
 
 🚨 탐지된 이슈 ([N]건)
 
   [위험도: 높음]
   • [R-R-XX 또는 보안/테스트] [fn명 또는 위치]
     증상: [구체적 설명]
-    카탈로그: [R-R-XX] / 규칙: [security.md §섹션 또는 test.md §섹션]
+    카탈로그: [R-R-XX] / coding-style.md: [§섹션]
+    규칙: [security.md §섹션 또는 test.md §섹션] (해당 시)
 
   [위험도: 중간]
   • ...
@@ -220,22 +247,20 @@ cargo clippy -- -D warnings 2>&1 | tee clippy_baseline.txt
 
 탐지 기준표:
 
-| 코드 냄새 | 카탈로그 | 추가 적용 규칙 |
-|-----------|----------|----------------|
-| Clone 남용 | R-R-01 | — |
-| unwrap/expect 남용 | R-R-02 | security.md §에러 응답 |
-| 원시 타입 집착 | R-R-03 | security.md §입력 검증 |
-| 구체 타입 의존 | R-R-04 | — |
-| 명령형 루프 | R-R-05 | — |
-| Bool 플래그 상태 | R-R-06 | — |
-| Blocking I/O | R-R-07 | — |
-| Flat 모듈 구조 | R-R-08 | — |
-| String 복사 | R-R-09 | — |
-| 매직 넘버 | R-R-10 | security.md §비밀 정보 |
-| unsafe SAFETY 누락 | — | **security.md §unsafe** |
-| 비밀 정보 하드코딩 | — | **security.md §비밀 정보** |
-| 테스트 없음 | — | **test.md §커버리지 기준** |
-| 에러 케이스 테스트 누락 | — | **test.md §필수 목록** |
+| 코드 냄새 | 카탈로그 | coding-style.md | 추가 적용 규칙 |
+|-----------|----------|-----------------|----------------|
+| 의미 없는 이름·매직 넘버 | R-R-01 | §1.2, §4 | — |
+| Primitive 집착·빈약한 도메인 모델 | R-R-02 | §1.3, §2.2 | security.md §입력 검증 |
+| Bool 플래그·문자열 상태·깊은 중첩 | R-R-03 | §2.4, §2.2 | — |
+| 거대 함수·다중 책임·명령형 루프 | R-R-04 | §2.1, §1.4 | — |
+| 3회 미만 추상화·불필요한 Trait | R-R-05 | §2.3, §1.1 | — |
+| unwrap/expect·암묵적 경계 처리 | R-R-06 | §5, §1.2 | security.md §에러 응답 |
+| Clone 남용·불필요한 소유권 이전 | R-R-07 | §1.1, §2.1 | — |
+| flat 모듈·utils.rs 비즈니스 로직 | R-R-08 | §1.3, §2.1 | — |
+| unsafe SAFETY 주석 누락 | — | — | **security.md §unsafe** |
+| 비밀 정보 하드코딩 | — | — | **security.md §비밀 정보** |
+| 테스트 없음 | — | — | **test.md §커버리지 기준** |
+| 에러 케이스 테스트 누락 | — | — | **test.md §필수 목록** |
 
 ---
 
@@ -254,6 +279,7 @@ cargo clippy -- -D warnings 2>&1 | tee clippy_baseline.txt
 │ [R-R-XX 또는 보안/테스트] [제목]           │
 │   위치: [fn명 / struct명]                  │
 │   변환: [Before 패턴] → [After 패턴]       │
+│   근거: coding-style.md §[섹션]            │
 │   검증: cargo test [테스트명]              │
 └───────────────────────────────────────────┘
 
@@ -296,6 +322,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 📍 대상:   [fn명 / struct명 / 파일명]
 📖 이유:   [구체적 이유 1~2줄]
 ⚠️  위험도: [낮음 / 중간 / 높음]
+📐 근거:   coding-style.md §[섹션번호] [섹션명]
 📏 규칙:   [해당 시 — security.md §섹션 또는 test.md §섹션]
 
 ─── BEFORE ──────────────────────────────
@@ -460,6 +487,7 @@ PR 체크리스트:
   □ cargo test --all 전체 통과
   □ cargo clippy -D warnings 경고 0건
   □ cargo fmt --check 포맷 위반 없음
+  □ 도메인 가시성 향상 확인 (리팩토링 전보다 도메인 개념이 명확히 드러나는가?)
   □ unsafe 블록 SAFETY 주석 완비 (security.md §unsafe)
   □ 비밀 정보 하드코딩 없음 (security.md §비밀 정보)
   ■ 커버리지 ≥ 80% 확인 완료 (STEP 5-0 통과 필수 — 미달 시 PR 차단)
@@ -503,27 +531,28 @@ PR 체크리스트:
 ■ PR 본문
 ────────────────────────────────────────
 ## 리팩토링 개요
-기능 변경 없이 코드 구조·가독성·안전성을 개선합니다.
+기능 변경 없이 코드 구조·가독성·도메인 가시성을 개선합니다.
 
 ## 변경 배경
 [코드 냄새 탐지 결과 기반 1~3줄]
 
 ## 적용된 리팩토링 ([N]건)
 
-| 항목 | 변환 내용 | 파일 |
-|------|-----------|------|
-| [R-R-XX] [제목] | [Before] → [After] | [파일명] |
+| 항목 | coding-style.md | 변환 내용 | 파일 |
+|------|-----------------|-----------|------|
+| [R-R-XX] [제목] | §[섹션] | [Before] → [After] | [파일명] |
 
 ## 주요 변경 상세
 ### [R-R-XX] [제목]
 - 변경 전: [문제 1줄]
 - 변경 후: [해결 1줄]
-- 효과: [성능·안전성·가독성]
+- coding-style.md 근거: §[섹션] [섹션명]
+- 효과: [도메인 가시성·안전성·가독성]
 
 ## 보안·테스트 체크
 - [ ] unsafe SAFETY 주석 완비
 - [ ] 비밀 정보 하드코딩 없음
-- [ ] 리팩토링 후 테스트 커버리지 유지
+- [ ] 리팩토링 후 테스트 커버리지 유지 (≥ 80%)
 - [ ] 에러 케이스 테스트 존재
 
 ## 리뷰어 참고
@@ -548,34 +577,32 @@ PR 체크리스트:
 
 ## 카탈로그 항목 빠른 참조 (`/refactor-rust --catalog`)
 
-| 코드 | 제목 | 핵심 변환 | 연계 규칙 |
-|------|------|-----------|-----------|
-| **R-R-01** | Ownership 명확화 | `Vec<T>` → `&[T]` / clone 제거 | — |
-| **R-R-02** | Error Handling 체계화 | `unwrap()` → `thiserror` + `?` | security.md §에러 응답 |
-| **R-R-03** | Newtype Pattern | `u64`/`String` → Newtype | security.md §입력 검증 |
-| **R-R-04** | Trait 기반 추상화 | 구체 타입 → trait + 제네릭 | — |
-| **R-R-05** | Iterator Adapter 체인 | `for` 루프 → iterator | — |
-| **R-R-06** | State Machine with Enum | bool 플래그 → enum | — |
-| **R-R-07** | Async/Await 도입 | blocking → async + join_all | — |
-| **R-R-08** | Module 구조 재편 | flat → domain/infra/shared | — |
-| **R-R-09** | Lifetime 명확화 | `String` 반환 → `&str` | — |
-| **R-R-10** | Const / Static 분리 | 매직 넘버 → `const` | security.md §비밀 정보 |
+| 코드 | 제목 | coding-style.md | 핵심 변환 | 연계 규칙 |
+|------|------|-----------------|-----------|-----------|
+| **R-R-01** | 의도를 드러내는 네이밍 | §1.2, §4 | 매직 넘버 → const, 의도 표현 이름 | — |
+| **R-R-02** | 빈약한 도메인 모델 개선 | §1.3, §2.2 | primitive → Newtype + Smart Constructor | security.md §입력 검증 |
+| **R-R-03** | 상태 & 제어 흐름 명확화 | §2.4, §2.2 | bool 플래그 → Enum 상태 머신, Early Return | — |
+| **R-R-04** | 함수 분해 & 단일 책임 | §2.1, §1.4 | 거대 함수 분해, 명령형 루프 → Iterator | — |
+| **R-R-05** | 중복 제거 & 적시 추상화 | §2.3, §1.1 | 3회 반복 후 Trait 추출 (Rule of Three) | — |
+| **R-R-06** | 경계 조건 & 에러 처리 명시화 | §5, §1.2 | unwrap → thiserror + ?, 명시적 경계 | security.md §에러 응답 |
+| **R-R-07** | 소유권 & 변경 용이성 | §1.1, §2.1 | `String` → `&str`, clone 제거 | — |
+| **R-R-08** | 모듈 구조 도메인화 | §1.3, §2.1 | flat → domain/infra/shared 계층 분리 | — |
 
 ---
 
 ## 스코프별 집중 분석
 
-| `--scope` | 카탈로그 | 연계 규칙 |
-|-----------|----------|-----------|
-| `ownership` | R-R-01, R-R-09 | — |
-| `error` | R-R-02 | security.md §에러 응답 |
-| `type` | R-R-03, R-R-06, R-R-10 | security.md §입력 검증, §비밀 정보 |
-| `trait` | R-R-04 | — |
-| `functional` | R-R-05 | — |
-| `async` | R-R-07 | — |
-| `module` | R-R-08 | — |
-| `security` | R-R-02, R-R-03, R-R-10 | **security.md 전체** |
-| `test` | — | **test.md 전체** |
+| `--scope` | 카탈로그 | coding-style.md | 연계 규칙 |
+|-----------|----------|-----------------|-----------|
+| `naming` | R-R-01 | §1.2, §4 | — |
+| `domain` | R-R-02 | §1.3, §2.2 | security.md §입력 검증 |
+| `state` | R-R-03 | §2.4, §2.2 | — |
+| `function` | R-R-04 | §2.1, §1.4 | — |
+| `abstraction` | R-R-05 | §2.3, §1.1 | — |
+| `boundary` | R-R-06 | §5, §1.2 | security.md §에러 응답 |
+| `ownership` | R-R-07 | §1.1, §2.1 | — |
+| `module` | R-R-08 | §1.3, §2.1 | — |
+| `security` | R-R-02, R-R-06 | §7 | **security.md 전체** |
 
 ---
 
@@ -591,6 +618,8 @@ PR 체크리스트:
 🚫 에러 메시지 / 코드 변경 (모니터링 연계 영향)
 🚫 serde 필드명 변경 (직렬화 호환성 파괴)
 🚫 여러 리팩토링 항목을 단일 커밋으로 묶기
+🚫 동일 패턴이 3번 미만인데 추상화 도입 (coding-style.md §2.3 Rule of Three 위반)
+🚫 도메인 개념 없는 범용 util 추가 (coding-style.md §1.3 위반)
 ```
 
 ---
@@ -599,7 +628,8 @@ PR 체크리스트:
 
 | 파일 | 용도 | 로드 시점 |
 |------|------|-----------|
-| `REFACTOR_RUST.md` | R-R-01~R-R-10 카탈로그 | 스킬 실행 시 항상 |
+| `REFACTOR_RUST.md` | R-R-01~R-R-08 도메인 중심 카탈로그 | 스킬 실행 시 항상 |
+| `../../rules/coding-style.md` | 도메인 중심 코딩 원칙 (분석 기준) | **STEP 2 분석 시작 전 로드** |
 | `../../rules/security.md` | 보안 규칙 | **STEP 2 분석 시작 전 로드** |
 | `../../rules/test.md` | 테스트 규칙 | **STEP 2 분석 시작 전 로드** |
 | `SKILL.md` (이 파일) | 실행 지침 및 흐름 정의 | 커맨드 입력 시 |
