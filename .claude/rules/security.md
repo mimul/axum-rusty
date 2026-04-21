@@ -1,162 +1,220 @@
-# 보안 규칙 (Security Rules)
+---
+name: Security Rules
+description: >
+  도메인 중심 진화형 코딩 스타일과 통합된 보안 규칙.
+  입력 검증, 데이터 보호, 인증/인가, 에러 처리, 의존성 관리까지 포함하여 보안을 사후 대응이 아닌 설계 단계에서 강제하는 것을 목표로 한다.
+---
 
-Claude가 이 프로젝트에서 코드를 작성하거나 리뷰할 때
-반드시 준수해야 하는 보안 규칙이다.
+#  Security by Design Rules
 
 ---
 
-## 1. 입력 검증 (Input Validation)
+## 1. 핵심 원칙
 
-```rust
-// ❌ 외부 입력을 검증 없이 사용
-fn get_user(id: &str) -> User {
-    db.query(&format!("SELECT * FROM users WHERE id = '{id}'"))
-}
-
-// ✅ 타입 시스템으로 검증 강제
-pub struct UserId(uuid::Uuid);
-
-impl UserId {
-    pub fn parse(s: &str) -> Result<Self, AppError> {
-        let uuid = uuid::Uuid::parse_str(s)
-            .map_err(|_| AppError::InvalidUserId)?;
-        Ok(Self(uuid))
-    }
-}
-```
-
-- 모든 외부 입력(HTTP 파라미터, 헤더, 바디, 환경변수)은 **도메인 타입으로 변환 후 사용**
-- 문자열 직접 보간(format!) 대신 **파라미터 바인딩** 사용 (sqlx 쿼리 등)
-- 입력 길이·형식·범위를 **값 객체(Newtype) 생성 시점에서 검증**
+- 모든 입력은 신뢰하지 않는다 (Zero Trust Input)
+- 보안은 사후 처리하지 않고 설계 단계에서 포함한다
+- 실패는 안전하게 (Fail Closed)
+- 최소 권한 원칙을 따른다 (Least Privilege)
+- 명시적으로 허용된 것만 통과시킨다 (Allowlist)
 
 ---
 
-## 2. 인증·권한 (Auth)
+## 2. 입력 & 경계 (Input & Boundary)
 
-- 모든 핸들러에 인증 미들웨어 적용 여부 명시적으로 확인
-- 권한 검사는 **서비스 레이어에서 수행** (핸들러에서 직접 처리 금지)
-- 토큰·세션 만료 처리 구현 필수
+### 반드시 확인
 
-```rust
-// ✅ 서비스 레이어에서 권한 검사
-impl OrderService {
-    pub async fn cancel_order(
-        &self,
-        caller: &AuthenticatedUser,  // 인증된 사용자
-        order_id: OrderId,
-    ) -> Result<(), AppError> {
-        let order = self.repo.find_by_id(order_id).await?
-            .ok_or(AppError::NotFound)?;
+- 외부 입력(API, 사용자 입력, 파일, DB)이 검증되는가?
+- 허용된 값만 통과시키는가? (allowlist)
+- 문자열 결합으로 로직이 구성되지 않는가?
 
-        // 본인 주문만 취소 가능
-        if order.customer_id != caller.id {
-            return Err(AppError::Forbidden);
-        }
-        // ...
-    }
-}
-```
+### 금지
+
+- 검증 없는 입력 사용
+- blacklist 기반 필터링
+- 사용자 입력을 그대로 실행
+
+### 패턴
+
+- Parse → Validate → Construct
+- Strong typing으로 입력 제한
+- Schema 기반 검증
 
 ---
 
-## 3. 비밀 정보 관리 (Secrets)
+## 3. 인증 & 인가 (AuthN / AuthZ)
 
-```
-🚫 소스코드에 하드코딩 절대 금지:
-   - API 키, 비밀번호, 토큰, 개인키
-   - DB 연결 문자열 (사용자명·비밀번호 포함)
-   - JWT secret, 암호화 키
-✅ 소스코드에 아래 보안 취약점을 보호:
-   - SQL, Command, XSS 등 인젝션 취약점을 보호해야 함
-   - Authentication/Authorization 우회가 없어야 함
+### 반드시 확인
 
-✅ 반드시 환경변수 또는 시크릿 매니저 사용:
-   std::env::var("DATABASE_URL")
-   std::env::var("JWT_SECRET")
-```
+- 인증과 인가가 분리되어 있는가?
+- 모든 민감 작업에 인가 체크가 있는가?
+- 권한이 최소화되어 있는가?
 
-- `.env` 파일은 `.gitignore`에 등록 필수
-- `secrets/**`, `**/*.pem`, `**/*.key` 파일은 읽기 권한 제한 (settings.json)
-- 로그에 비밀 정보가 출력되지 않도록 `Display` 구현 시 마스킹
+### 금지
 
-```rust
-// ✅ 민감 정보 마스킹
-#[derive(Debug)]
-pub struct ApiKey(String);
+- 인증 없이 기능 접근
+- 권한 검증 생략
+- 클라이언트 신뢰
 
-impl std::fmt::Display for ApiKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ApiKey(****)")  // 실제 값 노출 금지
-    }
-}
-```
+### 패턴
+
+- Role / Permission 기반 접근 제어
+- 서버 측 권한 검증
+- Explicit authorization checks
 
 ---
 
-## 4. unsafe 코드
+## 4. 데이터 보호 (Data Protection)
 
-- `unsafe` 블록 추가 시 **반드시 사전 협의** 후 진행
-- 모든 `unsafe` 블록에 `// SAFETY:` 주석 필수
+### 반드시 확인
 
-```rust
-// ✅ SAFETY 주석 형식
-// SAFETY: ptr은 호출자가 유효성을 보장한다.
-//         이 함수 실행 중 다른 가변 참조가 존재하지 않는다.
-unsafe { &*ptr }
-```
+- 민감 정보가 암호화되어 있는가?
+- 비밀번호/토큰이 안전하게 처리되는가?
+- 로그에 민감 정보가 포함되지 않는가?
 
-- Claude는 성능을 이유로 `unsafe`를 임의 추가하지 않는다
-- FFI 경계에서 포인터 null 체크 필수
+### 금지
 
----
+- 평문 비밀번호 저장
+- 토큰/키 하드코딩
+- 민감 데이터 로그 출력
 
-## 5. 의존성 보안 (Dependency Security)
+### 패턴
 
-- `Cargo.toml` 변경 시 `cargo audit` 실행 필수
-- 새 크레이트 추가 전 확인 항목:
-  - `crates.io` 다운로드 수 및 최근 업데이트 여부
-  - `cargo audit` 취약점 이력
-  - 라이선스 호환성
-- 메이저 버전 고정: `serde = "1"` (패치 버전 자동 업데이트 허용)
-
-```bash
-# 의존성 보안 검사
-cargo audit
-
-# 취약한 의존성 업데이트
-cargo update [크레이트명]
-```
+- 암호화 / 해싱
+- Secret management 시스템 사용
+- 데이터 최소화
 
 ---
 
-## 6. 에러 응답 (Error Response)
+## 5. 에러 & 로그
 
-- 외부에 노출되는 에러 메시지에 **내부 구현 정보 포함 금지**
-- 스택 트레이스, DB 쿼리, 파일 경로를 HTTP 응답에 포함하지 않는다
+### 반드시 확인
 
-```rust
-// ❌ 내부 정보 노출
-return Err(AppError::Database(
-    format!("PostgreSQL error: {}", db_err)  // DB 내부 오류 그대로 노출
-));
+- 에러 메시지가 내부 정보를 노출하지 않는가?
+- 사용자에게 필요한 정보만 제공하는가?
 
-// ✅ 외부용 메시지 분리
-#[derive(Debug, thiserror::Error)]
-pub enum AppError {
-    #[error("요청을 처리할 수 없습니다")]  // 외부 노출용 메시지
-    Database(#[source] sqlx::Error),       // 내부 원인 (로그용)
-}
-```
+### 금지
+
+- stack trace 노출
+- 내부 경로/쿼리/구조 노출
+- 디버그 정보 출력
+
+### 패턴
+
+- 사용자 메시지 / 내부 로그 분리
+- 표준화된 에러 응답
 
 ---
 
-## CI 보안 검사
+## 6. 의존성 & 구성
 
-PR CI에서 `cargo audit`이 자동으로 실행된다.
-취약점 발견 시 PR이 블록된다 (`pr-ci.yml` Job 3 참조).
+### 반드시 확인
 
-```bash
-# 로컬 사전 확인
-cargo audit
-cargo audit fix   # 자동 수정 가능한 경우
-```
+- 신뢰할 수 있는 라이브러리만 사용하는가?
+- 최신 보안 패치가 적용되어 있는가?
+- 기본 설정이 안전한가?
+
+### 금지
+
+- 검증되지 않은 라이브러리 사용
+- 오래된 취약 버전 유지
+- insecure default 사용
+
+### 패턴
+
+- dependency audit
+- 버전 고정 및 업데이트
+- secure configuration
+
+---
+
+## 7. 실행 환경
+
+### 반드시 확인
+
+- 환경 변수로 비밀을 관리하는가?
+- 개발/운영 환경이 분리되어 있는가?
+
+### 금지
+
+- 코드에 비밀 값 포함
+- 동일 설정 재사용
+
+---
+
+## 8. 공통 취약점 방지
+
+### 반드시 확인
+
+- Injection 공격 방어(SQL, Command 등)
+- XSS / CSRF 방어
+- 인증 우회 가능성
+
+### 금지
+
+- 문자열 기반 쿼리 생성
+- 사용자 입력 직접 렌더링
+- 검증 없는 요청 처리
+
+### 패턴
+
+- Parameterized query
+- Output encoding
+- CSRF token
+
+---
+
+## 9. 실패 처리
+
+### 반드시 확인
+
+- 실패 시 안전한 상태로 돌아가는가?
+- fallback이 보안을 약화시키지 않는가?
+
+### 금지
+
+- 실패 시 우회 처리
+- silent failure
+
+### 패턴
+
+- Fail Closed
+- Explicit error handling
+
+---
+
+## 10. 리뷰 기준
+
+다음 질문에 모두 YES여야 한다:
+
+- 모든 입력이 검증되는가?
+- 권한 검증이 누락된 곳은 없는가?
+- 민감 정보가 노출되지 않는가?
+- 실패 시 안전한가?
+- 기본 설정이 안전한가?
+
+---
+
+## 11. 실행 규칙 (Claude)
+
+- 입력은 항상 위험하다고 가정한다
+- 검증되지 않은 데이터는 사용하지 않는다
+- 보안 문제가 보이면 반드시 지적한다
+- 해결 방법까지 함께 제시한다
+- 기능보다 보안을 우선한다
+
+---
+
+## 12. 우선순위
+
+문제가 충돌할 경우:
+
+1. Security
+2. Domain correctness
+3. Readability
+4. Performance
+
+---
+
+# 13. 핵심 정의
+
+> 안전한 코드는 “문제가 없을 때”가 아니라 **문제가 발생해도 안전하게 동작하는 코드이다**
