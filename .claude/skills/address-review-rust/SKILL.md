@@ -4,7 +4,7 @@ description: >
   /address-review-rust 커맨드로 실행되는 리뷰 대응 스킬. 코드 리뷰 결과를 받은 사람이 각 지적 사항의 타당성을 판단하고 수정을 수행하는 데 Claude가 보조하는 스킬이다. 두 가지 모드를 지원한다:
     대화 모드 — 인수 없이 실행 시 직전 대화의 리뷰 내용을 자동 추출하여 대응한다.
     PR 모드   — PR 번호 지정 시 gh api로 해당 PR의 리뷰·인라인 코멘트를 가져와 대응한다.
-  STEP 2 타당성 평가 시 coding-style.md(도메인 중심 진화형 코딩 원칙)를 1차 판단 기준으로, security.md·test.md를 보완 기준으로 적용한다.
+  STEP 2 타당성 평가 시 coding-style.md(도메인 중심 진화형 코딩 원칙)를 1차 판단 기준으로, security.md·security-rust.md·test.md를 보완 기준으로 적용한다.
   각 지적의 기술적 타당성과 프로젝트 정책 적합성을 독자적으로 평가하고, 타당한 지적만 Before/After로 수정하며 최종 요약을 출력한다.
 ---
 
@@ -14,7 +14,7 @@ description: >
 코드 리뷰를 받은 당사자가 리뷰 지적 사항을 처리할 때 Claude가 다음을 수행한다:
 
 1. 리뷰 코멘트 수집 (대화 이력 또는 PR API)
-2. **coding-style.md(1차) · security.md · test.md(보완) 로드** 후 각 지적의 타당성 독립 평가
+2. **coding-style.md(1차) · security.md · security-rust.md · test.md(보완) 로드** 후 각 지적의 타당성 독립 평가
 3. 타당한 지적만 수정 적용 (Before/After 제시 → 인간 확인)
 4. 대응하지 않은 지적에 대한 근거 명시
 5. 최종 요약 출력
@@ -22,7 +22,7 @@ description: >
 **핵심 원칙:**
 - **독립 판단** — 리뷰어의 지적을 맹목적으로 따르지 않고 coding-style.md 원칙과 기술적 타당성을 독자적으로 평가한다
 - **1차 기준** — coding-style.md의 §1~§9 원칙을 모든 판단의 근본 기준으로 적용한다
-- **보완 기준** — security.md(R-04·R-05·R-09)·test.md(R-08)를 해당 카테고리 판단 시 추가 적용한다
+- **보완 기준** — security.md·security-rust.md(R-04·R-05·R-09)·test.md(R-08)를 해당 카테고리 판단 시 추가 적용한다
 - **근거 명시** — 대응하지 않을 경우 리뷰어가 납득할 수 있는 이유를 반드시 기재한다
 - **안전한 수정** — 수정으로 새로운 문제가 발생하지 않는지 cargo test + clippy로 확인한다
 - **인간 확인** — 각 수정 전 Before/After를 제시하고 승인 후에만 적용한다
@@ -173,8 +173,9 @@ STEP 0에서 수집한 리뷰 내용을 구조화하고, 언급된 파일을 Rea
 **평가 시작 전 아래 세 파일을 반드시 이 순서대로 로드한다:**
 
 1. `.claude/rules/coding-style.md` — **1차 판단 기준** (모든 평가의 근본 기준)
-2. `.claude/rules/security.md` — R-04·R-05·R-09 관련 지적의 보완 기준
-3. `.claude/rules/test.md` — R-08 관련 지적의 보완 기준
+2. `.claude/rules/security.md` — R-04·R-05·R-09 관련 지적의 보완 기준 (공통)
+3. `.claude/rules/security-rust.md` — R-04·R-05·R-09 관련 지적의 보완 기준 (Rust 전용)
+4. `.claude/rules/test.md` — R-08 관련 지적의 보완 기준
 
 Claude가 각 지적에 대해 아래 4가지 기준으로 독립적으로 평가한다.
 **리뷰어 의견에 동조하지 않고 coding-style.md 원칙과 코드·프로젝트 정책을 직접 확인하여 판단한다.**
@@ -219,10 +220,10 @@ coding-style.md §9 안티 패턴도 적극 체크한다:
 
 | 지적 카테고리 | 적용 보완 기준 | 주요 확인 사항 |
 |---------------|----------------|----------------|
-| R-04 에러 처리 | security.md §에러 응답 | unwrap/expect in lib, 내부 정보 노출 에러 |
-| R-05 소유권 | security.md §unsafe | static mut, async 컨텍스트의 std::Mutex |
+| R-04 에러 처리 | security.md §5 에러&로그 + security-rust.md §3 panic&unwrap + §6 에러 처리 | unwrap/expect in lib, 내부 정보 노출 에러 |
+| R-05 소유권 | security-rust.md §2 메모리 안전 + §8 동시성 | unsafe SAFETY 주석, async 컨텍스트의 std::Mutex |
 | R-08 테스트 | test.md 전체 | 커버리지 기준, 에러 케이스 테스트, 네이밍 |
-| R-09 보안 | security.md §unsafe, §비밀 정보 | SAFETY 주석, null 체크, 시크릿 하드코딩 |
+| R-09 보안 | security.md §2~§9 + security-rust.md §2~§9 전체 | SAFETY 주석, 역직렬화 검증, 시크릿 하드코딩 |
 
 - `CLAUDE.md`의 코딩 컨벤션(에러 처리, 소유권, 타입 설계 등)에 맞는가?
 - 현재 프로젝트 맥락(레이어 역할, 의존성 구조)을 고려할 때 적절한가?
@@ -423,7 +424,7 @@ fix([scope]): [A-RV-XX] [50자 이내 요약]
 ## 주의사항
 
 - 리뷰어의 권위에 의존하지 않고 **coding-style.md 원칙과 코드·정책을 직접 검토하여** 판단한다
-- 판단의 우선순위: **coding-style.md(1차) → security.md·test.md(보완) → CLAUDE.md 컨벤션**
+- 판단의 우선순위: **coding-style.md(1차) → security.md·security-rust.md·test.md(보완) → CLAUDE.md 컨벤션**
 - 대응하지 않는 경우, `coding-style.md §섹션`을 인용하여 리뷰어가 납득할 수 있는 **기술적 근거를 반드시** 기재한다
 - 수정으로 인해 새로운 문제(컴파일 에러, 테스트 실패, clippy 경고)가 발생하지 않도록 매 수정 후 검증한다
 - coding-style.md 원칙 및 `security.md`, `test.md` 규칙과 충돌하는 리뷰어 제안은 해당 규칙을 우선한다
@@ -437,5 +438,6 @@ fix([scope]): [A-RV-XX] [50자 이내 요약]
 | 파일 | 용도 | 로드 시점 |
 |------|------|-----------|
 | `../../rules/coding-style.md` | 도메인 중심 코딩 원칙 — 타당성 평가 **1차 판단 기준** | **STEP 2 평가 시작 전 로드 (1순위)** |
-| `../../rules/security.md` | 보안 규칙 — R-04·R-05·R-09 보완 기준 | **STEP 2 평가 시작 전 로드 (2순위)** |
-| `../../rules/test.md` | 테스트 규칙 — R-08 보완 기준 | **STEP 2 평가 시작 전 로드 (3순위)** |
+| `../../rules/security.md` | 보안 규칙 (공통) — R-04·R-05·R-09 보완 기준 | **STEP 2 평가 시작 전 로드 (2순위)** |
+| `../../rules/security-rust.md` | 보안 규칙 (Rust 전용) — R-04·R-05·R-09 Rust 특화 보완 | **STEP 2 평가 시작 전 로드 (3순위)** |
+| `../../rules/test.md` | 테스트 규칙 — R-08 보완 기준 | **STEP 2 평가 시작 전 로드 (4순위)** |
