@@ -163,17 +163,28 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 
 ### 10. 보안 `R-09`
 
-**10.1 체크**
+**10.1 공통 체크** (security.md §2·§4·§5·§7)
 
-- 모든 외부 입력이 검증되는가?
-- 민감 정보가 노출되지 않는가?
-- 인증/인가가 우회되지 않는가?
+- 모든 외부 입력이 검증되는가? (§2 입력&경계)
+- 민감 정보가 로그·에러 메시지에 노출되지 않는가? (§4 데이터보호, §5 에러&로그)
+- 인증/인가가 우회되지 않는가? (§3 인증&인가)
+- 환경 변수로 비밀을 관리하는가? (§7 실행 환경)
 
-**10.2 패턴**
+**10.2 Rust 전용 체크** (security-rust.md)
+
+- `unsafe` 블록에 `// SAFETY:` 주석이 있는가? (§2 메모리 안전)
+- 라이브러리 코드에서 `unwrap()`/`expect()`를 사용하는가? → `?`·`Result`로 교체 (§3 panic&unwrap)
+- `serde` 역직렬화 대상 타입에 입력 검증(`validate()`, custom Deserialize)이 있는가? (§7 직렬화/역직렬화)
+- 공유 상태에 `std::sync::Mutex` 대신 `tokio::sync::Mutex`를 사용하는가? (§8 동시성)
+- 비밀번호·토큰이 `String`/로그로 노출 가능한 타입에 그대로 저장되지 않는가? (§9 비밀 정보 관리)
+
+**10.3 패턴**
 
 - Allowlist validation
 - Secure defaults
 - Fail closed
+- `// SAFETY:` 주석 필수 (unsafe 블록)
+- Newtype 패턴으로 민감 값 래핑 (`struct ApiKey(String)`)
 
 ### 11. 안티 패턴
 

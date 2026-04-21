@@ -21,7 +21,7 @@ description: >
 
 이 스킬은 **`/code-review-rust` 커맨드가 입력될 때 자동으로 실행**된다.
 `CODE_REVIEW_RUST.md`의 9개 카테고리(R-01~R-09)를 분석 구조로 삼되,
-**`coding-style.md`를 1차 판단 기준**으로, `security.md`·`test.md`를 보완 기준으로 적용한다.
+**`coding-style.md`를 1차 판단 기준**으로, `security.md`·`security-rust.md`·`test.md`를 보완 기준으로 적용한다.
 STEP 2 분석 시작 전 세 파일을 반드시 로드하고, 이슈마다 어느 `coding-style.md §섹션`을 근거로 판단했는지 명시한다.
 
 리뷰의 핵심 불변 조건:
@@ -424,11 +424,12 @@ Read(file_path: "[지정된 파일 경로]")
 
 ## STEP 2 — rules 로드 및 9개 카테고리 분석
 
-**분석 시작 전 아래 세 파일을 반드시 이 순서대로 로드한다:**
+**분석 시작 전 아래 네 파일을 반드시 이 순서대로 로드한다:**
 
 1. `.claude/rules/coding-style.md` — **1차 판단 기준** (모든 카테고리의 근거)
-2. `.claude/rules/security.md` — R-04·R-05·R-09 보완 기준
-3. `.claude/rules/test.md` — R-08 보완 기준
+2. `.claude/rules/security.md` — R-04·R-05·R-09 보완 기준 (공통)
+3. `.claude/rules/security-rust.md` — R-04·R-05·R-09 보완 기준 (Rust 전용)
+4. `.claude/rules/test.md` — R-08 보완 기준
 
 ---
 
@@ -458,23 +459,24 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
 
 ---
 
-### security.md → R-04 · R-05 · R-09 보완 기준
+### security.md + security-rust.md → R-04 · R-05 · R-09 보완 기준
 
-**R-04 에러 처리** 판단 시 security.md §에러 응답 추가 적용:
-- `unwrap()`/`expect()`가 라이브러리 코드에 있으면 🚫 Blocking (Critical)
-- 에러 메시지에 DB 쿼리·파일 경로 등 내부 정보가 포함되면 🚫 Blocking (High)으로 격상
-- `thiserror` 미사용 시 외부 노출 에러 타입의 `Display` 구현 여부 확인
+**R-04 에러 처리** 판단 시 추가 적용:
+- `unwrap()`/`expect()`가 라이브러리 코드에 있으면 🚫 Blocking (Critical) (security-rust.md §3 panic & unwrap)
+- 에러 메시지에 DB 쿼리·파일 경로 등 내부 정보가 포함되면 🚫 Blocking (High)으로 격상 (security.md §5 에러 & 로그)
+- `thiserror` 미사용 시 외부 노출 에러 타입의 `Display` 구현 여부 확인 (security-rust.md §6 에러 처리)
 
 **R-05 소유권 & 메모리** 판단 시 동시성 안전성 추가 적용:
-- `static mut` 사용 시 🚫 Blocking (Critical) (데이터 레이스 — 정의되지 않은 동작)
-- async 컨텍스트에서 `std::sync::Mutex` 사용 시 🚫 Blocking (High) (교착 가능)
+- `static mut` 사용 시 🚫 Blocking (Critical) (데이터 레이스 — 정의되지 않은 동작) (security-rust.md §8 동시성)
+- async 컨텍스트에서 `std::sync::Mutex` 사용 시 🚫 Blocking (High) (교착 가능) (security-rust.md §8 동시성)
 
-**R-09 보안** 판단 시 security.md §unsafe 추가 적용:
-- `unsafe` 블록에 `// SAFETY:` 주석 없으면 **🚫 Blocking (Critical)**
-- 원시 포인터 null 체크 없으면 **🚫 Blocking (Critical)**
-- FFI 경계 ABI 미검증이면 **🚫 Blocking (High)**
-- 외부 입력 미검증 시 **🚫 Blocking (High)**
-- 하드코딩된 시크릿(API 키, 비밀번호 등) **🚫 Blocking (Critical)**
+**R-09 보안** 판단 시 추가 적용:
+- `unsafe` 블록에 `// SAFETY:` 주석 없으면 **🚫 Blocking (Critical)** (security-rust.md §2 메모리 안전)
+- 원시 포인터 null 체크 없으면 **🚫 Blocking (Critical)** (security-rust.md §2 메모리 안전)
+- FFI 경계 ABI 미검증이면 **🚫 Blocking (High)** (security-rust.md §2 메모리 안전)
+- 외부 입력 미검증 시 **🚫 Blocking (High)** (security.md §2 입력 & 경계 + security-rust.md §4 입력 검증)
+- 하드코딩된 시크릿(API 키, 비밀번호 등) **🚫 Blocking (Critical)** (security.md §7 실행 환경 + security-rust.md §9 비밀 정보 관리)
+- 역직렬화 시 검증 없이 외부 데이터 직접 사용 **🚫 Blocking (High)** (security-rust.md §7 직렬화 / 역직렬화)
 
 ---
 
@@ -752,8 +754,8 @@ PR 체크리스트:
   □ cargo clippy -D warnings 경고 0건
   □ cargo fmt --check 포맷 위반 없음
   □ 🚫 Blocking 이슈 전부 해결 (Critical + High)
-  □ unsafe SAFETY 주석 완비 (security.md §unsafe)
-  □ 비밀 정보 하드코딩 없음 (security.md §비밀 정보)
+  □ unsafe SAFETY 주석 완비 (security-rust.md §2 메모리 안전)
+  □ 비밀 정보 하드코딩 없음 (security.md §7 실행 환경 + security-rust.md §9)
   □ 에러 케이스 테스트 존재 (test.md §필수 목록)
   ■ 커버리지 ≥ 80% 확인 완료 (STEP 5-0 통과 필수 — 미달 시 PR 차단)
   □ 공개 API rustdoc 주석 완비
@@ -900,7 +902,7 @@ PR 체크리스트:
 | **R-06** | 제어 흐름 | §2.4, §2.1 | 중첩 깊이 >2, 수동 루프, `_` 패턴 남용, 복잡한 표현 | ⚠️💡 | — |
 | **R-07** | 추상화 & trait | §2.3, §1.1 | 과도한 제네릭, 테스트 편의 추상화, 3회 미만 추상화 도입 | 💡 | — |
 | **R-08** | 테스트 | §6 전체 | 에러 케이스 없음, 도메인 행동 미검증, 구현 세부 검증 | ⚠️💡 | **test.md 전체** |
-| **R-09** | 보안 | §7 전체 | SAFETY 주석 없음, null 체크 없음, 하드코딩 시크릿, 입력 미검증 | 🚫 | **security.md 전체** |
+| **R-09** | 보안 | §7 전체 | SAFETY 주석 없음, null 체크 없음, 하드코딩 시크릿, 입력 미검증, 역직렬화 미검증 | 🚫 | **security.md + security-rust.md 전체** |
 
 ---
 
@@ -925,6 +927,7 @@ PR 체크리스트:
 |------|------|-----------|
 | `CODE_REVIEW_RUST.md` | R-01~R-09 체크리스트 | 스킬 실행 시 항상 |
 | `../../rules/coding-style.md` | 도메인 중심 코딩 원칙 — R-01~R-09 **1차 판단 기준** | **STEP 2 분석 시작 전 로드 (1순위)** |
-| `../../rules/security.md` | 보안 규칙 — R-04·R-05·R-09 보완 기준 | **STEP 2 분석 시작 전 로드 (2순위)** |
-| `../../rules/test.md` | 테스트 규칙 — R-08 보완 기준 | **STEP 2 분석 시작 전 로드 (3순위)** |
+| `../../rules/security.md` | 보안 규칙 (공통) — R-04·R-05·R-09 보완 기준 | **STEP 2 분석 시작 전 로드 (2순위)** |
+| `../../rules/security-rust.md` | 보안 규칙 (Rust 전용) — R-04·R-05·R-09 보완 기준 | **STEP 2 분석 시작 전 로드 (3순위)** |
+| `../../rules/test.md` | 테스트 규칙 — R-08 보완 기준 | **STEP 2 분석 시작 전 로드 (4순위)** |
 | `SKILL.md` (이 파일) | 실행 지침 및 흐름 정의 | 커맨드 입력 시 |

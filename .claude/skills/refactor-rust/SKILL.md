@@ -15,7 +15,7 @@ description: >
 
 이 스킬은 **`/refactor-rust` 커맨드가 입력될 때 자동으로 실행**된다.
 `REFACTOR_RUST.md` 카탈로그(R-R-01~R-R-08)와 **`coding-style.md`** 를 기준으로
-리팩토링 계획을 수립한 뒤, **`security.md`와 `test.md` 규칙을 분석 전 반드시 로드하여**
+리팩토링 계획을 수립한 뒤, **`security.md`·`security-rust.md`·`test.md` 규칙을 분석 전 반드시 로드하여**
 리팩토링 전 과정에 적용한다.
 
 리팩토링의 핵심 불변 조건:
@@ -169,8 +169,9 @@ cargo clippy -- -D warnings 2>&1 | tee clippy_baseline.txt
 
 로드 순서:
 1. `.claude/rules/coding-style.md` — 도메인 중심 코딩 원칙 (분석 기준)
-2. `.claude/rules/security.md` — 보안 규칙 (각 변환에 체크)
-3. `.claude/rules/test.md` — 테스트 규칙 (커버리지·테스트 구조 확인)
+2. `.claude/rules/security.md` — 보안 규칙 공통 (각 변환에 체크)
+3. `.claude/rules/security-rust.md` — 보안 규칙 Rust 전용 (각 변환에 체크)
+4. `.claude/rules/test.md` — 테스트 규칙 (커버리지·테스트 구조 확인)
 
 #### coding-style.md 적용 항목
 
@@ -185,17 +186,19 @@ cargo clippy -- -D warnings 2>&1 | tee clippy_baseline.txt
 - **불필요한 clone**: 컴파일 오류 회피용 `.clone()` → R-R-07 이슈
 - **flat 모듈 구조**: 기능 단위 flat 구성, `utils.rs`에 비즈니스 로직 → R-R-08 이슈
 
-#### security.md 적용 항목
+#### security.md + security-rust.md 적용 항목
 
 분석 중 아래 보안 규칙을 체크한다:
 
 - **unsafe 코드**: `unsafe` 블록이 있으면 `// SAFETY:` 주석 유무 확인.
-  누락 시 R-R 카탈로그 항목과 별개로 `[보안] unsafe SAFETY 주석 누락` 이슈로 보고
-- **비밀 정보**: 하드코딩된 키·토큰·비밀번호가 있으면 `[보안] 비밀 정보 하드코딩` 이슈로 보고
+  누락 시 R-R 카탈로그 항목과 별개로 `[보안] unsafe SAFETY 주석 누락` 이슈로 보고 (security-rust.md §2 메모리 안전)
+- **panic 사용**: 프로덕션 코드에서 `unwrap()`/`expect()` 사용 시 `[보안] panic 위험` 이슈로 보고 (security-rust.md §3 panic & unwrap)
+- **비밀 정보**: 하드코딩된 키·토큰·비밀번호가 있으면 `[보안] 비밀 정보 하드코딩` 이슈로 보고 (security.md §7 실행 환경 + security-rust.md §9 비밀 정보 관리)
 - **입력 검증**: 외부 입력을 Newtype 없이 원시 타입으로 바로 사용하면
-  R-R-02(도메인 모델)와 함께 보안 관점 코멘트 추가
+  R-R-02(도메인 모델)와 함께 보안 관점 코멘트 추가 (security.md §2 입력 & 경계 + security-rust.md §4 입력 검증)
 - **에러 노출**: 내부 구현 정보(DB 쿼리, 파일 경로 등)가 에러 메시지에 포함되면
-  R-R-06(경계 조건)과 함께 보안 관점 코멘트 추가
+  R-R-06(경계 조건)과 함께 보안 관점 코멘트 추가 (security.md §5 에러 & 로그 + security-rust.md §6 에러 처리)
+- **역직렬화**: 외부 데이터를 검증 없이 역직렬화하면 `[보안] 역직렬화 미검증` 이슈로 보고 (security-rust.md §7 직렬화 / 역직렬화)
 
 #### test.md 적용 항목
 
@@ -274,8 +277,8 @@ cargo clippy -- -D warnings 2>&1 | tee clippy_baseline.txt
 | flat 모듈 구조 | `src/` 직하 10개+, 기능 단위(handlers/models/services) flat 구성 | R-R-08 | §1.3, §2.1 | — |
 | utils.rs 비즈니스 로직 | `utils.rs`에 도메인 계산·규칙 혼재 | R-R-08 | §1.3 | — |
 | 도메인 경계 미구분 | `models.rs`에 모든 모델, `services.rs`에 모든 로직 일괄 배치 | R-R-08 | §1.3, §2.1 | — |
-| unsafe SAFETY 주석 누락 | `unsafe` 블록에 `// SAFETY:` 없음 | — | — | **security.md §unsafe** |
-| 비밀 정보 하드코딩 | API 키·토큰·비밀번호 소스코드 직접 포함 | — | — | **security.md §비밀 정보** |
+| unsafe SAFETY 주석 누락 | `unsafe` 블록에 `// SAFETY:` 없음 | — | — | **security-rust.md §2 메모리 안전** |
+| 비밀 정보 하드코딩 | API 키·토큰·비밀번호 소스코드 직접 포함 | — | — | **security.md §7 실행 환경 + security-rust.md §9** |
 | 테스트 없음 | `#[cfg(test)]` 모듈 또는 `tests/` 파일 없음 | — | — | **test.md §커버리지 기준** |
 | 에러 케이스 테스트 누락 | `Result` 반환 함수에 실패 케이스 테스트 없음 | — | — | **test.md §필수 목록** |
 
@@ -505,8 +508,8 @@ PR 체크리스트:
   □ cargo clippy -D warnings 경고 0건
   □ cargo fmt --check 포맷 위반 없음
   □ 도메인 가시성 향상 확인 (리팩토링 전보다 도메인 개념이 명확히 드러나는가?)
-  □ unsafe 블록 SAFETY 주석 완비 (security.md §unsafe)
-  □ 비밀 정보 하드코딩 없음 (security.md §비밀 정보)
+  □ unsafe 블록 SAFETY 주석 완비 (security-rust.md §2 메모리 안전)
+  □ 비밀 정보 하드코딩 없음 (security.md §7 실행 환경 + security-rust.md §9)
   ■ 커버리지 ≥ 80% 확인 완료 (STEP 5-0 통과 필수 — 미달 시 PR 차단)
   □ 공개 Trait/struct 시그니처 변경 없음
   □ 직렬화 형식 변경 없음 (serde 필드명)
@@ -619,15 +622,15 @@ PR 체크리스트:
 | `boundary` | R-R-06 | §5, §1.2 | security.md §에러 응답 |
 | `ownership` | R-R-07 | §1.1, §2.1 | — |
 | `module` | R-R-08 | §1.3, §2.1 | — |
-| `security` | R-R-02, R-R-06 | §7 | **security.md 전체** |
+| `security` | R-R-02, R-R-06 | §7 | **security.md + security-rust.md 전체** |
 
 ---
 
 ## 금지 사항
 
 ```
-🚫 unsafe 블록 임의 추가 (security.md §unsafe 참조)
-🚫 비밀 정보 하드코딩 (security.md §비밀 정보 참조)
+🚫 unsafe 블록 임의 추가 (security-rust.md §2 메모리 안전 참조)
+🚫 비밀 정보 하드코딩 (security.md §7 실행 환경 + security-rust.md §9 참조)
 🚫 테스트 삭제 또는 #[ignore] 무단 추가 (test.md §금지 패턴 참조)
 🚫 공개(pub) Trait / struct 시그니처 변경
 🚫 기능 추가 또는 버그 수정 (리팩토링과 혼합 금지)
@@ -647,6 +650,7 @@ PR 체크리스트:
 |------|------|-----------|
 | `REFACTOR_RUST.md` | R-R-01~R-R-08 도메인 중심 카탈로그 | 스킬 실행 시 항상 |
 | `../../rules/coding-style.md` | 도메인 중심 코딩 원칙 (분석 기준) | **STEP 2 분석 시작 전 로드** |
-| `../../rules/security.md` | 보안 규칙 | **STEP 2 분석 시작 전 로드** |
+| `../../rules/security.md` | 보안 규칙 (공통) | **STEP 2 분석 시작 전 로드** |
+| `../../rules/security-rust.md` | 보안 규칙 (Rust 전용) | **STEP 2 분석 시작 전 로드** |
 | `../../rules/test.md` | 테스트 규칙 | **STEP 2 분석 시작 전 로드** |
 | `SKILL.md` (이 파일) | 실행 지침 및 흐름 정의 | 커맨드 입력 시 |

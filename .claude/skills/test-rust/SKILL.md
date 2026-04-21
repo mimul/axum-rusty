@@ -162,7 +162,7 @@ find src -name "*.rs" | grep -v "mod.rs" | head -10
 
 ## STEP 2 — rules 로드 및 테스트 갭 분석 리포트
 
-**분석 시작 전 `../../rules/security.md`와 `../../rules/test.md`를 로드한다.**
+**분석 시작 전 `../../rules/security.md`·`../../rules/security-rust.md`·`../../rules/test.md`를 로드한다.**
 
 ### test.md 적용 항목 (주요 섹션)
 
@@ -177,11 +177,15 @@ find src -name "*.rs" | grep -v "mod.rs" | head -10
 | When NOT to Write a Test | 단순 CRUD·게터 테스트 불필요 판별 |
 | Property-Based Testing | 4번째 예제 테스트 → proptest 전환 권고 |
 
-### security.md 적용 항목
+### security.md + security-rust.md 적용 항목
 
-- 테스트 픽스처에 실제 토큰·비밀번호 하드코딩 없음
-- Newtype 생성 시 잘못된 입력 케이스 포함 여부
-- 에러 응답이 내부 정보를 노출하지 않는지 검증 케이스 포함 여부
+| 검사 항목 | 근거 |
+|-----------|------|
+| 테스트 픽스처에 실제 토큰·비밀번호 하드코딩 없음 | security.md §7 실행 환경 + security-rust.md §9 비밀 정보 관리 |
+| Newtype 생성 시 잘못된 입력 케이스 포함 여부 | security.md §2 입력&경계 + security-rust.md §5 타입 기반 보안 |
+| 에러 응답이 내부 정보를 노출하지 않는지 검증 케이스 포함 여부 | security.md §5 에러&로그 + security-rust.md §6 에러 처리 |
+| `unwrap()`/`expect()` 사용 함수에 패닉 유발 경계 케이스 테스트 포함 여부 | security-rust.md §3 panic&unwrap |
+| 역직렬화 대상 타입에 잘못된 입력 케이스 포함 여부 | security-rust.md §7 직렬화/역직렬화 |
 
 ### 갭 분석 리포트 형식
 
@@ -483,7 +487,7 @@ PR 체크리스트:
   □ 공통 헬퍼: tests/common/ 완비 여부
   □ 내부 mock(mockall 등) 미사용 확인 (rules/test.md §Mocking Rules)
   □ 테스트명 Naming Rules 준수 (rules/test.md §Naming Rules)
-  □ 테스트에 하드코딩 시크릿 없음 (security.md §비밀 정보 관리)
+  □ 테스트에 하드코딩 시크릿 없음 (security.md §7 실행 환경 + security-rust.md §9 비밀 정보 관리)
   □ PR Red Flags 없음 (rules/test.md §PR Red Flags)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
@@ -622,7 +626,7 @@ PR 생성을 건너뜁니다.
 🚫 내부 모듈(Repository, Usecase) mock — 실제 DB 사용 (test.md §Mocking Rules)
 🚫 mockall 등 mock 프레임워크 내부 추가 — 정당성 없으면 PR Reject
 🚫 #[ignore] 무단 추가 — 이슈·담당자·이유 없으면 삭제
-🚫 테스트에 하드코딩된 시크릿 (security.md §비밀 정보 관리)
+🚫 테스트에 하드코딩된 시크릿 (security.md §7 실행 환경 + security-rust.md §9 비밀 정보 관리)
 🚫 비결정적 출력(타임스탬프, ID) 스냅샷 저장
 🚫 상호작용 검증만 있고 상태 검증 없는 테스트
 🚫 #[should_panic] — Result 반환 + assert!(result.is_err()) 방식으로 대체
@@ -640,4 +644,5 @@ PR 생성을 건너뜁니다.
 |------|------|-----------|
 | `TEST_RUST.md` | T-T-01~T-T-06 Rust 구현 패턴 | 스킬 실행 시 항상 |
 | `../../rules/test.md` | 테스트 철학·Mocking·Naming·PR 기준 (권위 문서) | **STEP 2 분석 시작 전 로드** |
-| `../../rules/security.md` | 보안 규칙 | **STEP 2 분석 시작 전 로드** |
+| `../../rules/security.md` | 보안 규칙 (공통) | **STEP 2 분석 시작 전 로드** |
+| `../../rules/security-rust.md` | 보안 규칙 (Rust 전용) | **STEP 2 분석 시작 전 로드** |
