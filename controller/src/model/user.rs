@@ -46,9 +46,15 @@ impl TryFrom<JsonCreateUser> for CreateUser {
 
     fn try_from(jcu: JsonCreateUser) -> Result<Self, Self::Error> {
         Ok(CreateUser {
-            username: jcu.username.ok_or_else(|| AppError::Error("`username` is required".to_string()))?,
-            password: jcu.password.ok_or_else(|| AppError::Error("`password` is required".to_string()))?,
-            fullname: jcu.fullname.ok_or_else(|| AppError::Error("`fullname` is required".to_string()))?,
+            username: jcu
+                .username
+                .ok_or_else(|| AppError::Error("`username` is required".to_string()))?,
+            password: jcu
+                .password
+                .ok_or_else(|| AppError::Error("`password` is required".to_string()))?,
+            fullname: jcu
+                .fullname
+                .ok_or_else(|| AppError::Error("`fullname` is required".to_string()))?,
         })
     }
 }
@@ -112,8 +118,12 @@ impl TryFrom<JsonLoginUser> for LoginUser {
 
     fn try_from(jcu: JsonLoginUser) -> Result<Self, Self::Error> {
         Ok(LoginUser {
-            username: jcu.username.ok_or_else(|| AppError::Error("`username` is required".to_string()))?,
-            password: jcu.password.ok_or_else(|| AppError::Error("`password` is required".to_string()))?,
+            username: jcu
+                .username
+                .ok_or_else(|| AppError::Error("`username` is required".to_string()))?,
+            password: jcu
+                .password
+                .ok_or_else(|| AppError::Error("`password` is required".to_string()))?,
         })
     }
 }
