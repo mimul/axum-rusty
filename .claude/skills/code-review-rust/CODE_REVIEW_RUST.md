@@ -186,38 +186,6 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 - `// SAFETY:` 주석 필수 (unsafe 블록)
 - Newtype 패턴으로 민감 값 래핑 (`struct ApiKey(String)`)
 
-### 11. 안티 패턴
-
-- unwrap 남용 → R-04
-- primitive obsession → R-01
-- String 기반 에러 처리 → R-04
-- 빈약한 도메인 모델 (Anemic Domain Model) → R-01, R-02
-- 도메인 없는 util → R-01
-- 과도한 trait / 제네릭 → R-07
-- silent failure → R-04
-- invalid state 허용 → R-02
-- 경계 미처리 (암묵적 기본값, 인덱스 무방비) → R-03
-
-### 12. 리뷰 요약 기준
-
-반드시 통과해야 하는 질문:
-
-- 이 코드는 도메인을 설명하는가?
-- 타입만 보고도 안전성이 보장되는가?
-- 경계 조건이 명확히 처리되었는가?
-- 테스트가 이를 검증하는가?
-- 보안 문제가 없는가?
-
-### 13. 최종 기준
-
-좋은 Rust 코드는:
-
-- 타입으로 도메인을 표현하고
-- invalid state를 제거하며
-- 에러와 경계를 명확히 하고
-- 테스트로 검증되며
-- 보안을 기본 내장한다
-
 ---
 
 ## CI 파이프라인 연동 정보
