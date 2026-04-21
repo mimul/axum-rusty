@@ -58,11 +58,7 @@ pub struct UpdateStoredTodo {
 
 impl From<UpdateTodo> for UpdateStoredTodo {
     fn from(ut: UpdateTodo) -> Self {
-        let status_id = if let Some(status) = ut.status {
-            Some(status.id.value.to_string())
-        } else {
-            None
-        };
+        let status_id = ut.status.map(|s| s.id.value.to_string());
 
         UpdateStoredTodo {
             id: ut.id.value.to_string(),

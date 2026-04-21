@@ -1,4 +1,4 @@
-use crate::context::api_response::ApiResponse;
+use crate::context::api_response::{internal_error, ApiResponse};
 use crate::context::api_version::ApiVersion;
 use crate::context::errors::AppError;
 use crate::context::validate::ValidatedRequest;
@@ -62,23 +62,14 @@ pub async fn create_user(
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("create_user request param={:?}", source);
     let uc: Arc<dyn IUserUseCase> = state.module.resolve();
-    let resp = uc.create_user(source.into()).await;
+    let resp = uc.create_user(source.try_into()?).await;
     resp.map(|tv| {
         info!("create_user: response user: {}", tv.id);
         let json: JsonUser = tv.into();
-        let response: ApiResponse<Value> = ApiResponse::<Value> {
-            result: true,
-            message: "success".to_string(),
-            data: Some(json!({
-                "userView": json,
-            })),
-        };
+        let response = ApiResponse::success("success", json!({ "userView": json }));
         (StatusCode::OK, Json(response))
     })
-    .map_err(|err| {
-        error!("{:?}", err);
-        AppError::Error("서버 오류가 발생했습니다".to_string())
-    })
+    .map_err(internal_error)
 }
 
 #[utoipa::path(
@@ -110,23 +101,14 @@ pub async fn get_user(
             .map(|uv| {
                 info!("get_user: response user={:?}.", uv);
                 let json: JsonUser = uv.into();
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    result: true,
-                    message: "success".to_string(),
-                    data: Some(json!({
-                        "userView": json,
-                    })),
-                };
+                let response = ApiResponse::success("success", json!({ "userView": json }));
                 (StatusCode::OK, Json(response))
             })
             .ok_or_else(|| {
                 error!("user is not found.");
                 AppError::Error("data not found".to_string())
             }),
-        Err(err) => {
-            error!("Unexpected error: {:?}", err);
-            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
-        }
+        Err(err) => Err(internal_error(err)),
     }
 }
 
@@ -164,17 +146,11 @@ pub async fn get_user_by_username(
             Some(uv) => {
                 info!("get_user_by_username: response user `{:?}`.", uv);
                 let json: JsonUser = uv.into();
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    result: true,
-                    message: "success".to_string(),
-                    data: Some(json!({
-                        "userView": json,
-                    })),
-                };
+                let response = ApiResponse::success("success", json!({ "userView": json }));
                 Ok((StatusCode::OK, Json(response)))
             }
             None => {
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
+                let response: ApiResponse<Value> = ApiResponse {
                     result: true,
                     message: "user not found.".to_string(),
                     data: None,
@@ -182,10 +158,7 @@ pub async fn get_user_by_username(
                 Ok((StatusCode::OK, Json(response)))
             }
         },
-        Err(err) => {
-            error!("Unexpected error: {:?}", err);
-            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
-        }
+        Err(err) => Err(internal_error(err)),
     }
 }
 
@@ -209,17 +182,16 @@ pub async fn login_user(
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("login_user: request param={:?}", source);
     let uc: Arc<dyn IUserUseCase> = state.module.resolve();
-    let user_view = uc.login_user(source.into()).await;
+    let user_view = uc.login_user(source.try_into()?).await;
     match user_view {
         Ok(uv) => {
             info!("login_user: response user `{:?}`.", uv);
-            let jwt_duration = state
-                .config
-                .jwt_duration
-                .parse::<i64>()
-                .map_err(|e| AppError::Error(format!("jwt_duration 설정 오류: {e}")))?;
-            let token =
-                generate_jwt_token(&uv.id, &uv.username, &state.config.jwt_secret, jwt_duration)?;
+            let token = generate_jwt_token(
+                &uv.id,
+                &uv.username,
+                &state.config.jwt_secret,
+                state.config.jwt_duration,
+            )?;
             let cookie = Cookie::build("token", token.to_owned())
                 .path("/")
                 .max_age(time::Duration::hours(state.config.jwt_max_age.to_owned()))
@@ -235,20 +207,11 @@ pub async fn login_user(
                     .map_err(|e| AppError::Error(format!("cookie header parse failed: {e}")))?,
             );
             let json_user: JsonUser = uv.into();
-            let response: ApiResponse<Value> = ApiResponse::<Value> {
-                result: true,
-                message: "success.".to_string(),
-                data: Some(json!({
-                    "userView": json_user,
-                    "token": token,
-                })),
-            };
+            let response =
+                ApiResponse::success("success.", json!({ "userView": json_user, "token": token }));
             Ok((StatusCode::OK, Json(response)))
         }
-        Err(err) => {
-            error!("Unexpected error: {:?}", err);
-            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
-        }
+        Err(err) => Err(internal_error(err)),
     }
 }
 

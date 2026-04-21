@@ -14,6 +14,21 @@ pub struct ApiResponse<Data> {
     pub data: Option<Data>,
 }
 
+impl<Data> ApiResponse<Data> {
+    pub fn success(message: impl Into<String>, data: Data) -> Self {
+        Self {
+            result: true,
+            message: message.into(),
+            data: Some(data),
+        }
+    }
+}
+
+pub(crate) fn internal_error(err: impl std::fmt::Debug) -> AppError {
+    error!("{:?}", err);
+    AppError::Error("서버 오류가 발생했습니다".to_string())
+}
+
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status_code, error_message) = match self {

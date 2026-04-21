@@ -1,3 +1,4 @@
+use crate::context::errors::AppError;
 use crate::model::status::JsonTodoStatus;
 use serde::{Deserialize, Serialize};
 use usecase::model::todo::{
@@ -54,12 +55,14 @@ pub struct JsonCreateTodo {
     pub description: Option<String>,
 }
 
-impl From<JsonCreateTodo> for CreateTodo {
-    fn from(jc: JsonCreateTodo) -> Self {
-        CreateTodo {
-            title: jc.title.unwrap(),
-            description: jc.description.unwrap(),
-        }
+impl TryFrom<JsonCreateTodo> for CreateTodo {
+    type Error = AppError;
+
+    fn try_from(jc: JsonCreateTodo) -> Result<Self, Self::Error> {
+        Ok(CreateTodo {
+            title: jc.title.ok_or_else(|| AppError::Error("`title` is required".to_string()))?,
+            description: jc.description.ok_or_else(|| AppError::Error("`description` is required".to_string()))?,
+        })
     }
 }
 
@@ -118,13 +121,13 @@ pub struct JsonUpsertTodoContents {
 }
 
 impl JsonUpsertTodoContents {
-    pub fn to_view(self, id: String) -> UpsertTodoView {
-        UpsertTodoView::new(
+    pub fn try_to_view(self, id: String) -> Result<UpsertTodoView, AppError> {
+        Ok(UpsertTodoView::new(
             id,
-            self.title.unwrap(),
-            self.description.unwrap(),
-            self.status_code.unwrap(),
-        )
+            self.title.ok_or_else(|| AppError::Error("`title` is required".to_string()))?,
+            self.description.ok_or_else(|| AppError::Error("`description` is required".to_string()))?,
+            self.status_code.ok_or_else(|| AppError::Error("`statusCode` is required".to_string()))?,
+        ))
     }
 }
 

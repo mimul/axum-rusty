@@ -6,7 +6,6 @@ pub struct UserView {
     pub id: String,
     pub username: String,
     pub email: String,
-    pub password: String,
     pub fullname: String,
 }
 
@@ -16,7 +15,6 @@ impl From<User> for UserView {
             id: user.id.value.to_string(),
             username: user.username,
             email: user.email,
-            password: user.password,
             fullname: user.fullname,
         }
     }
@@ -90,7 +88,6 @@ mod tests {
         assert_eq!(view.id, ulid_str);
         assert_eq!(view.username, "alice");
         assert_eq!(view.email, "alice@example.com");
-        assert_eq!(view.password, "hashed");
         assert_eq!(view.fullname, "Alice");
     }
 

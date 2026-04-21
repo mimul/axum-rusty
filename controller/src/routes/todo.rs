@@ -1,4 +1,4 @@
-use crate::context::api_response::ApiResponse;
+use crate::context::api_response::{internal_error, ApiResponse};
 use crate::context::api_version::ApiVersion;
 use crate::context::errors::AppError;
 use crate::context::validate::ValidatedRequest;
@@ -41,23 +41,14 @@ pub async fn get_todo(
             .map(|tv| {
                 info!("found todo `{}`.", tv.id);
                 let json: JsonTodo = tv.into();
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    result: true,
-                    message: "success".to_string(),
-                    data: Some(json!({
-                        "todoView": json,
-                    })),
-                };
+                let response = ApiResponse::success("success", json!({ "todoView": json }));
                 (StatusCode::OK, Json(response))
             })
             .ok_or_else(|| {
                 error!("todo is not found.");
                 AppError::Error("data not found".to_string())
             }),
-        Err(err) => {
-            error!("Unexpected error: {:?}", err);
-            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
-        }
+        Err(err) => Err(internal_error(err)),
     }
 }
 
@@ -94,19 +85,10 @@ pub async fn find_todo(
                 "success".to_string()
             };
             let json = JsonTodoList::new(todos.into_iter().map(|t| t.into()).collect());
-            let response: ApiResponse<Value> = ApiResponse::<Value> {
-                result: true,
-                message,
-                data: Some(json!({
-                    "todoView": json,
-                })),
-            };
+            let response = ApiResponse::success(message, json!({ "todoView": json }));
             Ok((StatusCode::OK, Json(response)))
         }
-        Err(err) => {
-            error!("Unexpected error: {:?}", err);
-            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
-        }
+        Err(err) => Err(internal_error(err)),
     }
 }
 
@@ -133,23 +115,14 @@ pub async fn create_todo(
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("create_todo: {:?}", source);
     let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
-    let resp = uc.create_todo(source.into()).await;
+    let resp = uc.create_todo(source.try_into()?).await;
     resp.map(|tv| {
         info!("created todo: {}", tv.id);
         let json: JsonTodo = tv.into();
-        let response: ApiResponse<Value> = ApiResponse::<Value> {
-            result: true,
-            message: "success".to_string(),
-            data: Some(json!({
-                "todoView": json,
-            })),
-        };
+        let response = ApiResponse::success("success", json!({ "todoView": json }));
         (StatusCode::OK, Json(response))
     })
-    .map_err(|err| {
-        error!("{:?}", err);
-        AppError::Error("서버 오류가 발생했습니다".to_string())
-    })
+    .map_err(internal_error)
 }
 
 #[utoipa::path(
@@ -182,19 +155,10 @@ pub async fn update_todo(
             resp.map(|tv| {
                 info!("updated todo {}", tv.id);
                 let json: JsonTodo = tv.into();
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    result: true,
-                    message: "success".to_string(),
-                    data: Some(json!({
-                        "todoView": json,
-                    })),
-                };
+                let response = ApiResponse::success("success", json!({ "todoView": json }));
                 (StatusCode::OK, Json(response))
             })
-            .map_err(|err| {
-                error!("{:?}", err);
-                AppError::Error("서버 오류가 발생했습니다".to_string())
-            })
+            .map_err(internal_error)
         }
         Err(errors) => Err(AppError::Error(
             errors
@@ -230,23 +194,14 @@ pub async fn upsert_todo(
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!("upsert_todo: {:?}", source);
     let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
-    let resp = uc.upsert_todo(source.to_view(id)).await;
+    let resp = uc.upsert_todo(source.try_to_view(id)?).await;
     resp.map(|tv| {
         info!("created or updated todo {}", tv.id);
         let json: JsonTodo = tv.into();
-        let response: ApiResponse<Value> = ApiResponse::<Value> {
-            result: true,
-            message: "success".to_string(),
-            data: Some(json!({
-                "todoView": json,
-            })),
-        };
+        let response = ApiResponse::success("success", json!({ "todoView": json }));
         (StatusCode::OK, Json(response))
     })
-    .map_err(|err| {
-        error!("{:?}", err);
-        AppError::Error("서버 오류가 발생했습니다".to_string())
-    })
+    .map_err(internal_error)
 }
 
 #[utoipa::path(
@@ -274,22 +229,13 @@ pub async fn delete_todo(
             .map(|tv| {
                 info!("Deleted todo `{}`.", tv.id);
                 let json: JsonTodo = tv.into();
-                let response: ApiResponse<Value> = ApiResponse::<Value> {
-                    result: true,
-                    message: "success".to_string(),
-                    data: Some(json!({
-                        "todoView": json,
-                    })),
-                };
+                let response = ApiResponse::success("success", json!({ "todoView": json }));
                 (StatusCode::OK, Json(response))
             })
             .ok_or_else(|| {
                 error!("todo is not found.");
                 AppError::Error("data not found".to_string())
             }),
-        Err(err) => {
-            error!("Unexpected error: {:?}", err);
-            Err(AppError::Error("서버 오류가 발생했습니다".to_string()))
-        }
+        Err(err) => Err(internal_error(err)),
     }
 }
