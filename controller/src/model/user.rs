@@ -1,3 +1,4 @@
+use crate::context::errors::AppError;
 use fancy_regex::Regex;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -40,13 +41,15 @@ pub struct JsonCreateUser {
     pub fullname: Option<String>,
 }
 
-impl From<JsonCreateUser> for CreateUser {
-    fn from(jcu: JsonCreateUser) -> Self {
-        CreateUser {
-            username: jcu.username.unwrap(),
-            password: jcu.password.unwrap(),
-            fullname: jcu.fullname.unwrap(),
-        }
+impl TryFrom<JsonCreateUser> for CreateUser {
+    type Error = AppError;
+
+    fn try_from(jcu: JsonCreateUser) -> Result<Self, Self::Error> {
+        Ok(CreateUser {
+            username: jcu.username.ok_or_else(|| AppError::Error("`username` is required".to_string()))?,
+            password: jcu.password.ok_or_else(|| AppError::Error("`password` is required".to_string()))?,
+            fullname: jcu.fullname.ok_or_else(|| AppError::Error("`fullname` is required".to_string()))?,
+        })
     }
 }
 
@@ -56,7 +59,6 @@ pub struct JsonUser {
     pub id: String,
     pub username: String,
     pub email: String,
-    pub password: String,
     pub fullname: String,
 }
 
@@ -66,7 +68,6 @@ impl From<UserView> for JsonUser {
             id: uv.id,
             username: uv.username,
             email: uv.email,
-            password: uv.password,
             fullname: uv.fullname,
         }
     }
@@ -106,12 +107,14 @@ pub struct JsonLoginUser {
     pub password: Option<String>,
 }
 
-impl From<JsonLoginUser> for LoginUser {
-    fn from(jcu: JsonLoginUser) -> Self {
-        LoginUser {
-            username: jcu.username.unwrap(),
-            password: jcu.password.unwrap(),
-        }
+impl TryFrom<JsonLoginUser> for LoginUser {
+    type Error = AppError;
+
+    fn try_from(jcu: JsonLoginUser) -> Result<Self, Self::Error> {
+        Ok(LoginUser {
+            username: jcu.username.ok_or_else(|| AppError::Error("`username` is required".to_string()))?,
+            password: jcu.password.ok_or_else(|| AppError::Error("`password` is required".to_string()))?,
+        })
     }
 }
 
@@ -146,7 +149,6 @@ mod tests {
             id: "user-id-01".to_string(),
             username: "alice@example.com".to_string(),
             email: "alice@example.com".to_string(),
-            password: "hashed".to_string(),
             fullname: "Alice".to_string(),
         };
         let json = JsonUser::from(view);

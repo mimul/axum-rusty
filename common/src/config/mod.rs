@@ -7,7 +7,7 @@ pub struct ApplicationConfig {
     pub database_url: String,
     pub jwt_secret: String,
     pub allowed_origin: String,
-    pub jwt_duration: String,
+    pub jwt_duration: i64,
     pub jwt_max_age: i64,
 }
 
@@ -21,7 +21,9 @@ impl ApplicationConfig {
         let allowed_origin =
             env::var("ALLOWED_ORIGIN").unwrap_or_else(|_| panic!("ALLOWED_ORIGIN must be set!"));
         let jwt_duration = env::var("JWT_DURATION_MINUTES")
-            .unwrap_or_else(|_| panic!("JWT_DURATION_MINUTES must be set!"));
+            .unwrap_or_else(|_| panic!("JWT_DURATION_MINUTES must be set!"))
+            .parse::<i64>()
+            .expect("JWT_DURATION_MINUTES must be an integer");
         let jwt_max_age = env::var("JWT_MAX_AGE").expect("JWT_MAX_AGE must be set");
 
         ApplicationConfig {
@@ -61,7 +63,7 @@ mod tests {
         assert_eq!(config.database_url, "postgres://localhost/testdb");
         assert_eq!(config.jwt_secret, "test-jwt-secret");
         assert_eq!(config.allowed_origin, "http://localhost:3000");
-        assert_eq!(config.jwt_duration, "60");
+        assert_eq!(config.jwt_duration, 60i64);
         assert_eq!(config.jwt_max_age, 3600);
     }
 
