@@ -1,6 +1,6 @@
 # 테스트 규칙 (Test Rules)
 
-Claude가 이 프로젝트에서 테스트를 작성하거나 리뷰할 때 반드시 준수해야 하는 테스트 규칙이다.
+이 프로젝트에서 테스트를 작성하거나 리뷰할 때 반드시 준수해야 하는 테스트 규칙이다.
 
 ## 테스트 철학
 
@@ -237,47 +237,5 @@ Always test:
 Guideline:
 - 동작을 명확하게 설명할 수 없는 경우, 테스트를 세분화하거나 분할하세요. 복잡한 로직 테스트는 건너뛰지 마세요.
 
-## 벤치마크 작성 기준
-
-성능 민감 경로(쿼리 집계, 직렬화 등)에는 Criterion 벤치마크를 작성한다:
-
-```rust
-// benches/order_bench.rs
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
-fn bench_calculate_total(c: &mut Criterion) {
-    let items = generate_test_items(1000);
-    c.bench_function("calculate_total_1000_items", |b| {
-        b.iter(|| calculate_total(black_box(&items), 0.0))
-    });
-}
-
-criterion_group!(benches, bench_calculate_total);
-criterion_main!(benches);
-```
-
-```bash
-# 로컬 벤치마크 실행
-cargo bench
-
-# PR에서 성능 회귀 확인 (perf-check 라벨 필요)
-# → pr-ci.yml Job 6 자동 실행
-```
-
----
-
-## CI 테스트 자동화
-
-PR CI에서 아래 순서로 자동 실행된다 (`pr-ci.yml` 참조):
-
-```
-Job 4: cargo test --all           단위 + 통합 테스트
-Job 5: cargo tarpaulin            커버리지 측정 (80% 목표)
-Job 6: cargo bench (선택)          성능 회귀 확인
-```
-
-```bash
-# 로컬 사전 확인 (PR 올리기 전)
-cargo test --all
 cargo tarpaulin --out Html
 ```
