@@ -1,5 +1,5 @@
 ---
-name: prompt-tuning
+name: prompt-tunning
 description: agent용 텍스트 지시(skill / slash command / task 프롬프트 / CLAUDE.md 절 / 코드 생성 프롬프트)를 바이어스를 배제한 실행자에게 실제 실행시키고, 실행자 자기보고 + 지시측 메트릭으로 양면 평가하여 반복 개선하는 방법론.
 ---
 
@@ -10,6 +10,18 @@ description: agent용 텍스트 지시(skill / slash command / task 프롬프트
 
 **핵심은 바이어스를 배제한 실행자에게 실제로 실행시키고, 양면에서 평가하여 반복 개선하는 것**이다.  
 개선이 더 이상 발생하지 않을 때까지 멈추지 않는다.
+
+---
+
+## 커맨드 문법
+
+```
+/prompt-tunning <스킬명>           지정 스킬 튜닝 (기본: 최소 3회 이터레이션)
+/prompt-tunning <스킬명> --eval    채점만 수행 (파일 수정 없음)
+/prompt-tunning <스킬명> --iter N  N회 이터레이션만 수행
+```
+
+**스킬명**: `.claude/skills/<스킬명>/SKILL.md` 또는 `.claude/commands/<스킬명>.md` 기준으로 탐색한다.
 
 ---
 
@@ -144,9 +156,10 @@ subagent에게 다음을 전달:
 다음 조건 2회 연속 만족 시 종료:
 
 - 신규 불명확점 0
+- 신규 임의 판단 0
 - 정확도 개선 ≤ 3%
-- tool_uses 변화 ±10%
-- duration 변화 ±15%
+- tool_uses 변화 ±10%  (수집 가능한 경우)
+- duration 변화 ±15%   (수집 가능한 경우)
 
 ---
 
@@ -182,6 +195,7 @@ subagent에게 다음을 전달:
 
 ## subagent 실행 계약
 
+```
 당신은 아래 프롬프트를 처음 보는 실행자입니다.
 
 ## 대상 프롬프트
@@ -206,6 +220,7 @@ subagent에게 다음을 전달:
 - 불명확점:
 - 임의 판단:
 - 재시도:
+```
 
 ---
 
@@ -227,8 +242,8 @@ empirical evaluation skipped: dispatch unavailable
 - ...
 
 ### 결과
-| 시나리오 | 성공 | 정확도 | tool_uses | duration_ms | retries |
-|---|---|---|---|---|---|
+| 시나리오 | 성공 | 정확도 | 불명확점 | 임의 판단 | tool_uses | duration_ms |
+|---|---|---|---|---|---|---|
 
 ### 불명확점
 - ...
