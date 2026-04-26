@@ -179,7 +179,7 @@ gh api repos/{owner}/{repo}/pulls/{번호}/reviews \
 {대응 불필요로 판단한 이유}
 
 📐 판단 근거: coding-style.md §{섹션번호} {섹션명}
-{해당 시} 🔒 보완: {security.md §섹션 / security-rust.md §섹션 / test.md §섹션}
+{해당 시} 🔒 보완: {security.md §섹션 / security-rust.md §섹션 / test-style.md §섹션}
 
 > 🤖 Claude Code
 ```
