@@ -1,7 +1,18 @@
 ---
-name: Security Rules
+name: Security by Design — 보안 설계 원칙
 description: >
-  도메인 중심 진화형 코딩 스타일과 통합된 보안 규칙.
+  보안 철학과 설계 원칙을 정의하는 기준 문서. 언어·프레임워크에 독립적이며,
+  언어별 구현 패턴은 security-rust.md 등 별도 파일을 참조한다.
+
+  포함 내용:
+  - §1 악용 시나리오 기반 보안 사고 (Business Logic Vulnerabilities)
+  - §2 Threat Modeling — Microsoft SDL 5단계 + STRIDE 위협 분류
+  - §3 신뢰 경계(Trust Boundary) 코드 표현 — 외부 입력·서비스 간·권한 경계
+  - §4 검증되지 않은 가정 제거 — 입력 신뢰·권한 과신·환경 신뢰
+  - §5 OWASP Top 10 2025 패턴 + 자동화 도구(SAST/DAST/SCA/SBOM/시크릿)
+  - §6 침해 전제 설계 — Defense in Depth + Assume Breach
+
+  참조 시점: 보안 리뷰·설계 단계 체크·취약점 패턴 판단 기준이 필요할 때
 ---
 
 #  Security by Design Rules
