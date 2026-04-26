@@ -173,7 +173,7 @@ codegen-units = 1        # 최적화 극대화
 strip = true             # 심볼 제거 (바이너리 크기 축소)
 ```
 
-> **주의**: Repository·UseCase·Domain 로직은 실제 DB로 테스트한다. 내부 구현체를 모킹하는 `mockall` 등의 프레임워크는 외부 서비스(결제 API 등) 경계에만 사용한다 (`test.md` Mocking Rules 참조).
+> **주의**: Repository·UseCase·Domain 로직은 실제 DB로 테스트한다. 내부 구현체를 모킹하는 `mockall` 등의 프레임워크는 외부 서비스(결제 API 등) 경계에만 사용한다 (`test-style.md` Mocking Rules 참조).
 
 ### 1-2. Clippy 설정 (clippy.toml 또는 소스 상단)
 
@@ -894,7 +894,7 @@ coding-style.md §9 안티 패턴의 Rust 구현 기준:
    → thiserror로 도메인 의미를 가진 구체적 에러 타입 정의 (R-R-06).
 
 ❌ 내부 Repository·UseCase를 mockall로 모킹
-   → 실제 DB 통합 테스트로 대체. 모킹은 외부 API 경계에서만 (test.md).
+   → 실제 DB 통합 테스트로 대체. 모킹은 외부 API 경계에서만 (test-style.md).
 
 ❌ 기능 추가와 리팩토링 동시 진행 (coding-style.md §9)
    → 한 PR은 하나의 의도만 담는다.
@@ -919,6 +919,6 @@ coding-style.md §9 안티 패턴의 Rust 구현 기준:
 | 패턴 참고 | rust-unofficial.github.io/patterns |
 | API 가이드 | rust-lang.github.io/api-guidelines |
 | 코딩 스타일 | `.claude/rules/coding-style.md` |
-| 테스트 규칙 | `.claude/rules/test.md` |
+| 테스트 규칙 | `.claude/rules/test-style.md` |
 | 보안 규칙 (공통) | `.claude/rules/security.md` |
 | 보안 규칙 (Rust 전용) | `.claude/rules/security-rust.md` |
