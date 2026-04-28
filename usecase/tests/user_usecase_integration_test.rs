@@ -20,11 +20,7 @@ fn unique_username(prefix: &str) -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    format!("{prefix}_{ts}_{n}")
+    format!("{prefix}_{n}")
 }
 
 // ─── create_user ────────────────────────────────────────────────────────────

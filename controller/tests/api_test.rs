@@ -10,11 +10,7 @@ fn unique_email() -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    format!("test_{ts}_{n}@example.com")
+    format!("test_{n}@example.com")
 }
 
 async fn body_json(body: axum::body::Body) -> Value {
@@ -143,6 +139,35 @@ async fn create_user_with_valid_data_returns_ok() {
     let json = body_json(resp.into_body()).await;
     assert_eq!(json["result"], true);
     assert!(json["data"]["userView"]["id"].is_string());
+}
+
+#[tokio::test]
+async fn create_user_response_does_not_expose_password_hash() {
+    // Arrange
+    let app = common::build_test_app().await;
+    let body = json!({
+        "username": unique_email(),
+        "password": "Test1234!",
+        "fullname": "Security Test"
+    });
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/auth/create")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap();
+
+    // Act
+    let resp = app.oneshot(req).await.unwrap();
+
+    // Assert: 패스워드 해시 미노출 (§6.3)
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = body_json(resp.into_body()).await;
+    let user_view = &json["data"]["userView"];
+    assert!(
+        user_view.get("password").is_none(),
+        "password hash must not be exposed in API response, got: {user_view}"
+    );
 }
 
 // AppError::Validation → 400
