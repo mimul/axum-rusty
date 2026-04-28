@@ -946,7 +946,7 @@ find . -name "*.rs" | grep -v "mod.rs" | grep -v "target/" | head -10
 
 ### rust-test-style.md 적용 항목 (§1~§13 우선순위 기반)
 
-🔴 **Critical** — 즉시 Blocking, 갭 발견 시 작성 전 기존 테스트 수정 권고 (§13.1)
+🚫 **Blocking** — 즉시 차단, 갭 발견 시 작성 전 기존 테스트 수정 권고 (§13.1)
 
 | rust-test-style.md 섹션 | 갭 분석 적용 |
 |---|---|
@@ -957,7 +957,7 @@ find . -name "*.rs" | grep -v "mod.rs" | grep -v "target/" | head -10
 | §13.1 | Assertion 없는 테스트 / `assert!(result.is_some())` 단독 사용 → 즉시 보고 |
 | §13.1 | 기존 도구로 충분한데 새 Mock 크레이트 추가 → 즉시 보고 |
 
-🟠 **High** — 갭 발견 시 ⚠️ 개선 권고로 보고
+⚠️ **Recommended** — 갭 발견 시 개선 권고로 보고
 
 | rust-test-style.md 섹션 | 갭 분석 적용 |
 |---|---|
@@ -967,7 +967,7 @@ find . -name "*.rs" | grep -v "mod.rs" | grep -v "target/" | head -10
 | §13.2, §11 | Arrange 코드가 Assert 코드보다 10배 이상 긴 경우 → Builder/Fixture 패턴 도입 권고 |
 | §6 | `Result` 반환 함수에 에러 케이스 테스트 없음 → 에러 테스트 작성 대상 포함 |
 
-🟡 **Medium** — 낮은 우선순위 개선 권고로 보고
+💡 **Suggestions** — 낮은 우선순위 개선 권고로 보고
 
 | rust-test-style.md 섹션 | 갭 분석 적용 |
 |---|---|
@@ -976,7 +976,7 @@ find . -name "*.rs" | grep -v "mod.rs" | grep -v "target/" | head -10
 | §6.1 | 단위 70% / 통합 20% / E2E 10% 피라미드 비율 준수 여부 |
 | §5.1 | AAA 패턴 미준수 테스트 → 구조 개선 권고 |
 
-🟢 **Low** — 향후 개선 권고
+📝 **Tech Debt** — 향후 개선 권고
 
 | rust-test-style.md 섹션 | 갭 분석 적용 |
 |---|---|
@@ -985,7 +985,7 @@ find . -name "*.rs" | grep -v "mod.rs" | grep -v "target/" | head -10
 
 ### rust-security-style.md 적용 항목 (§1~§12 우선순위 기반)
 
-🔴 **Critical** — 테스트 픽스처에서도 즉시 수정:
+🚫 **Blocking** — 테스트 픽스처에서도 즉시 수정:
 
 | 검사 항목 | 근거 |
 |-----------|------|
@@ -993,7 +993,7 @@ find . -name "*.rs" | grep -v "mod.rs" | grep -v "target/" | head -10
 | Newtype 생성자에 잘못된 입력 거부 케이스 포함 여부 (Smart Constructor 불변식) | §3.1 입력 검증 |
 | SQL 파라미터 바인딩 사용 검증 케이스 포함 여부 (포맷 조합 금지) | §3.3 SQL 인젝션 방지 |
 
-🟠 **High** — 테스트 갭으로 보고:
+⚠️ **Recommended** — 테스트 갭으로 보고:
 
 | 검사 항목 | 근거 |
 |-----------|------|
@@ -1002,7 +1002,7 @@ find . -name "*.rs" | grep -v "mod.rs" | grep -v "target/" | head -10
 | `#[serde(deny_unknown_fields)]` 적용 타입에 알 수 없는 필드 거부 케이스 포함 여부 | §3.4 역직렬화 보안 |
 | 패스워드 검증 로직에 Argon2id 해싱 결과 검증 케이스 포함 여부 | §4.3 패스워드 해싱 |
 
-🟡 **Medium** — 가능하면 추가:
+💡 **Suggestions** — 가능하면 추가:
 
 | 검사 항목 | 근거 |
 |-----------|------|

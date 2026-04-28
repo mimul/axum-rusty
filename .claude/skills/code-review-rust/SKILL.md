@@ -530,22 +530,22 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
 
 | 조건 | 분류 | 근거 |
 |------|------|------|
-| `unwrap()`/`expect()` in 라이브러리·핸들러 코드 | 🚫 Blocking (Critical) | §5.3 unwrap 금지 |
-| 에러 응답에 DB 쿼리·파일 경로·스택 트레이스 포함 | 🚫 Blocking (High) | §5.1 정보 노출 방지 |
-| 로그에 패스워드·토큰·카드 번호 기록 | 🚫 Blocking (High) | §5.2 로그 민감 데이터 |
-| 외부 노출 에러 타입에 내부 구현 상세 포함 | ⚠️ Recommended (Medium) | §5.1 에러 처리와 정보 노출 |
+| `unwrap()`/`expect()` in 라이브러리·핸들러 코드 | 🚫 Blocking | §5.3 unwrap 금지 |
+| 에러 응답에 DB 쿼리·파일 경로·스택 트레이스 포함 | 🚫 Blocking | §5.1 정보 노출 방지 |
+| 로그에 패스워드·토큰·카드 번호 기록 | 🚫 Blocking | §5.2 로그 민감 데이터 |
+| 외부 노출 에러 타입에 내부 구현 상세 포함 | ⚠️ Recommended | §5.1 에러 처리와 정보 노출 |
 
 **R-05 소유권 & 메모리** 판단 시 추가 적용:
 
 | 조건 | 분류 | 근거 |
 |------|------|------|
-| `static mut` 사용 | 🚫 Blocking (Critical) | §6 unsafe 코드 (데이터 레이스) |
-| async 컨텍스트에서 `std::sync::Mutex` | 🚫 Blocking (High) | §6 (교착 위험) |
-| 민감 값이 `Zeroizing<T>` 없이 `Drop` 처리 | ⚠️ Recommended (Medium) | §4.4 zeroize |
+| `static mut` 사용 | 🚫 Blocking | §6 unsafe 코드 (데이터 레이스) |
+| async 컨텍스트에서 `std::sync::Mutex` | 🚫 Blocking | §6 (교착 위험) |
+| 민감 값이 `Zeroizing<T>` 없이 `Drop` 처리 | ⚠️ Recommended | §4.4 zeroize |
 
 **R-09 보안** 판단 시 추가 적용:
 
-🔴 Critical — 즉시 차단:
+🚫 **Blocking** — 즉시 차단, 보안 사고 직결:
 
 | 조건 | 근거 |
 |------|------|
@@ -555,7 +555,7 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
 | `unwrap()`/`expect()` in 핸들러·라이브러리 | §5.3 (DoS 패닉) |
 | JWT `none` 알고리즘 허용 | §4.1 |
 
-🟠 High — 머지 전 필수:
+⚠️ **Recommended** — 머지 전 필수:
 
 | 조건 | 근거 |
 |------|------|
@@ -567,7 +567,7 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
 | SSRF 방지 미적용 (외부 URL 허용 호스트 미검증) | §2.3 |
 | FFI `unsafe` 블록에 ABI 미검증 | §6.2 |
 
-🟡 Medium — 가능하면 이번 PR에:
+💡 **Suggestions** — 가능하면 이번 PR에:
 
 | 조건 | 근거 |
 |------|------|
@@ -581,41 +581,41 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
 
 **R-08 테스트** 판단 시 rust-test-style.md §1~§13 우선순위 기반 추가 적용:
 
-🔴 **Critical** — 즉시 Blocking (§13.1 즉시 반려 기준)
+🚫 **Blocking** — 즉시 차단 (§13.1 즉시 반려 기준)
 
-| 확인 항목 | 심각도 매핑 |
-|-----------|------------|
-| 통합 테스트에서 Mock DB / Mock Repository 사용 | 🚫 Blocking |
-| 상호작용 검증만 있고 결과 상태 검증 없음 | 🚫 Blocking |
-| `SystemTime::now()` / 시드 없는 난수 등 비결정적 출력 고정 사용 | 🚫 Blocking |
-| 이슈 링크·담당자·기한 없이 단순 `#[ignore]` | 🚫 Blocking |
-| Assertion 없는 테스트 / 의미 없는 Assertion 단독 사용 | 🚫 Blocking |
-| 기존 도구로 충분한데 새 Mock 크레이트 추가 | 🚫 Blocking |
+| 확인 항목 | 근거 |
+|-----------|------|
+| 통합 테스트에서 Mock DB / Mock Repository 사용 | §13.1, §4.3 |
+| 상호작용 검증만 있고 결과 상태 검증 없음 | §13.1, §5.2 |
+| `SystemTime::now()` / 시드 없는 난수 등 비결정적 출력 고정 사용 | §13.1, §10.2 |
+| 이슈 링크·담당자·기한 없이 단순 `#[ignore]` | §13.1, §10.3 |
+| Assertion 없는 테스트 / 의미 없는 Assertion 단독 사용 | §13.1 |
+| 기존 도구로 충분한데 새 Mock 크레이트 추가 | §13.1 |
 
-🟠 **High** — 머지 전 필수 수정
+⚠️ **Recommended** — 머지 전 필수 수정
 
-| 확인 항목 | 심각도 매핑 |
-|-----------|------------|
-| 핵심 비즈니스 로직(인증·권한·결제·상태 전환) 테스트 없음 | ⚠️ Recommended |
-| `mockall expect` 호출이 실제 assert보다 압도적으로 많음 | ⚠️ Recommended |
-| Arrange 코드가 Assert 코드보다 10배 이상 긴 경우 (→ Builder/Fixture 필요) | ⚠️ Recommended |
-| `Result` 반환 함수에 에러 케이스 테스트 없음 | ⚠️ Recommended |
+| 확인 항목 | 근거 |
+|-----------|------|
+| 핵심 비즈니스 로직(인증·권한·결제·상태 전환) 테스트 없음 | §6.3 |
+| `mockall expect` 호출이 실제 assert보다 압도적으로 많음 | §13.2 |
+| Arrange 코드가 Assert 코드보다 10배 이상 긴 경우 (→ Builder/Fixture 필요) | §13.2, §11 |
+| `Result` 반환 함수에 에러 케이스 테스트 없음 | §6 |
 
-🟡 **Medium** — 가능하면 이번 PR에 반영
+💡 **Suggestions** — 가능하면 이번 PR에 반영
 
-| 확인 항목 | 심각도 매핑 |
-|-----------|------------|
-| 테스트 이름이 `<동작>_<예상_결과>_when_<조건>` 템플릿을 따르지 않음 | 💡 Suggestions |
-| `#[should_panic]` 사용 (→ `Result` 반환 + `assert!(result.is_err())` 방식 권고) | 💡 Suggestions |
-| 단위 70% / 통합 20% / E2E 10% 피라미드 비율 미준수 | 💡 Suggestions |
-| 비동기 테스트에 `#[tokio::test]` / `#[sqlx::test]` 미사용 | 💡 Suggestions |
+| 확인 항목 | 근거 |
+|-----------|------|
+| 테스트 이름이 `<동작>_<예상_결과>_when_<조건>` 템플릿을 따르지 않음 | §3.2 |
+| `#[should_panic]` 사용 (→ `Result` 반환 + `assert!(result.is_err())` 방식 권고) | §14 |
+| 단위 70% / 통합 20% / E2E 10% 피라미드 비율 미준수 | §6.1 |
+| 비동기 테스트에 `#[tokio::test]` / `#[sqlx::test]` 미사용 | §7 |
 
-🟢 **Low** — 향후 개선 권고
+📝 **Tech Debt** — 향후 개선 권고
 
-| 확인 항목 | 심각도 매핑 |
-|-----------|------------|
-| 동일 함수 예시 테스트 4개 이상 시 proptest 전환 미검토 | 📝 Tech Debt |
-| Builder / Fixture 패턴 미도입 (설정 코드 과잉) | 📝 Tech Debt |
+| 확인 항목 | 근거 |
+|-----------|------|
+| 동일 함수 예시 테스트 4개 이상 시 proptest 전환 미검토 | §9.1 |
+| Builder / Fixture 패턴 미도입 (설정 코드 과잉) | §11.1 |
 
 ---
 
@@ -675,7 +675,7 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
 📋  수정 계획 — 총 [N]건
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🚫 Blocking — 즉시 수정 필수 (Critical + High: [N]건)
+🚫 Blocking — 즉시 수정 필수 ([N]건)
   1. [R-XX] [이슈 제목] — [파일명:행번호]
 
 ⚠️ Recommended — 권장 수정 (Medium: [N]건)
@@ -871,9 +871,8 @@ PR 체크리스트:
   □ cargo test --all 전체 통과
   □ cargo clippy -D warnings 경고 0건
   □ cargo fmt --check 포맷 위반 없음
-  □ 🚫 Blocking 이슈 전부 해결 (Critical + High)
-  □ Critical 보안 이슈 전부 해결 (하드코딩 시크릿·SAFETY 주석·SQL 포맷·unwrap·JWT none)
-  □ High 보안 이슈 해결 (입력 검증·BOLA·역직렬화·에러 정보 노출·Argon2id·SSRF)
+  □ 🚫 Blocking 이슈 전부 해결
+  □ 🚫 Blocking 보안 이슈 해결 (하드코딩 시크릿·SAFETY 주석·SQL 포맷·unwrap·JWT none·입력 검증·BOLA·역직렬화·에러 정보 노출·Argon2id·SSRF)
   □ 에러 케이스 테스트 존재 (rust-test-style.md §6. 테스트 피라미드)
   ■ 커버리지 ≥ 80% 확인 완료 (STEP 5-0 통과 필수 — 미달 시 PR 차단)
   □ 공개 API rustdoc 주석 완비
@@ -919,13 +918,13 @@ PR 체크리스트:
 
 | 분류 | 건수 | 처리 |
 |------|------|------|
-| 🚫 Blocking (Critical+High) | [N]건 | [처리 내용] |
-| ⚠️ Recommended (Medium)     | [N]건 | [처리 내용] |
-| 💡 Suggestions (Low)        | [N]건 | 참고 사항 |
+| 🚫 Blocking     | [N]건 | [처리 내용] |
+| ⚠️ Recommended  | [N]건 | [처리 내용] |
+| 💡 Suggestions  | [N]건 | 참고 사항 |
 
 ### 🚨 이슈 상세
 
-#### 🚫 Blocking Issues (Critical + High)
+#### 🚫 Blocking Issues
 
 **[R-XX] [제목]** — `[파일명:행번호]`
 [설명] / 근거: [rust-security-style.md §섹션 또는 rust-test-style.md §섹션]
@@ -981,7 +980,7 @@ PR 체크리스트:
 
 | 항목 | 심각도 | 파일 | 변경 내용 | 적용 규칙 |
 |------|--------|------|-----------|-----------|
-| [R-XX] | 🔴 | [파일:행] | [내용] | [security/rust-test-style.md 해당 시] |
+| [R-XX] | 🚫 | [파일:행] | [내용] | [security/rust-test-style.md 해당 시] |
 
 ## 수정하지 않은 항목
 
