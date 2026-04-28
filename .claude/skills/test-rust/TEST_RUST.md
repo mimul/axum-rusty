@@ -1,7 +1,7 @@
 # TEST_RUST 카탈로그 (T-T-01 ~ T-T-06)
 
 이 카탈로그는 `/test-rust` 스킬이 테스트를 분류·작성할 때 사용하는 기준표다.
-테스트 철학·Mocking 규칙·네이밍·PR 기준은 `rules/test-style.md`가 권위 문서다.
+테스트 철학·Mocking 규칙·네이밍·PR 기준은 `rules/rust-test-style.md`가 권위 문서다.
 이 파일은 **Rust 프로젝트 고유의 구현 패턴**만 정의한다.
 
 ---
@@ -37,7 +37,7 @@ src/
 - DB·외부 시스템과 무관한 계산·검증 로직
 
 > **중요**: Repository·Usecase 협력 테스트는 **T-T-02/T-T-03(실제 DB)**으로 작성한다.
-> 내부 모듈(Repository, Usecase)을 mock하는 것은 `rules/test-style.md §1. 모킹 경계`에서 금지한다.
+> 내부 모듈(Repository, Usecase)을 mock하는 것은 `rules/rust-test-style.md §4. 모킹 경계`에서 금지한다.
 
 ### 패턴
 ```rust
@@ -81,7 +81,7 @@ mod tests {
 - 에러 케이스 (모든 `Result::Err` 분기)
 - 경계 케이스 (빈 문자열, None, 최댓값 등)
 
-### 작성 기준 (`rules/test-style.md §4. 테스트 피라미드` 준수)
+### 작성 기준 (`rules/rust-test-style.md §6. 테스트 피라미드` 준수)
 - Getter, DI 연결 코드, 단순 CRUD 위임 → **작성하지 않는다**
 - 비즈니스 규칙·상태 전환·복잡한 분기 → **반드시 작성한다**
 
@@ -191,7 +191,7 @@ async fn insert_user_fails_when_username_is_duplicate() {
 - 여러 Repository 협력을 통한 비즈니스 흐름
 - 트랜잭션 롤백 동작 검증
 
-> **Mock 금지**: `rules/test-style.md §1. 모킹 경계` — DB/ORM·내부 Repository는 mock하지 않는다.
+> **Mock 금지**: `rules/rust-test-style.md §4. 모킹 경계` — DB/ORM·내부 Repository는 mock하지 않는다.
 > Usecase 테스트는 실제 DB(testcontainers)와 실제 Repository 구현체를 사용한다.
 
 ### 패턴 — 정상 흐름 (실제 DB)
@@ -370,7 +370,7 @@ async fn get_user_returns_401_when_not_authenticated() {
 
 ## T-T-05 — 프로퍼티 기반 테스트
 
-> **작성 기준**: `rules/test-style.md §6. Property-Based Testing` 참조.
+> **작성 기준**: `rules/rust-test-style.md §9. Property-Based Testing (proptest)` 참조.
 > 동일한 함수에 대해 네 번째 예제 테스트를 작성해야 한다면 이 카탈로그로 전환한다.
 
 ### 작성 위치
