@@ -8,7 +8,7 @@ use validator::{Validate, ValidationError};
 
 static DIGIT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d").unwrap());
 static SPECIAL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"[^\da-zA-Z]").unwrap());
-static LENGTH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r".{7,}").unwrap());
+static LENGTH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r".{8,}").unwrap());
 fn validate_password(value: &str) -> Result<(), ValidationError> {
     if DIGIT_REGEX.is_match(value).unwrap()
         && SPECIAL_REGEX.is_match(value).unwrap()
@@ -151,6 +151,17 @@ mod tests {
     #[test]
     fn validate_password_too_short_returns_error() {
         assert!(validate_password("Sh0rt!").is_err());
+    }
+
+    #[test]
+    fn validate_password_with_exactly_7_chars_returns_error() {
+        // regex .{8,} 이므로 7자는 실패 (경계값 검증)
+        assert!(validate_password("Sec1!xx").is_err());
+    }
+
+    #[test]
+    fn validate_password_with_exactly_8_chars_returns_ok() {
+        assert!(validate_password("Sec1!xxx").is_ok());
     }
 
     #[test]

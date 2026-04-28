@@ -23,8 +23,10 @@ async fn insert_user_stores_and_retrieves_by_id() {
         .unwrap();
     let found = repo.get_user_tx(&mut tx, &inserted.id).await.unwrap();
 
-    assert!(found.is_some(), "inserted user should be retrievable by id");
-    assert_eq!(found.unwrap().id.value, inserted.id.value);
+    let found = found.expect("inserted user should be retrievable by id");
+    assert_eq!(found.id.value, inserted.id.value);
+    assert_eq!(found.username, inserted.username);
+    assert_eq!(found.fullname, inserted.fullname);
     tx.rollback().await.unwrap();
 }
 
