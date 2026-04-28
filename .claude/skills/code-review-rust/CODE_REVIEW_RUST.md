@@ -149,9 +149,9 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 
 ### 9. 테스트 `R-08`
 
-**9.1 체크** — `rust-test-style.md` §1~§13 기반 우선순위 분류
+**9.1 체크** — `rust-test-style.md` §1~§13 기반
 
-🔴 **Critical** — 즉시 Blocking, PR 즉시 반려 (§13.1)
+🚫 **Blocking** — 즉시 차단, PR 즉시 반려 (§13.1)
 
 | 항목 | 근거 |
 |------|------|
@@ -163,7 +163,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 | 의미 없는 Assertion만 있는 테스트가 없는가? (`assert!(result.is_some())` 단독 등) | §13.1 |
 | 기존 도구(wiremock, sqlx::test)로 충분한데 새 Mock 크레이트를 추가하지 않았는가? | §13.1 |
 
-🟠 **High** — 머지 전 필수 수정
+⚠️ **Recommended** — 머지 전 필수 수정
 
 | 항목 | 근거 |
 |------|------|
@@ -173,7 +173,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 | `mockall expect` 호출이 실제 assert보다 압도적으로 많지 않은가? | §13.2 |
 | Arrange(설정·모킹) 코드가 Assert(검증) 코드보다 10배 이상 길지 않은가? (→ Builder/Fixture 필요) | §13.2, §11 |
 
-🟡 **Medium** — 가능하면 이번 PR에 반영
+💡 **Suggestions** — 가능하면 이번 PR에 반영
 
 | 항목 | 근거 |
 |------|------|
@@ -182,7 +182,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 | 비동기 테스트에 `#[tokio::test]` / `#[sqlx::test]`를 사용하는가? | §7 |
 | 단위 70% / 통합 20% / E2E 10% 피라미드 비율에 근접한가? | §6.1 |
 
-🟢 **Low** — 향후 개선 권고
+📝 **Tech Debt** — 향후 개선 권고
 
 | 항목 | 근거 |
 |------|------|
@@ -200,9 +200,9 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 
 ### 10. 보안 `R-09`
 
-**10.1 체크** — `rust-security-style.md` §1~§12 기반 우선순위 분류
+**10.1 체크** — `rust-security-style.md` §1~§12 기반
 
-🔴 **Critical** — 즉시 Blocking, 보안 사고 직결
+🚫 **Blocking** — 즉시 차단, 보안 사고 직결
 
 | 항목 | 근거 |
 |------|------|
@@ -212,7 +212,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 | 라이브러리·핸들러 코드에 `unwrap()`/`expect()`가 없는가? (DoS 패닉 위험) | §5.3 unwrap 금지 |
 | JWT 검증 시 알고리즘이 명시되고 `none` 알고리즘을 허용하지 않는가? | §4.1 JWT 검증 |
 
-🟠 **High** — 머지 전 필수 수정
+⚠️ **Recommended** — 머지 전 필수 수정
 
 | 항목 | 근거 |
 |------|------|
@@ -225,7 +225,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 | async 컨텍스트에서 `std::sync::Mutex` 대신 `tokio::sync::Mutex`를 사용하는가? | §6 |
 | 외부 URL을 받는 기능에 SSRF 방지(허용 호스트 검증, 내부 네트워크 차단)가 있는가? | §2.3 |
 
-🟡 **Medium** — 가능하면 이번 PR에 반영
+💡 **Suggestions** — 가능하면 이번 PR에 반영
 
 | 항목 | 근거 |
 |------|------|
@@ -234,7 +234,7 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 | 인증 엔드포인트에 Rate Limiting이 적용되는가? | §1.2 DoS 방어 |
 | 보안 이벤트(로그인 성공·실패, 권한 거부)가 구조화된 감사 로그로 기록되는가? | §9 |
 
-🟢 **Low** — 향후 개선 고려
+📝 **Tech Debt** — 향후 개선 고려
 
 | 항목 | 근거 |
 |------|------|
