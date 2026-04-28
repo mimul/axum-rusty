@@ -940,8 +940,7 @@ find . -name "*.rs" | grep -v "mod.rs" | grep -v "target/" | head -10
 
 로드 순서:
 1. `../../rules/rust-test-style.md` — 테스트 철학·Mocking·Naming·PR 기준 (권위 문서)
-2. `../../rules/rust-security-style.md` — 보안 규칙 (공통)
-3. `../../rules/rust-security-style.md` — 보안 규칙 (Rust 전용)
+2. `../../rules/rust-security-style.md` — 보안 규칙 §1~§12 (테스트 작성 시 보안 검증 기준)
 
 **`--type` 옵션이 지정된 경우**: 해당 타입에 매핑된 카탈로그 항목만 탐지한다.
 
@@ -957,15 +956,31 @@ find . -name "*.rs" | grep -v "mod.rs" | grep -v "target/" | head -10
 | §13. PR 거절 신호 (Red Flags) | mockall 내부 사용, 스냅샷 비결정값, #[ignore] 무단 사용 등 |
 | §9. Property-Based Testing (proptest) | 4번째 예제 테스트 → proptest 전환 권고 |
 
-### rust-security-style.md + rust-security-style.md 적용 항목
+### rust-security-style.md 적용 항목 (§1~§12 우선순위 기반)
+
+🔴 **Critical** — 테스트 픽스처에서도 즉시 수정:
 
 | 검사 항목 | 근거 |
 |-----------|------|
-| 테스트 픽스처에 실제 토큰·비밀번호 하드코딩 없음 | rust-security-style.md §7 시크릿 관리 |
-| Newtype 생성 시 잘못된 입력 케이스 포함 여부 | rust-security-style.md §3 입력 검증 |
-| 에러 응답이 내부 정보를 노출하지 않는지 검증 케이스 포함 여부 | rust-security-style.md §5 + rust-security-style.md §6 |
-| `unwrap()`/`expect()` 사용 함수에 패닉 유발 경계 케이스 포함 여부 | rust-security-style.md §3 |
-| 역직렬화 대상 타입에 잘못된 입력 케이스 포함 여부 | rust-security-style.md §7 |
+| 테스트 픽스처·상수에 실제 JWT 시크릿·API 키·비밀번호 하드코딩 없음 | §7 시크릿 관리 |
+| Newtype 생성자에 잘못된 입력 거부 케이스 포함 여부 (Smart Constructor 불변식) | §3.1 입력 검증 |
+| SQL 파라미터 바인딩 사용 검증 케이스 포함 여부 (포맷 조합 금지) | §3.3 SQL 인젝션 방지 |
+
+🟠 **High** — 테스트 갭으로 보고:
+
+| 검사 항목 | 근거 |
+|-----------|------|
+| 에러 응답이 내부 정보(스택 트레이스·DB 에러)를 노출하지 않는지 검증 케이스 포함 여부 | §5.1 정보 노출 방지 |
+| 소유권·권한 검증 로직에 타인 리소스 접근 거부 케이스 포함 여부 (BOLA 방지) | §3.2 객체 레벨 권한 |
+| `#[serde(deny_unknown_fields)]` 적용 타입에 알 수 없는 필드 거부 케이스 포함 여부 | §3.4 역직렬화 보안 |
+| 패스워드 검증 로직에 Argon2id 해싱 결과 검증 케이스 포함 여부 | §4.3 패스워드 해싱 |
+
+🟡 **Medium** — 가능하면 추가:
+
+| 검사 항목 | 근거 |
+|-----------|------|
+| 비밀값 비교 함수에 타이밍 어택 방지(상수 시간) 케이스 포함 여부 | §4.2 상수 시간 비교 |
+| 보안 이벤트(로그인 성공·실패, 권한 거부) 감사 로그 검증 케이스 포함 여부 | §9 감사 로그 |
 
 ### 갭 분석 리포트 형식
 

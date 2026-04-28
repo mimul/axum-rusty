@@ -527,21 +527,53 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
 ### rust-security-style.md → R-04 · R-05 · R-09 보완 기준
 
 **R-04 에러 처리** 판단 시 추가 적용:
-- `unwrap()`/`expect()`가 라이브러리 코드에 있으면 🚫 Blocking (Critical) (rust-security-style.md §5.3 unwrap 금지)
-- 에러 메시지에 DB 쿼리·파일 경로 등 내부 정보가 포함되면 🚫 Blocking (High)으로 격상 (rust-security-style.md §5 에러 처리와 정보 노출)
-- `thiserror` 미사용 시 외부 노출 에러 타입의 `Display` 구현 여부 확인 (rust-security-style.md §5 에러 처리와 정보 노출)
 
-**R-05 소유권 & 메모리** 판단 시 동시성 안전성 추가 적용:
-- `static mut` 사용 시 🚫 Blocking (Critical) (데이터 레이스 — 정의되지 않은 동작) (rust-security-style.md §6 unsafe 코드)
-- async 컨텍스트에서 `std::sync::Mutex` 사용 시 🚫 Blocking (High) (교착 가능) (rust-security-style.md §6 unsafe 코드)
+| 조건 | 분류 | 근거 |
+|------|------|------|
+| `unwrap()`/`expect()` in 라이브러리·핸들러 코드 | 🚫 Blocking (Critical) | §5.3 unwrap 금지 |
+| 에러 응답에 DB 쿼리·파일 경로·스택 트레이스 포함 | 🚫 Blocking (High) | §5.1 정보 노출 방지 |
+| 로그에 패스워드·토큰·카드 번호 기록 | 🚫 Blocking (High) | §5.2 로그 민감 데이터 |
+| 외부 노출 에러 타입에 내부 구현 상세 포함 | ⚠️ Recommended (Medium) | §5.1 에러 처리와 정보 노출 |
+
+**R-05 소유권 & 메모리** 판단 시 추가 적용:
+
+| 조건 | 분류 | 근거 |
+|------|------|------|
+| `static mut` 사용 | 🚫 Blocking (Critical) | §6 unsafe 코드 (데이터 레이스) |
+| async 컨텍스트에서 `std::sync::Mutex` | 🚫 Blocking (High) | §6 (교착 위험) |
+| 민감 값이 `Zeroizing<T>` 없이 `Drop` 처리 | ⚠️ Recommended (Medium) | §4.4 zeroize |
 
 **R-09 보안** 판단 시 추가 적용:
-- `unsafe` 블록에 `// SAFETY:` 주석 없으면 **🚫 Blocking (Critical)** (rust-security-style.md §6 unsafe 코드)
-- 원시 포인터 null 체크 없으면 **🚫 Blocking (Critical)** (rust-security-style.md §6 unsafe 코드)
-- FFI 경계 ABI 미검증이면 **🚫 Blocking (High)** (rust-security-style.md §6 unsafe 코드)
-- 외부 입력 미검증 시 **🚫 Blocking (High)** (rust-security-style.md §2 신뢰 경계 + §3 입력 검증)
-- 하드코딩된 시크릿(API 키, 비밀번호 등) **🚫 Blocking (Critical)** (rust-security-style.md §7 시크릿 관리)
-- 역직렬화 시 검증 없이 외부 데이터 직접 사용 **🚫 Blocking (High)** (rust-security-style.md §3.4 역직렬화 보안)
+
+🔴 Critical — 즉시 차단:
+
+| 조건 | 근거 |
+|------|------|
+| 하드코딩된 시크릿(JWT 시크릿·API 키·비밀번호) | §7 시크릿 관리 |
+| `unsafe` 블록에 `// SAFETY:` 주석 없음 | §6.1 |
+| SQL 쿼리 문자열 포맷 조합 | §3.3 SQL 인젝션 방지 |
+| `unwrap()`/`expect()` in 핸들러·라이브러리 | §5.3 (DoS 패닉) |
+| JWT `none` 알고리즘 허용 | §4.1 |
+
+🟠 High — 머지 전 필수:
+
+| 조건 | 근거 |
+|------|------|
+| 외부 입력 미검증 (타입 수준 Newtype + `validator` 없음) | §2 신뢰 경계, §3.1 |
+| BOLA: 소유권·권한 검증 없이 리소스 접근 | §3.2 |
+| `#[serde(deny_unknown_fields)]` 미사용 + 민감 필드 포함 | §3.4 역직렬화 보안 |
+| 에러 응답에 내부 구현 정보 노출 | §5.1 |
+| 패스워드 해싱에 MD5/SHA1 사용 | §4.3 |
+| SSRF 방지 미적용 (외부 URL 허용 호스트 미검증) | §2.3 |
+| FFI `unsafe` 블록에 ABI 미검증 | §6.2 |
+
+🟡 Medium — 가능하면 이번 PR에:
+
+| 조건 | 근거 |
+|------|------|
+| 비밀값 비교에 일반 `==` 사용 (타이밍 공격) | §4.2 상수 시간 비교 |
+| 인증 엔드포인트에 Rate Limiting 없음 | §1.2 DoS 방어 |
+| 보안 이벤트 감사 로그 미흡 (Who/What/When/Result 누락) | §9 감사 로그 |
 
 ---
 
@@ -809,8 +841,8 @@ PR 체크리스트:
   □ cargo clippy -D warnings 경고 0건
   □ cargo fmt --check 포맷 위반 없음
   □ 🚫 Blocking 이슈 전부 해결 (Critical + High)
-  □ unsafe SAFETY 주석 완비 (rust-security-style.md §6 unsafe 코드)
-  □ 비밀 정보 하드코딩 없음 (rust-security-style.md §7 시크릿 관리)
+  □ Critical 보안 이슈 전부 해결 (하드코딩 시크릿·SAFETY 주석·SQL 포맷·unwrap·JWT none)
+  □ High 보안 이슈 해결 (입력 검증·BOLA·역직렬화·에러 정보 노출·Argon2id·SSRF)
   □ 에러 케이스 테스트 존재 (rust-test-style.md §6. 테스트 피라미드)
   ■ 커버리지 ≥ 80% 확인 완료 (STEP 5-0 통과 필수 — 미달 시 PR 차단)
   □ 공개 API rustdoc 주석 완비
@@ -957,7 +989,7 @@ PR 체크리스트:
 | **R-06** | 제어 흐름 | §2.4, §2.1 | 중첩 깊이 >2, 수동 루프, `_` 패턴 남용, 복잡한 표현 | ⚠️💡 | — |
 | **R-07** | 추상화 & trait | §2.3, §1.1 | 과도한 제네릭, 테스트 편의 추상화, 3회 미만 추상화 도입 | 💡 | — |
 | **R-08** | 테스트 | §6 전체 | 에러 케이스 없음, 도메인 행동 미검증, 구현 세부 검증 | ⚠️💡 | **rust-test-style.md 전체** |
-| **R-09** | 보안 | §7 전체 | SAFETY 주석 없음, null 체크 없음, 하드코딩 시크릿, 입력 미검증, 역직렬화 미검증 | 🚫 | **rust-security-style.md 전체** |
+| **R-09** | 보안 | §7 전체 | 하드코딩 시크릿, SAFETY 주석 없음, SQL 포맷 조합, unwrap in lib, JWT none 허용, BOLA, 역직렬화 미검증, 내부 정보 노출 | 🚫 | **rust-security-style.md §1~§12** |
 
 ---
 

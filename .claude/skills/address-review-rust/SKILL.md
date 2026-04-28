@@ -173,9 +173,8 @@ STEP 0에서 수집한 리뷰 내용을 구조화하고, 언급된 파일을 Rea
 **평가 시작 전 아래 네 파일을 반드시 이 순서대로 로드한다:**
 
 1. `.claude/rules/coding-style.md` — **1차 판단 기준** (모든 평가의 근본 기준)
-2. `.claude/rules/rust-security-style.md` — R-04·R-05·R-09 관련 지적의 보완 기준 (공통)
-3. `.claude/rules/rust-security-style.md` — R-04·R-05·R-09 관련 지적의 보완 기준 (Rust 전용)
-4. `.claude/rules/rust-test-style.md` — R-08 관련 지적의 보완 기준
+2. `.claude/rules/rust-security-style.md` — 보안 규칙 §1~§12 (R-04·R-05·R-09 보완 기준)
+3. `.claude/rules/rust-test-style.md` — R-08 관련 지적의 보완 기준
 
 Claude가 각 지적에 대해 아래 4가지 기준으로 독립적으로 평가한다.
 **리뷰어 의견에 동조하지 않고 coding-style.md 원칙과 코드·프로젝트 정책을 직접 확인하여 판단한다.**
@@ -218,12 +217,12 @@ coding-style.md §9 안티 패턴도 적극 체크한다:
 
 해당 카테고리에만 적용하는 보완 기준:
 
-| 지적 카테고리 | 적용 보완 기준 | 주요 확인 사항 |
-|---------------|----------------|----------------|
-| R-04 에러 처리 | rust-security-style.md §5 에러&로그 + rust-security-style.md §5.3 unwrap 금지 + §6 에러 처리 | unwrap/expect in lib, 내부 정보 노출 에러 |
-| R-05 소유권 | rust-security-style.md §6 unsafe 코드 + §8 동시성 | unsafe SAFETY 주석, async 컨텍스트의 std::Mutex |
+| 지적 카테고리 | 적용 보완 기준 | 우선순위별 주요 확인 사항 |
+|---------------|----------------|--------------------------|
+| R-04 에러 처리 | rust-security-style.md §5 에러 처리와 정보 노출 | 🔴 라이브러리·핸들러에 `unwrap()`/`expect()` 사용 (§5.3) — 🟠 에러 응답에 내부 정보(스택 트레이스·DB 에러) 포함 (§5.1) — 🟠 로그에 패스워드·토큰 등 민감 데이터 기록 (§5.2) |
+| R-05 소유권 | rust-security-style.md §6 unsafe 코드 | 🔴 `unsafe` 블록에 `// SAFETY:` 주석 없음 (§6.1) — 🟠 async 컨텍스트에서 `std::sync::Mutex` 사용 (§6) |
 | R-08 테스트 | rust-test-style.md §1~§13 전체 | §6 커버리지 기준, §6 에러 케이스 테스트, §3 네이밍 |
-| R-09 보안 | rust-security-style.md §2~§9 + rust-security-style.md §6 unsafe 코드~§9 전체 | SAFETY 주석, 역직렬화 검증, 시크릿 하드코딩 |
+| R-09 보안 | rust-security-style.md §1~§12 전체 (우선순위 기반) | 🔴 하드코딩 시크릿(§7) · SAFETY 주석 없음(§6) · SQL 포맷 조합(§3.3) · unwrap in lib(§5.3) · JWT none(§4.1) — 🟠 Newtype 미적용(§3.1) · BOLA(§3.2) · 역직렬화 미검증(§3.4) · 내부 정보 노출(§5.1) · Argon2id 미사용(§4.3) · SSRF(§2.3) — 🟡 상수 시간 비교(§4.2) · Zeroizing(§4.4) · Rate Limiting(§1.2) · 감사 로그(§9) |
 
 - `CLAUDE.md`의 코딩 컨벤션(에러 처리, 소유권, 타입 설계 등)에 맞는가?
 - 현재 프로젝트 맥락(레이어 역할, 의존성 구조)을 고려할 때 적절한가?

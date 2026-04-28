@@ -235,8 +235,7 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 로드 순서:
 1. `REFACTOR_RUST.md` — R-R-01~R-R-08 도메인 중심 카탈로그 (탐지 기준)
 2. `.claude/rules/coding-style.md` — 도메인 중심 코딩 원칙 (분석 판단 기준)
-3. `.claude/rules/rust-security-style.md` — 보안 규칙 공통 (각 변환에 체크)
-4. `.claude/rules/rust-security-style.md` — 보안 규칙 Rust 전용 (각 변환에 체크)
+3. `.claude/rules/rust-security-style.md` — 보안 규칙 §1~§12 (각 변환에 체크)
 5. `.claude/rules/rust-test-style.md` — 테스트 규칙 (커버리지·테스트 구조 확인)
 
 **`--scope` 옵션이 지정된 경우**: 해당 스코프에 매핑된 카탈로그 항목만 탐지한다.
@@ -255,16 +254,29 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 - **불필요한 clone**: 컴파일 오류 회피용 `.clone()` → R-R-07 이슈
 - **flat 모듈 구조**: 기능 단위 flat 구성, `utils.rs`에 비즈니스 로직 → R-R-08 이슈
 
-#### rust-security-style.md + rust-security-style.md 적용 항목
+#### rust-security-style.md 적용 항목 (§1~§12 우선순위 기반)
 
-분석 중 아래 보안 규칙을 체크한다:
+분석 중 아래 보안 규칙을 우선순위별로 체크한다:
 
-- **unsafe 코드**: `unsafe` 블록에 `// SAFETY:` 주석 없으면 `[보안] unsafe SAFETY 주석 누락`으로 보고 (rust-security-style.md §6 unsafe 코드)
-- **panic 사용**: 프로덕션 코드에서 `unwrap()`/`expect()` 사용 시 `[보안] panic 위험`으로 보고 (rust-security-style.md §3)
-- **비밀 정보**: 하드코딩된 키·토큰·비밀번호가 있으면 `[보안] 비밀 정보 하드코딩`으로 보고 (rust-security-style.md §7 시크릿 관리)
-- **입력 검증**: 외부 입력을 Newtype 없이 원시 타입으로 사용하면 R-R-02와 함께 보안 관점 코멘트 추가 (rust-security-style.md §2 + rust-security-style.md §4)
-- **에러 노출**: 내부 구현 정보가 에러 메시지에 포함되면 R-R-06과 함께 보안 관점 코멘트 추가 (rust-security-style.md §5 + rust-security-style.md §6)
-- **역직렬화**: 외부 데이터를 검증 없이 역직렬화하면 `[보안] 역직렬화 미검증`으로 보고 (rust-security-style.md §7)
+🔴 Critical — 즉시 `[보안 Critical]`로 보고:
+- 하드코딩된 키·토큰·비밀번호 (§7 시크릿 관리)
+- `unsafe` 블록에 `// SAFETY:` 주석 없음 (§6.1)
+- SQL 쿼리 문자열 포맷 조합 (§3.3)
+- 라이브러리·핸들러에서 `unwrap()`/`expect()` 사용 (§5.3)
+- JWT `none` 알고리즘 허용 (§4.1)
+
+🟠 High — `[보안 High]`로 보고 + R-R-XX 카탈로그와 함께 표시:
+- 외부 입력을 Newtype 없이 원시 타입으로 사용 → R-R-02와 함께 (§2 신뢰 경계, §3.1)
+- BOLA: 소유권·권한 검증 없이 리소스 접근 (§3.2)
+- `#[serde(deny_unknown_fields)]` 미사용 + 민감 필드 포함 (§3.4)
+- 에러 응답에 내부 구현 정보 노출 → R-R-06과 함께 (§5.1)
+- 패스워드 해싱에 MD5/SHA1 사용 (§4.3)
+- async 컨텍스트에서 `std::sync::Mutex` (§6, 교착 위험)
+
+🟡 Medium — `[보안 Medium]`으로 보고:
+- 비밀값 비교에 상수 시간 비교 미사용 (§4.2)
+- 민감 값이 `Zeroizing<T>` 없이 저장 (§4.4)
+- 보안 이벤트 감사 로그 미흡 (§9)
 
 #### rust-test-style.md 적용 항목
 
@@ -545,8 +557,8 @@ PR 체크리스트:
   □ cargo clippy -D warnings 경고 0건
   □ cargo fmt --check 포맷 위반 없음
   □ 도메인 가시성 향상 확인 (리팩토링 전보다 도메인 개념이 명확히 드러나는가?)
-  □ unsafe 블록 SAFETY 주석 완비 (rust-security-style.md §6 unsafe 코드)
-  □ 비밀 정보 하드코딩 없음 (rust-security-style.md §7 시크릿 관리)
+  □ 🔴 Critical 보안 이슈 없음 — 하드코딩 시크릿(§7) · SAFETY 주석 완비(§6) · SQL 파라미터 바인딩(§3.3) · unwrap in lib 없음(§5.3) · JWT none 차단(§4.1)
+  □ 🟠 High 보안 이슈 없음 — Newtype 입력 검증(§3.1) · BOLA 소유권 검증(§3.2) · 역직렬화 deny_unknown_fields(§3.4) · 에러 내부 정보 미노출(§5.1) · Argon2id 사용(§4.3) · SSRF 방지(§2.3)
   ■ 커버리지 ≥ 80% 확인 완료 (STEP 5-0 통과 필수)
   □ 공개 Trait/struct 시그니처 변경 없음
   □ 직렬화 형식 변경 없음 (serde 필드명)
@@ -641,7 +653,7 @@ PR 체크리스트:
 | **R-R-06** | 경계 조건 & 에러 처리 명시화 | `boundary` | §5, §1.2 | unwrap → thiserror + ?, 명시적 경계 | rust-security-style.md §5 에러 처리와 정보 노출 |
 | **R-R-07** | 소유권 & 변경 용이성 | `ownership` | §1.1, §2.1 | `String` → `&str`, clone 제거 | — |
 | **R-R-08** | 모듈 구조 도메인화 | `module` | §1.3, §2.1 | flat → domain/infra/shared 계층 분리 | — |
-| **[보안]** | 보안 이슈 전체 | `security` | §7 | unsafe·panic·비밀정보·역직렬화 | **rust-security-style.md 전체** |
+| **[보안]** | 보안 이슈 전체 | `security` | §1~§12 | 🔴 하드코딩 시크릿·SAFETY 주석·SQL 포맷·unwrap·JWT none — 🟠 Newtype·BOLA·역직렬화·에러 노출·Argon2id·SSRF — 🟡 상수 시간 비교·Zeroizing·Rate Limiting·감사 로그 | **rust-security-style.md §1~§12 우선순위 기반** |
 
 ---
 
@@ -669,7 +681,6 @@ PR 체크리스트:
 |------|------|-----------|
 | `REFACTOR_RUST.md` | R-R-01~R-R-08 도메인 중심 카탈로그 | **STEP 2 분석 시작 전 로드** |
 | `../../rules/coding-style.md` | 도메인 중심 코딩 원칙 (분석 기준) | **STEP 2 분석 시작 전 로드** |
-| `../../rules/rust-security-style.md` | 보안 규칙 (공통) | **STEP 2 분석 시작 전 로드** |
-| `../../rules/rust-security-style.md` | 보안 규칙 (Rust 전용) | **STEP 2 분석 시작 전 로드** |
+| `../../rules/rust-security-style.md` | 보안 규칙 §1~§12 (각 변환에 체크) | **STEP 2 분석 시작 전 로드** |
 | `../../rules/rust-test-style.md` | 테스트 규칙 | **STEP 2 분석 시작 전 로드** |
 | `SKILL.md` (이 파일) | 실행 지침 및 흐름 정의 | 커맨드 입력 시 |

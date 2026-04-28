@@ -163,25 +163,57 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 
 ### 10. 보안 `R-09`
 
-**10.1 체크** (rust-security-style.md)
+**10.1 체크** — `rust-security-style.md` §1~§12 기반 우선순위 분류
 
-- 모든 외부 입력이 검증되는가? (§2 신뢰 경계, §3 입력 검증)
-- 민감 정보가 로그·에러 메시지에 노출되지 않는가? (§5 에러 처리와 정보 노출)
-- 인증/인가가 우회되지 않는가? (§4 인증과 인가)
-- 환경 변수로 비밀을 관리하는가? (§7 시크릿 관리)
-- `unsafe` 블록에 `// SAFETY:` 주석이 있는가? (§6 unsafe 코드)
-- 라이브러리 코드에서 `unwrap()`/`expect()`를 사용하는가? → `?`·`Result`로 교체 (§5.3 unwrap 금지)
-- `serde` 역직렬화 대상 타입에 입력 검증(`validate()`, custom Deserialize)이 있는가? (§3.4 역직렬화 보안)
-- 공유 상태에 `std::sync::Mutex` 대신 `tokio::sync::Mutex`를 사용하는가? (§6 unsafe 코드)
-- 비밀번호·토큰이 `String`/로그로 노출 가능한 타입에 그대로 저장되지 않는가? (§7 시크릿 관리)
+🔴 **Critical** — 즉시 Blocking, 보안 사고 직결
 
-**10.3 패턴**
+| 항목 | 근거 |
+|------|------|
+| 하드코딩된 시크릿(JWT 시크릿·API 키·비밀번호)이 소스에 없는가? | §7 시크릿 관리 |
+| `unsafe` 블록에 `// SAFETY:` 주석이 있는가? | §6 unsafe 코드 |
+| SQL 쿼리를 문자열 포맷으로 조합하지 않는가? (`sqlx` 파라미터 바인딩 전용) | §3.3 SQL 인젝션 방지 |
+| 라이브러리·핸들러 코드에 `unwrap()`/`expect()`가 없는가? (DoS 패닉 위험) | §5.3 unwrap 금지 |
+| JWT 검증 시 알고리즘이 명시되고 `none` 알고리즘을 허용하지 않는가? | §4.1 JWT 검증 |
 
-- Allowlist validation
-- Secure defaults
-- Fail closed
-- `// SAFETY:` 주석 필수 (unsafe 블록)
-- Newtype 패턴으로 민감 값 래핑 (`struct ApiKey(String)`)
+🟠 **High** — 머지 전 필수 수정
+
+| 항목 | 근거 |
+|------|------|
+| 모든 외부 입력이 타입 수준에서 검증되는가? (Newtype + `validator`) | §2 신뢰 경계, §3.1 |
+| 소유권·권한 검증이 데이터 접근과 결합되어 있는가? (BOLA 방지) | §3.2 |
+| `#[serde(deny_unknown_fields)]` 적용 + 민감 필드가 요청 구조체에 없는가? | §3.4 역직렬화 보안 |
+| 에러 응답에 스택 트레이스·DB 에러·파일 경로 등 내부 정보가 없는가? | §5.1 |
+| 로그에 패스워드·JWT 토큰·API 키 등 민감 데이터가 기록되지 않는가? | §5.2 |
+| 패스워드 해싱에 Argon2id를 사용하는가? (MD5/SHA1 금지) | §4.3 |
+| async 컨텍스트에서 `std::sync::Mutex` 대신 `tokio::sync::Mutex`를 사용하는가? | §6 |
+| 외부 URL을 받는 기능에 SSRF 방지(허용 호스트 검증, 내부 네트워크 차단)가 있는가? | §2.3 |
+
+🟡 **Medium** — 가능하면 이번 PR에 반영
+
+| 항목 | 근거 |
+|------|------|
+| 비밀값 비교에 상수 시간 비교(`subtle::ConstantTimeEq`)를 사용하는가? | §4.2 |
+| 민감한 값이 `Zeroizing<T>`로 메모리 정리되는가? | §4.4 |
+| 인증 엔드포인트에 Rate Limiting이 적용되는가? | §1.2 DoS 방어 |
+| 보안 이벤트(로그인 성공·실패, 권한 거부)가 구조화된 감사 로그로 기록되는가? | §9 |
+
+🟢 **Low** — 향후 개선 고려
+
+| 항목 | 근거 |
+|------|------|
+| `#![warn(clippy::unwrap_used)]` 등 보안 Clippy lint가 설정되어 있는가? | §8.3 |
+| `cargo audit`이 CI 파이프라인에 포함되어 있는가? | §8.2 |
+| FFI `unsafe` 블록이 안전한 Rust 공개 래퍼로 감싸져 있는가? | §6.2 |
+
+**10.2 패턴**
+
+- **Allowlist validation** — 허용 목록 기반 입력 검증 (§2.1)
+- **Secure defaults** — 기본값이 가장 안전한 선택 (§1.3)
+- **Fail closed** — 실패 시 접근 거부, 정보 미노출 (§5.1)
+- **Defense in Depth** — 입력 검증 → 인가 → 에러 처리 → 감사 로그 각 계층 독립 동작 (§1.3)
+- **`// SAFETY:` 주석 필수** — unsafe 블록 안전 불변식 증명 (§6.1)
+- **Newtype 패턴** — 도메인 식별자·민감 값 래핑 (`UserId`, `ApiKey`) (§3.1)
+- **`thiserror` + `IntoResponse`** — 내부 에러와 외부 응답 분리 (§5.1)
 
 ---
 
