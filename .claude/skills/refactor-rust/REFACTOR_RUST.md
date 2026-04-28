@@ -920,5 +920,4 @@ coding-style.md §9 안티 패턴의 Rust 구현 기준:
 | API 가이드 | rust-lang.github.io/api-guidelines |
 | 코딩 스타일 | `.claude/rules/coding-style.md` |
 | 테스트 규칙 | `.claude/rules/rust-test-style.md` |
-| 보안 규칙 (공통) | `.claude/rules/rust-security-style.md` |
-| 보안 규칙 (Rust 전용) | `.claude/rules/rust-security-style.md` |
+| 보안 규칙 §1~§12 | `.claude/rules/rust-security-style.md` |
