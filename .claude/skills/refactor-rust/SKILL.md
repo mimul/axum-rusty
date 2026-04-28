@@ -258,14 +258,12 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 
 분석 중 아래 보안 규칙을 우선순위별로 체크한다:
 
-🔴 Critical — 즉시 `[보안 Critical]`로 보고:
+🚫 Blocking — 즉시 `[보안 Blocking]`으로 보고:
 - 하드코딩된 키·토큰·비밀번호 (§7 시크릿 관리)
 - `unsafe` 블록에 `// SAFETY:` 주석 없음 (§6.1)
 - SQL 쿼리 문자열 포맷 조합 (§3.3)
 - 라이브러리·핸들러에서 `unwrap()`/`expect()` 사용 (§5.3)
 - JWT `none` 알고리즘 허용 (§4.1)
-
-🟠 High — `[보안 High]`로 보고 + R-R-XX 카탈로그와 함께 표시:
 - 외부 입력을 Newtype 없이 원시 타입으로 사용 → R-R-02와 함께 (§2 신뢰 경계, §3.1)
 - BOLA: 소유권·권한 검증 없이 리소스 접근 (§3.2)
 - `#[serde(deny_unknown_fields)]` 미사용 + 민감 필드 포함 (§3.4)
@@ -273,17 +271,38 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 - 패스워드 해싱에 MD5/SHA1 사용 (§4.3)
 - async 컨텍스트에서 `std::sync::Mutex` (§6, 교착 위험)
 
-🟡 Medium — `[보안 Medium]`으로 보고:
+⚠️ Recommended — `[보안 Recommended]`로 보고:
 - 비밀값 비교에 상수 시간 비교 미사용 (§4.2)
 - 민감 값이 `Zeroizing<T>` 없이 저장 (§4.4)
 - 보안 이벤트 감사 로그 미흡 (§9)
 
-#### rust-test-style.md 적용 항목
+#### rust-test-style.md 적용 항목 (§1~§13 우선순위 기반)
 
-- **테스트 존재 여부**: `#[cfg(test)]` 또는 `tests/` 없으면 `[테스트] 단위 테스트 없음`으로 보고 (리팩토링 전 테스트 추가 권고)
-- **에러 케이스 누락**: `Result` 반환 함수에 실패 케이스 테스트 없으면 `[테스트] 에러 케이스 테스트 누락`으로 보고
-- **커버리지 영향**: 리팩토링 후 기존 테스트가 새 구조를 커버하지 못할 가능성이 있으면 `[테스트] 리팩토링 후 커버리지 확인 필요` 경고 추가
-- **테스트 네이밍**: `test1()`, `test_order()` 등 의미 없는 이름이 있으면 `[테스트] 테스트명 개선 권고`로 낮은 우선순위 이슈 추가
+🚫 **Blocking** — 리팩토링 진행 전 즉시 수정 (§13.1 즉시 반려 기준)
+
+| 항목 | 보고 태그 |
+|------|-----------|
+| `#[cfg(test)]` 또는 `tests/` 없음 — 리팩토링 전 테스트 추가 필수 | `[테스트] 단위 테스트 없음` |
+| 통합 테스트에서 Mock DB / Mock Repository 사용 | `[테스트] Mock DB 사용` |
+| Assertion 없는 테스트 / 의미 없는 Assertion 단독 사용 | `[테스트] Assertion 부재` |
+| 이슈 링크·담당자·기한 없이 단순 `#[ignore]` | `[테스트] #[ignore] 무단 사용` |
+
+⚠️ **Recommended** — 리팩토링 후 커버리지 갭으로 보고
+
+| 항목 | 보고 태그 |
+|------|-----------|
+| `Result` 반환 함수에 에러 케이스 테스트 없음 | `[테스트] 에러 케이스 테스트 누락` |
+| 핵심 비즈니스 로직(인증·권한·상태 전환) 테스트 없음 | `[테스트] 핵심 로직 테스트 누락` |
+| 리팩토링 후 기존 테스트가 새 구조를 커버하지 못할 가능성 | `[테스트] 리팩토링 후 커버리지 확인 필요` |
+| `mockall expect` 호출이 실제 assert보다 압도적으로 많음 | `[테스트] 상호작용 과다 검증` |
+
+💡 **Suggestions** — 낮은 우선순위 개선 권고
+
+| 항목 | 보고 태그 |
+|------|-----------|
+| `test1()`, `test_order()` 등 의미 없는 테스트명 | `[테스트] 테스트명 개선 권고` |
+| `#[should_panic]` 사용 (→ `Result` + `assert!(result.is_err())` 방식 권고) | `[테스트] #[should_panic] 대체 권고` |
+| 단위 70% / 통합 20% / E2E 10% 피라미드 비율 미준수 | `[테스트] 피라미드 비율 불균형` |
 
 #### 분석 리포트 형식
 
@@ -557,8 +576,7 @@ PR 체크리스트:
   □ cargo clippy -D warnings 경고 0건
   □ cargo fmt --check 포맷 위반 없음
   □ 도메인 가시성 향상 확인 (리팩토링 전보다 도메인 개념이 명확히 드러나는가?)
-  □ 🔴 Critical 보안 이슈 없음 — 하드코딩 시크릿(§7) · SAFETY 주석 완비(§6) · SQL 파라미터 바인딩(§3.3) · unwrap in lib 없음(§5.3) · JWT none 차단(§4.1)
-  □ 🟠 High 보안 이슈 없음 — Newtype 입력 검증(§3.1) · BOLA 소유권 검증(§3.2) · 역직렬화 deny_unknown_fields(§3.4) · 에러 내부 정보 미노출(§5.1) · Argon2id 사용(§4.3) · SSRF 방지(§2.3)
+  □ 🚫 Blocking 보안 이슈 없음 — 하드코딩 시크릿(§7) · SAFETY 주석 완비(§6) · SQL 파라미터 바인딩(§3.3) · unwrap in lib 없음(§5.3) · JWT none 차단(§4.1) · Newtype 입력 검증(§3.1) · BOLA 소유권 검증(§3.2) · 역직렬화 deny_unknown_fields(§3.4) · 에러 내부 정보 미노출(§5.1) · Argon2id 사용(§4.3) · SSRF 방지(§2.3)
   ■ 커버리지 ≥ 80% 확인 완료 (STEP 5-0 통과 필수)
   □ 공개 Trait/struct 시그니처 변경 없음
   □ 직렬화 형식 변경 없음 (serde 필드명)
@@ -653,7 +671,7 @@ PR 체크리스트:
 | **R-R-06** | 경계 조건 & 에러 처리 명시화 | `boundary` | §5, §1.2 | unwrap → thiserror + ?, 명시적 경계 | rust-security-style.md §5 에러 처리와 정보 노출 |
 | **R-R-07** | 소유권 & 변경 용이성 | `ownership` | §1.1, §2.1 | `String` → `&str`, clone 제거 | — |
 | **R-R-08** | 모듈 구조 도메인화 | `module` | §1.3, §2.1 | flat → domain/infra/shared 계층 분리 | — |
-| **[보안]** | 보안 이슈 전체 | `security` | §1~§12 | 🔴 하드코딩 시크릿·SAFETY 주석·SQL 포맷·unwrap·JWT none — 🟠 Newtype·BOLA·역직렬화·에러 노출·Argon2id·SSRF — 🟡 상수 시간 비교·Zeroizing·Rate Limiting·감사 로그 | **rust-security-style.md §1~§12 우선순위 기반** |
+| **[보안]** | 보안 이슈 전체 | `security` | §1~§12 | 🚫 하드코딩 시크릿·SAFETY 주석·SQL 포맷·unwrap·JWT none·Newtype·BOLA·역직렬화·에러 노출·Argon2id·SSRF — ⚠️ 상수 시간 비교·Zeroizing·Rate Limiting·감사 로그 | **rust-security-style.md §1~§12 우선순위 기반** |
 
 ---
 
