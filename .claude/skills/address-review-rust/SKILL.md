@@ -221,7 +221,7 @@ coding-style.md §9 안티 패턴도 적극 체크한다:
 |---------------|----------------|--------------------------|
 | R-04 에러 처리 | rust-security-style.md §5 에러 처리와 정보 노출 | 🔴 라이브러리·핸들러에 `unwrap()`/`expect()` 사용 (§5.3) — 🟠 에러 응답에 내부 정보(스택 트레이스·DB 에러) 포함 (§5.1) — 🟠 로그에 패스워드·토큰 등 민감 데이터 기록 (§5.2) |
 | R-05 소유권 | rust-security-style.md §6 unsafe 코드 | 🔴 `unsafe` 블록에 `// SAFETY:` 주석 없음 (§6.1) — 🟠 async 컨텍스트에서 `std::sync::Mutex` 사용 (§6) |
-| R-08 테스트 | rust-test-style.md §1~§13 전체 | §6 커버리지 기준, §6 에러 케이스 테스트, §3 네이밍 |
+| R-08 테스트 | rust-test-style.md §1~§13 전체 (우선순위 기반) | 🔴 통합 테스트 Mock DB 사용(§4.3) · Assertion 없는 테스트(§13.1) · 비결정적 출력 고정 사용(§10.2) · 이유 없는 `#[ignore]`(§10.3) — 🟠 핵심 로직 테스트 없음(§6.3) · `mockall expect` 과다(§13.2) · `Result` 에러 케이스 없음(§6) — 🟡 네이밍 템플릿 미준수(§3.2) · AAA 패턴 미준수(§5.1) · `#[should_panic]` 사용(§14) |
 | R-09 보안 | rust-security-style.md §1~§12 전체 (우선순위 기반) | 🔴 하드코딩 시크릿(§7) · SAFETY 주석 없음(§6) · SQL 포맷 조합(§3.3) · unwrap in lib(§5.3) · JWT none(§4.1) — 🟠 Newtype 미적용(§3.1) · BOLA(§3.2) · 역직렬화 미검증(§3.4) · 내부 정보 노출(§5.1) · Argon2id 미사용(§4.3) · SSRF(§2.3) — 🟡 상수 시간 비교(§4.2) · Zeroizing(§4.4) · Rate Limiting(§1.2) · 감사 로그(§9) |
 
 - `CLAUDE.md`의 코딩 컨벤션(에러 처리, 소유권, 타입 설계 등)에 맞는가?
@@ -437,6 +437,5 @@ fix([scope]): [A-RV-XX] [50자 이내 요약]
 | 파일 | 용도 | 로드 시점 |
 |------|------|-----------|
 | `../../rules/coding-style.md` | 도메인 중심 코딩 원칙 — 타당성 평가 **1차 판단 기준** | **STEP 2 평가 시작 전 로드 (1순위)** |
-| `../../rules/rust-security-style.md` | 보안 규칙 (공통) — R-04·R-05·R-09 보완 기준 | **STEP 2 평가 시작 전 로드 (2순위)** |
-| `../../rules/rust-security-style.md` | 보안 규칙 (Rust 전용) — R-04·R-05·R-09 Rust 특화 보완 | **STEP 2 평가 시작 전 로드 (3순위)** |
-| `../../rules/rust-test-style.md` | 테스트 규칙 — R-08 보완 기준 | **STEP 2 평가 시작 전 로드 (4순위)** |
+| `../../rules/rust-security-style.md` | 보안 규칙 §1~§12 — R-04·R-05·R-09 보완 기준 | **STEP 2 평가 시작 전 로드 (2순위)** |
+| `../../rules/rust-test-style.md` | 테스트 규칙 §1~§13 — R-08 보완 기준 | **STEP 2 평가 시작 전 로드 (3순위)** |

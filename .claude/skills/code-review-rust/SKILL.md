@@ -579,12 +579,43 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
 
 ### rust-test-style.md → R-08 보완 기준
 
-**R-08 테스트** 판단 시 rust-test-style.md 전체 추가 적용:
-- rust-test-style.md §6. 테스트 피라미드: 전체 80%+ 목표 기준으로 테스트 부족 여부 판단
-- rust-test-style.md §6. 테스트 피라미드: `Result` 반환 함수에 에러 케이스 테스트 없으면 ⚠️ Recommended (High)
-- rust-test-style.md §3. 테스트 네이밍: `test1()`, `test_order()` 등 의미 없는 이름이면 💡 Suggestions (Low)
-- rust-test-style.md §13. PR 거절 신호 (Red Flags): `#[ignore]` 담당자·기한 없이 추가, 상호작용 검증만 있으면 ⚠️ Recommended (Medium)
-- rust-test-style.md §14. Rust 관례: `#[should_panic]` 사용 시 ⚠️ Recommended (Medium) (Result 반환 방식 권고)
+**R-08 테스트** 판단 시 rust-test-style.md §1~§13 우선순위 기반 추가 적용:
+
+🔴 **Critical** — 즉시 Blocking (§13.1 즉시 반려 기준)
+
+| 확인 항목 | 심각도 매핑 |
+|-----------|------------|
+| 통합 테스트에서 Mock DB / Mock Repository 사용 | 🚫 Blocking |
+| 상호작용 검증만 있고 결과 상태 검증 없음 | 🚫 Blocking |
+| `SystemTime::now()` / 시드 없는 난수 등 비결정적 출력 고정 사용 | 🚫 Blocking |
+| 이슈 링크·담당자·기한 없이 단순 `#[ignore]` | 🚫 Blocking |
+| Assertion 없는 테스트 / 의미 없는 Assertion 단독 사용 | 🚫 Blocking |
+| 기존 도구로 충분한데 새 Mock 크레이트 추가 | 🚫 Blocking |
+
+🟠 **High** — 머지 전 필수 수정
+
+| 확인 항목 | 심각도 매핑 |
+|-----------|------------|
+| 핵심 비즈니스 로직(인증·권한·결제·상태 전환) 테스트 없음 | ⚠️ Recommended |
+| `mockall expect` 호출이 실제 assert보다 압도적으로 많음 | ⚠️ Recommended |
+| Arrange 코드가 Assert 코드보다 10배 이상 긴 경우 (→ Builder/Fixture 필요) | ⚠️ Recommended |
+| `Result` 반환 함수에 에러 케이스 테스트 없음 | ⚠️ Recommended |
+
+🟡 **Medium** — 가능하면 이번 PR에 반영
+
+| 확인 항목 | 심각도 매핑 |
+|-----------|------------|
+| 테스트 이름이 `<동작>_<예상_결과>_when_<조건>` 템플릿을 따르지 않음 | 💡 Suggestions |
+| `#[should_panic]` 사용 (→ `Result` 반환 + `assert!(result.is_err())` 방식 권고) | 💡 Suggestions |
+| 단위 70% / 통합 20% / E2E 10% 피라미드 비율 미준수 | 💡 Suggestions |
+| 비동기 테스트에 `#[tokio::test]` / `#[sqlx::test]` 미사용 | 💡 Suggestions |
+
+🟢 **Low** — 향후 개선 권고
+
+| 확인 항목 | 심각도 매핑 |
+|-----------|------------|
+| 동일 함수 예시 테스트 4개 이상 시 proptest 전환 미검토 | 📝 Tech Debt |
+| Builder / Fixture 패턴 미도입 (설정 코드 과잉) | 📝 Tech Debt |
 
 ---
 
