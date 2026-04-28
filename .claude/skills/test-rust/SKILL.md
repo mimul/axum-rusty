@@ -4,7 +4,7 @@ description: >
   /test-rust 커맨드로 실행되는 Rust 테스트 작성 스킬.
   feature/test-{module} 브랜치를 자동 생성하고, 단위 테스트는
   src 내부 #[cfg(test)]에, 통합/DB/HTTP API 테스트는 {crate}/tests/ 하위에
-  분리하여 작성한다. TEST_RUST.md의 T-T-01~T-T-06 카탈로그 기준으로 분류하고,
+  분리하여 작성한다. T-T-01~T-T-06 카탈로그 기준으로 분류하고,
   항목별 테스트 코드를 제시한 뒤 인간 확인 후에만 작성한다.
   rules/rust-test-style.md를 테스트 철학·규칙의 권위 문서로 사용한다.
 ---
@@ -14,7 +14,7 @@ description: >
 ## 스킬 개요
 
 이 스킬은 **`/test-rust` 커맨드가 입력될 때 자동으로 실행**된다.
-`TEST_RUST.md` 카탈로그(T-T-01~T-T-06)를 기준으로 테스트 작성 계획을
+아래 테스트 카탈로그(T-T-01~T-T-06)를 기준으로 테스트 작성 계획을
 수립한 뒤, **항목별로 테스트 코드를 먼저 제시하고 인간의 확인을
 받은 뒤에만 파일에 작성한다.**
 
@@ -29,6 +29,415 @@ description: >
 - **위치 분리** — 단위 테스트는 `src/` 내부, 나머지는 `{crate}/tests/` 하위
 - **항상 그린** — 매 파일 작성 후 `cargo test` 통과 확인
 - **보여주고 확인받기** — 코드를 먼저 제시, 인간 승인 후에만 파일 저장
+
+---
+
+## 테스트 카탈로그 (T-T-01 ~ T-T-06)
+
+테스트 철학·Mocking 규칙·네이밍·PR 기준은 `rules/rust-test-style.md`가 권위 문서다.
+이 카탈로그는 **Rust 프로젝트 고유의 구현 패턴**만 정의한다.
+
+### 카탈로그 요약
+
+| 코드 | 종류 | 작성 위치 | 외부 의존 | 핵심 조건 |
+|------|------|-----------|-----------|-----------|
+| **T-T-01** | 단위 테스트 | `src/**/*.rs` 내 `#[cfg(test)]` | 없음 | 순수 도메인 로직만 |
+| **T-T-02** | Repository DB 테스트 | `{crate}/tests/` | PostgreSQL (testcontainers) | 트랜잭션 롤백 |
+| **T-T-03** | Usecase 통합 테스트 | `{crate}/tests/` | PostgreSQL (testcontainers) | 실제 DB + 비즈니스 흐름 |
+| **T-T-04** | HTTP API 테스트 | `{crate}/tests/` | axum TestClient | 엔드포인트 전체 |
+| **T-T-05** | 프로퍼티 기반 테스트 | `src/**/*.rs` 내 `#[cfg(test)]` | 없음 | 불변 조건 |
+| **T-T-06** | 공통 테스트 헬퍼 | `{crate}/tests/common/` | testcontainers | 재사용 픽스처 |
+
+> **DB 테스트 원칙**: 모든 DB 기반 테스트는 `TEST_DATABASE_URL` 환경변수 없이
+> testcontainers가 Docker를 자동으로 기동한다. `tests/common/container.rs` 참조.
+
+### 테스트 파일 위치 결정 기준
+
+```
+대상 코드                          카탈로그      파일 위치
+────────────────────────────────────────────────────────────────
+domain/src/model/*.rs            →  T-T-01  →  src 내부 #[cfg(test)]
+domain/src/value_object/*.rs     →  T-T-01  →  src 내부 #[cfg(test)]
+infra/src/repository/*.rs        →  T-T-02  →  infra/tests/*_repository_test.rs
+usecase/src/usecase/*.rs         →  T-T-03  →  usecase/tests/*_integration_test.rs
+controller/src/routes/*.rs       →  T-T-04  →  controller/tests/*_api_test.rs
+복잡한 도메인 불변 조건            →  T-T-05  →  src 내부 #[cfg(test)]
+공통 헬퍼·픽스처                  →  T-T-06  →  {crate}/tests/common/
+```
+
+### T-T-01 — 단위 테스트 (Unit Test)
+
+**작성 위치**
+```
+src/
+└── {crate}/src/{module}.rs     ← 같은 파일 하단에 #[cfg(test)] 블록
+```
+
+**대상**
+- 도메인 모델 생성자 / Newtype 변환 / 불변 조건
+- `From` / `TryFrom` / `Into` / 순수 변환 함수
+- 에러 분기가 있는 순수 비즈니스 로직
+- DB·외부 시스템과 무관한 계산·검증 로직
+
+> **중요**: Repository·Usecase 협력 테스트는 **T-T-02/T-T-03(실제 DB)**으로 작성한다.
+> 내부 모듈(Repository, Usecase)을 mock하는 것은 `rules/rust-test-style.md §4. 모킹 경계`에서 금지한다.
+
+**패턴**
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_user_id_succeeds_when_valid_uuid() {
+        let id = UserId::parse("550e8400-e29b-41d4-a716-446655440000");
+        assert!(id.is_ok());
+    }
+
+    #[test]
+    fn create_user_id_fails_when_invalid_format() {
+        let result = UserId::parse("not-a-uuid");
+        assert!(result.is_err());
+        assert!(!result.unwrap_err().to_string().contains("parse_str"));
+    }
+
+    #[test]
+    fn validate_username_fails_when_empty() {
+        let result = Username::new("");
+        assert!(matches!(result, Err(DomainError::EmptyUsername)));
+    }
+
+    #[tokio::test]
+    async fn hash_password_returns_different_hash_each_time() {
+        let h1 = hash_password("secret").await.unwrap();
+        let h2 = hash_password("secret").await.unwrap();
+        assert_ne!(h1, h2, "bcrypt salt must be unique");
+    }
+}
+```
+
+**필수 케이스**: 정상 케이스 · 에러 케이스(모든 `Result::Err` 분기) · 경계 케이스(빈 문자열, None, 최댓값 등)
+
+**작성 기준** (`rules/rust-test-style.md §6. 테스트 피라미드` 준수)
+- Getter, DI 연결 코드, 단순 CRUD 위임 → **작성하지 않는다**
+- 비즈니스 규칙·상태 전환·복잡한 분기 → **반드시 작성한다**
+
+### T-T-02 — Repository DB 테스트
+
+**작성 위치**
+```
+{crate}/tests/
+├── common/
+│   ├── mod.rs
+│   └── container.rs    ← postgres_url() — testcontainers 기반
+└── {entity}_repository_test.rs
+```
+
+> **Rust 통합 테스트 주의**: `tests/` 바로 아래 `.rs` 파일만 별도 바이너리로 인식한다.
+> 서브디렉토리(`tests/db/foo.rs`)는 모듈로만 사용 가능하며 `cargo test --test`로 직접 지정할 수 없다.
+
+**환경**: testcontainers가 Docker를 자동으로 기동한다. 각 테스트는 트랜잭션 시작 → 실행 → **반드시 롤백**.
+
+**패턴**
+```rust
+// {crate}/tests/{entity}_repository_test.rs
+mod common;
+
+use common::container::postgres_url;
+use sqlx::PgPool;
+
+async fn setup() -> PgPool {
+    PgPool::connect(&postgres_url()).await.expect("DB 연결 실패")
+}
+
+#[tokio::test]
+async fn insert_user_succeeds_when_input_is_valid() {
+    let pool = setup().await;
+    let mut tx = pool.begin().await.unwrap();
+
+    let repo = PgUserRepository::new(&mut tx);
+    let user = fixture_new_user();
+    let created = repo.insert(&user).await.unwrap();
+
+    assert_eq!(created.username, user.username);
+    let found = repo.find_by_id(&created.id).await.unwrap();
+    assert!(found.is_some());
+
+    tx.rollback().await.unwrap();
+}
+
+#[tokio::test]
+async fn insert_user_fails_when_username_is_duplicate() {
+    let pool = setup().await;
+    let mut tx = pool.begin().await.unwrap();
+
+    let repo = PgUserRepository::new(&mut tx);
+    let user = fixture_new_user();
+    repo.insert(&user).await.unwrap();
+    let result = repo.insert(&user).await;
+
+    assert!(result.is_err());
+    tx.rollback().await.unwrap();
+}
+```
+
+**필수 케이스**: insert → find 정합성 · 존재하지 않는 ID 조회 → None · 중복 insert → Err · 조건 필터링 정확성
+
+### T-T-03 — Usecase 통합 테스트
+
+**작성 위치**
+```
+{crate}/tests/
+├── common/
+│   ├── mod.rs
+│   └── container.rs    ← postgres_url()
+└── {usecase}_integration_test.rs
+```
+
+> **Mock 금지**: `rules/rust-test-style.md §4. 모킹 경계` — DB/ORM·내부 Repository는 mock하지 않는다.
+
+**패턴 — 정상 흐름**
+```rust
+#[tokio::test]
+async fn create_user_succeeds_when_input_is_valid() {
+    let pool = setup().await;
+    let db = Db(Arc::new(pool.clone()));
+    let usecase = UserUseCase::new(db);
+
+    let input = CreateUserInput { username: "alice".to_string(), password: "secret123".to_string() };
+    let result = usecase.create_user(input).await;
+
+    assert!(result.is_ok(), "{result:?}");
+    let user = result.unwrap();
+    assert_eq!(user.username, "alice");
+    let found = usecase.get_user(&user.id).await.unwrap();
+    assert!(found.is_some());
+}
+```
+
+**패턴 — 트랜잭션 롤백 검증**
+```rust
+#[tokio::test]
+async fn create_user_fails_when_username_is_duplicate() {
+    let pool = setup().await;
+    let db = Db(Arc::new(pool.clone()));
+    let usecase = UserUseCase::new(db);
+
+    let input = CreateUserInput { username: "alice".to_string(), password: "pw".to_string() };
+    usecase.create_user(input.clone()).await.unwrap();
+    let result = usecase.create_user(input).await;
+
+    assert!(result.is_err());
+    let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE username = 'alice'")
+        .fetch_one(&pool).await.unwrap();
+    assert_eq!(count, 1, "rollback 후 중복 row 없어야 함");
+}
+```
+
+**필수 케이스**: 정상 흐름 · 비즈니스 규칙 위반 · 트랜잭션 롤백 · 부작용(DB 쓰기) 명시적 검증
+
+### T-T-04 — HTTP API 테스트
+
+**작성 위치**
+```
+controller/tests/
+├── common/
+│   └── mod.rs          ← build_test_app()
+└── {endpoint}_api_test.rs
+```
+
+**환경**: `axum::Router`를 직접 테스트, `tower::ServiceExt::oneshot` 사용, testcontainers가 DB 자동 기동.
+
+**패턴**
+```rust
+// controller/tests/{endpoint}_api_test.rs
+mod common;
+
+use axum::http::{Request, StatusCode};
+use common::build_test_app;
+use http_body_util::BodyExt;
+use tower::ServiceExt;
+
+#[tokio::test]
+async fn create_user_returns_201_when_input_is_valid() {
+    let app = build_test_app().await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/users")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    r#"{"username":"alice","password":"secret123","name":"Alice"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["username"], "alice");
+    assert!(json.get("password_hash").is_none());
+}
+
+#[tokio::test]
+async fn get_user_returns_401_when_not_authenticated() {
+    let app = build_test_app().await;
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/v1/users/me")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+```
+
+**필수 케이스**: 200/201 정상 응답 + 바디 스키마 검증 · 400 잘못된 요청 · 401 인증 없음 · 404 리소스 없음 · 에러 응답에 내부 정보 미노출
+
+### T-T-05 — 프로퍼티 기반 테스트
+
+> **작성 기준**: `rules/rust-test-style.md §9. Property-Based Testing (proptest)` 참조.
+> 동일 함수에 네 번째 예제 테스트를 작성해야 한다면 이 카탈로그로 전환한다.
+
+**작성 위치**: `src/{crate}/src/{module}.rs` 내 `#[cfg(test)]`
+
+**패턴**
+```rust
+use proptest::prelude::*;
+
+proptest! {
+    #[test]
+    fn create_username_rejects_when_too_long(s in ".{51,200}") {
+        prop_assert!(Username::new(&s).is_err());
+    }
+
+    #[test]
+    fn serialize_deserialize_roundtrip_preserves_value(
+        username in "[a-z][a-z0-9_]{2,29}",
+    ) {
+        let original = Username::new(&username).unwrap();
+        let json = serde_json::to_string(&original).unwrap();
+        let restored: Username = serde_json::from_str(&json).unwrap();
+        prop_assert_eq!(original, restored);
+    }
+}
+```
+
+**사용 조건**: `proptest`가 `[dev-dependencies]`에 추가된 경우에만 사용. DB·외부 시스템과 무관한 순수 로직에만 적용.
+
+### T-T-06 — 공통 테스트 헬퍼
+
+**작성 위치**
+```
+{crate}/tests/
+└── common/
+    ├── mod.rs          ← pub mod container; pub mod fixtures;
+    ├── container.rs    ← postgres_url() — testcontainers 기반
+    └── fixtures.rs     ← fixture_new_user(), fixture_new_todo()
+
+controller/tests/common/mod.rs  ← build_test_app() 포함
+```
+
+**container.rs 패턴 (testcontainers 0.23)**
+```rust
+use sqlx::PgPool;
+use std::sync::{Mutex, OnceLock};
+use testcontainers::{core::ImageExt, runners::AsyncRunner};
+use testcontainers_modules::postgres::Postgres;
+
+static POSTGRES_URL: OnceLock<String> = OnceLock::new();
+static CONTAINER_IDS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// Mac Docker Desktop은 Ryuk이 동작하지 않으므로 docker rm -f를 직접 실행한다.
+#[ctor::dtor]
+fn cleanup_test_containers() {
+    let ids = CONTAINER_IDS.lock().unwrap_or_else(|e| e.into_inner());
+    for id in ids.iter() {
+        let _ = std::process::Command::new("docker").args(["rm", "-f", id]).output();
+    }
+}
+
+fn binary_base_name() -> String {
+    let full = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
+        .unwrap_or_else(|| "test".into());
+    let base = full.rsplit_once('-').map(|(b, _)| b).unwrap_or(&full).to_string();
+    base[..base.len().min(20)].to_string()
+}
+
+/// PostgreSQL 컨테이너를 바이너리당 1회 기동하고 연결 URL을 반환한다.
+pub fn postgres_url() -> String {
+    POSTGRES_URL
+        .get_or_init(|| {
+            std::thread::spawn(|| {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(async {
+                        let name = format!("test_pg_{}_{}", binary_base_name(), std::process::id());
+                        let container = Postgres::default()
+                            .with_container_name(&name)
+                            .start()
+                            .await
+                            .expect("Postgres container 기동 실패");
+
+                        CONTAINER_IDS.lock().unwrap().push(container.id().to_string());
+
+                        let port = container.get_host_port_ipv4(5432).await.unwrap();
+                        let url = format!("postgres://postgres:postgres@127.0.0.1:{}/postgres", port);
+
+                        let pool = PgPool::connect(&url).await.unwrap();
+                        sqlx::migrate!("../migrations").run(&pool).await.unwrap();
+                        pool.close().await;
+
+                        Box::leak(Box::new(container));
+                        url
+                    })
+            })
+            .join()
+            .unwrap()
+        })
+        .clone()
+}
+```
+
+**fixtures.rs 패턴**
+```rust
+use domain::model::user::{NewUser, UserId};
+
+pub fn fixture_new_user() -> NewUser {
+    NewUser {
+        id: UserId::new(),
+        username: format!("user_{}", uuid::Uuid::new_v4().simple()),
+        password_hash: "$2b$12$test_hash".to_string(),
+        name: "Test User".to_string(),
+    }
+}
+```
+
+> **보안 주의**: 테스트 픽스처에 실제 API 키·토큰을 절대 하드코딩하지 않는다 (`security.md §비밀 정보 관리` 참조).
+
+**Cargo.toml dev-dependencies 템플릿**
+```toml
+[dev-dependencies]
+tokio                  = { version = "1", features = ["full"] }
+testcontainers         = "0.23"
+testcontainers-modules = { version = "0.11", features = ["postgres"] }
+ctor                   = "0.2"
+# API 테스트 전용 (controller 크레이트)
+tower          = { version = "0.4", features = ["util"] }
+http-body-util = "0.1"
+```
 
 ---
 
@@ -231,10 +640,9 @@ find . -name "*.rs" | grep -v "mod.rs" | grep -v "target/" | head -10
 **분석 시작 전 아래 파일들을 반드시 로드하고, 각 규칙을 분석에 직접 적용한다.**
 
 로드 순서:
-1. `TEST_RUST.md` — T-T-01~T-T-06 Rust 구현 패턴 카탈로그 (탐지 기준)
-2. `../../rules/rust-test-style.md` — 테스트 철학·Mocking·Naming·PR 기준 (권위 문서)
-3. `../../rules/security.md` — 보안 규칙 (공통)
-4. `../../rules/security-rust.md` — 보안 규칙 (Rust 전용)
+1. `../../rules/rust-test-style.md` — 테스트 철학·Mocking·Naming·PR 기준 (권위 문서)
+2. `../../rules/security.md` — 보안 규칙 (공통)
+3. `../../rules/security-rust.md` — 보안 규칙 (Rust 전용)
 
 **`--type` 옵션이 지정된 경우**: 해당 타입에 매핑된 카탈로그 항목만 탐지한다.
 
@@ -756,7 +1164,6 @@ PR 생성을 건너뜁니다.
 
 | 파일 | 용도 | 로드 시점 |
 |------|------|-----------|
-| `TEST_RUST.md` | T-T-01~T-T-06 Rust 구현 패턴 | **STEP 2 분석 시작 전 로드** |
 | `../../rules/rust-test-style.md` | 테스트 철학·Mocking·Naming·PR 기준 (권위 문서) | **STEP 2 분석 시작 전 로드** |
 | `../../rules/security.md` | 보안 규칙 (공통) | **STEP 2 분석 시작 전 로드** |
 | `../../rules/security-rust.md` | 보안 규칙 (Rust 전용) | **STEP 2 분석 시작 전 로드** |
