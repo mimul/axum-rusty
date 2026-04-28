@@ -15,7 +15,7 @@ description: >
 
 이 스킬은 **`/refactor-rust` 커맨드가 입력될 때 자동으로 실행**된다.
 `REFACTOR_RUST.md` 카탈로그(R-R-01~R-R-08)와 **`coding-style.md`** 를 기준으로
-리팩토링 계획을 수립한 뒤, **`security.md`·`security-rust.md`·`test-style.md` 규칙을 분석 전 반드시 로드하여**
+리팩토링 계획을 수립한 뒤, **`security.md`·`security-rust.md`·`rust-test-style.md` 규칙을 분석 전 반드시 로드하여**
 리팩토링 전 과정에 적용한다.
 
 리팩토링의 핵심 불변 조건:
@@ -23,7 +23,7 @@ description: >
 - **기능 동치** — 외부 동작은 변경 전후 100% 동일
 - **도메인 중심** — 리팩토링 후 도메인 개념이 코드에 더 명확히 드러나야 한다
 - **보안 규칙 준수** — `security.md`·`security-rust.md` 로드 후 모든 변환에 적용
-- **테스트 규칙 준수** — `test-style.md` 로드 후 커버리지 유지 여부 확인
+- **테스트 규칙 준수** — `rust-test-style.md` 로드 후 커버리지 유지 여부 확인
 - **보여주고 확인받기** — Before/After를 먼저 제시, 인간 승인 후에만 적용
 - **항상 그린** — 매 단계 `cargo test` 통과
 - **소규모 커밋** — 되돌릴 수 있는 단위로 분리
@@ -237,7 +237,7 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 2. `.claude/rules/coding-style.md` — 도메인 중심 코딩 원칙 (분석 판단 기준)
 3. `.claude/rules/security.md` — 보안 규칙 공통 (각 변환에 체크)
 4. `.claude/rules/security-rust.md` — 보안 규칙 Rust 전용 (각 변환에 체크)
-5. `.claude/rules/test-style.md` — 테스트 규칙 (커버리지·테스트 구조 확인)
+5. `.claude/rules/rust-test-style.md` — 테스트 규칙 (커버리지·테스트 구조 확인)
 
 **`--scope` 옵션이 지정된 경우**: 해당 스코프에 매핑된 카탈로그 항목만 탐지한다.
 (아래 카탈로그 & 스코프 표 참조. `--scope security`는 R-R-02, R-R-06 + `[보안]` 태그 전체를 탐지한다.)
@@ -266,7 +266,7 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 - **에러 노출**: 내부 구현 정보가 에러 메시지에 포함되면 R-R-06과 함께 보안 관점 코멘트 추가 (security.md §5 + security-rust.md §6)
 - **역직렬화**: 외부 데이터를 검증 없이 역직렬화하면 `[보안] 역직렬화 미검증`으로 보고 (security-rust.md §7)
 
-#### test-style.md 적용 항목
+#### rust-test-style.md 적용 항목
 
 - **테스트 존재 여부**: `#[cfg(test)]` 또는 `tests/` 없으면 `[테스트] 단위 테스트 없음`으로 보고 (리팩토링 전 테스트 추가 권고)
 - **에러 케이스 누락**: `Result` 반환 함수에 실패 케이스 테스트 없으면 `[테스트] 에러 케이스 테스트 누락`으로 보고
@@ -294,7 +294,7 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
   • [R-R-XX 또는 보안/테스트 태그] [fn명 또는 위치]
     증상: [구체적 설명]
     카탈로그: [R-R-XX] / coding-style.md: [§섹션]
-    규칙: [security.md §섹션 또는 test-style.md §섹션] (해당 시)
+    규칙: [security.md §섹션 또는 rust-test-style.md §섹션] (해당 시)
 
   [위험도: 중간]
   • ...
@@ -339,8 +339,8 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 | 도메인 경계 미구분 | `models.rs`에 모든 모델, `services.rs`에 모든 로직 일괄 배치 | R-R-08 | §1.3, §2.1 | — |
 | unsafe SAFETY 주석 누락 | `unsafe` 블록에 `// SAFETY:` 없음 | — | — | **security-rust.md §2 메모리 안전** |
 | 비밀 정보 하드코딩 | API 키·토큰·비밀번호 소스코드 직접 포함 | — | — | **security.md §7 + security-rust.md §9** |
-| 테스트 없음 | `#[cfg(test)]` 모듈 또는 `tests/` 파일 없음 | — | — | **test-style.md §4. 테스트 피라미드** |
-| 에러 케이스 테스트 누락 | `Result` 반환 함수에 실패 케이스 테스트 없음 | — | — | **test-style.md §4. 테스트 피라미드** |
+| 테스트 없음 | `#[cfg(test)]` 모듈 또는 `tests/` 파일 없음 | — | — | **rust-test-style.md §6. 테스트 피라미드** |
+| 에러 케이스 테스트 누락 | `Result` 반환 함수에 실패 케이스 테스트 없음 | — | — | **rust-test-style.md §6. 테스트 피라미드** |
 
 ---
 
@@ -417,7 +417,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 📖 이유:   [구체적 이유 1~2줄]
 ⚠️  위험도: [낮음 / 중간 / 높음]  ※ 높음·보안 이슈는 "전체 적용"에도 개별 확인 필수
 📐 근거:   coding-style.md §[섹션번호] [섹션명]
-📏 규칙:   [해당 시 — security.md §섹션 또는 test-style.md §섹션]
+📏 규칙:   [해당 시 — security.md §섹션 또는 rust-test-style.md §섹션]
 
 ─── BEFORE ──────────────────────────────
 [원본 코드]
@@ -429,7 +429,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
   • [변경 포인트 1]
   • [변경 포인트 2]
   • (보안 관련 시) 🔒 security.md §[섹션]: [적용 규칙 설명]
-  • (테스트 관련 시) 🧪 test-style.md §[섹션]: [확인 사항]
+  • (테스트 관련 시) 🧪 rust-test-style.md §[섹션]: [확인 사항]
 
 ─── 권장 커밋 메시지 ────────────────────
   refactor([scope]): [R-R-XX] [50자 이내 요약]
@@ -650,7 +650,7 @@ PR 체크리스트:
 ```
 🚫 unsafe 블록 임의 추가 (security-rust.md §2 메모리 안전 참조)
 🚫 비밀 정보 하드코딩 (security.md §7 + security-rust.md §9 참조)
-🚫 테스트 삭제 또는 #[ignore] 무단 추가 (test-style.md §9. PR Red Flags 참조)
+🚫 테스트 삭제 또는 #[ignore] 무단 추가 (rust-test-style.md §13. PR 거절 신호 (Red Flags) 참조)
 🚫 공개(pub) Trait / struct 시그니처 변경
 🚫 기능 추가 또는 버그 수정 (리팩토링과 혼합 금지)
 🚫 외부 크레이트 추가 (Cargo.toml 변경)
@@ -671,5 +671,5 @@ PR 체크리스트:
 | `../../rules/coding-style.md` | 도메인 중심 코딩 원칙 (분석 기준) | **STEP 2 분석 시작 전 로드** |
 | `../../rules/security.md` | 보안 규칙 (공통) | **STEP 2 분석 시작 전 로드** |
 | `../../rules/security-rust.md` | 보안 규칙 (Rust 전용) | **STEP 2 분석 시작 전 로드** |
-| `../../rules/test-style.md` | 테스트 규칙 | **STEP 2 분석 시작 전 로드** |
+| `../../rules/rust-test-style.md` | 테스트 규칙 | **STEP 2 분석 시작 전 로드** |
 | `SKILL.md` (이 파일) | 실행 지침 및 흐름 정의 | 커맨드 입력 시 |
