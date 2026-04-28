@@ -15,14 +15,14 @@ description: >
 
 이 스킬은 **`/refactor-rust` 커맨드가 입력될 때 자동으로 실행**된다.
 `REFACTOR_RUST.md` 카탈로그(R-R-01~R-R-08)와 **`coding-style.md`** 를 기준으로
-리팩토링 계획을 수립한 뒤, **`security.md`·`security-rust.md`·`rust-test-style.md` 규칙을 분석 전 반드시 로드하여**
+리팩토링 계획을 수립한 뒤, **`rust-security-style.md`·`rust-test-style.md` 규칙을 분석 전 반드시 로드하여**
 리팩토링 전 과정에 적용한다.
 
 리팩토링의 핵심 불변 조건:
 - **격리된 환경** — git worktree로 main 브랜치를 보호한 채 작업
 - **기능 동치** — 외부 동작은 변경 전후 100% 동일
 - **도메인 중심** — 리팩토링 후 도메인 개념이 코드에 더 명확히 드러나야 한다
-- **보안 규칙 준수** — `security.md`·`security-rust.md` 로드 후 모든 변환에 적용
+- **보안 규칙 준수** — `rust-security-style.md` 로드 후 모든 변환에 적용
 - **테스트 규칙 준수** — `rust-test-style.md` 로드 후 커버리지 유지 여부 확인
 - **보여주고 확인받기** — Before/After를 먼저 제시, 인간 승인 후에만 적용
 - **항상 그린** — 매 단계 `cargo test` 통과
@@ -235,8 +235,7 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 로드 순서:
 1. `REFACTOR_RUST.md` — R-R-01~R-R-08 도메인 중심 카탈로그 (탐지 기준)
 2. `.claude/rules/coding-style.md` — 도메인 중심 코딩 원칙 (분석 판단 기준)
-3. `.claude/rules/security.md` — 보안 규칙 공통 (각 변환에 체크)
-4. `.claude/rules/security-rust.md` — 보안 규칙 Rust 전용 (각 변환에 체크)
+3. `.claude/rules/rust-security-style.md` — 보안 규칙 §1~§12 (각 변환에 체크)
 5. `.claude/rules/rust-test-style.md` — 테스트 규칙 (커버리지·테스트 구조 확인)
 
 **`--scope` 옵션이 지정된 경우**: 해당 스코프에 매핑된 카탈로그 항목만 탐지한다.
@@ -255,16 +254,29 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 - **불필요한 clone**: 컴파일 오류 회피용 `.clone()` → R-R-07 이슈
 - **flat 모듈 구조**: 기능 단위 flat 구성, `utils.rs`에 비즈니스 로직 → R-R-08 이슈
 
-#### security.md + security-rust.md 적용 항목
+#### rust-security-style.md 적용 항목 (§1~§12 우선순위 기반)
 
-분석 중 아래 보안 규칙을 체크한다:
+분석 중 아래 보안 규칙을 우선순위별로 체크한다:
 
-- **unsafe 코드**: `unsafe` 블록에 `// SAFETY:` 주석 없으면 `[보안] unsafe SAFETY 주석 누락`으로 보고 (security-rust.md §2)
-- **panic 사용**: 프로덕션 코드에서 `unwrap()`/`expect()` 사용 시 `[보안] panic 위험`으로 보고 (security-rust.md §3)
-- **비밀 정보**: 하드코딩된 키·토큰·비밀번호가 있으면 `[보안] 비밀 정보 하드코딩`으로 보고 (security.md §7 + security-rust.md §9)
-- **입력 검증**: 외부 입력을 Newtype 없이 원시 타입으로 사용하면 R-R-02와 함께 보안 관점 코멘트 추가 (security.md §2 + security-rust.md §4)
-- **에러 노출**: 내부 구현 정보가 에러 메시지에 포함되면 R-R-06과 함께 보안 관점 코멘트 추가 (security.md §5 + security-rust.md §6)
-- **역직렬화**: 외부 데이터를 검증 없이 역직렬화하면 `[보안] 역직렬화 미검증`으로 보고 (security-rust.md §7)
+🔴 Critical — 즉시 `[보안 Critical]`로 보고:
+- 하드코딩된 키·토큰·비밀번호 (§7 시크릿 관리)
+- `unsafe` 블록에 `// SAFETY:` 주석 없음 (§6.1)
+- SQL 쿼리 문자열 포맷 조합 (§3.3)
+- 라이브러리·핸들러에서 `unwrap()`/`expect()` 사용 (§5.3)
+- JWT `none` 알고리즘 허용 (§4.1)
+
+🟠 High — `[보안 High]`로 보고 + R-R-XX 카탈로그와 함께 표시:
+- 외부 입력을 Newtype 없이 원시 타입으로 사용 → R-R-02와 함께 (§2 신뢰 경계, §3.1)
+- BOLA: 소유권·권한 검증 없이 리소스 접근 (§3.2)
+- `#[serde(deny_unknown_fields)]` 미사용 + 민감 필드 포함 (§3.4)
+- 에러 응답에 내부 구현 정보 노출 → R-R-06과 함께 (§5.1)
+- 패스워드 해싱에 MD5/SHA1 사용 (§4.3)
+- async 컨텍스트에서 `std::sync::Mutex` (§6, 교착 위험)
+
+🟡 Medium — `[보안 Medium]`으로 보고:
+- 비밀값 비교에 상수 시간 비교 미사용 (§4.2)
+- 민감 값이 `Zeroizing<T>` 없이 저장 (§4.4)
+- 보안 이벤트 감사 로그 미흡 (§9)
 
 #### rust-test-style.md 적용 항목
 
@@ -294,7 +306,7 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
   • [R-R-XX 또는 보안/테스트 태그] [fn명 또는 위치]
     증상: [구체적 설명]
     카탈로그: [R-R-XX] / coding-style.md: [§섹션]
-    규칙: [security.md §섹션 또는 rust-test-style.md §섹션] (해당 시)
+    규칙: [rust-security-style.md §섹션 또는 rust-test-style.md §섹션] (해당 시)
 
   [위험도: 중간]
   • ...
@@ -317,7 +329,7 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 | 구현 방식 이름 | `StringParser`, `ListProcessor` — "어떻게"가 이름에 드러남 | R-R-01 | §1.2, §4.1 | — |
 | 불필요한 축약어 | `usr`, `cnt`, `idx` — 의도 불명확 | R-R-01 | §4.2 | — |
 | 동일 개념 여러 이름 | `user_id` / `userId` / `uid` 혼재 | R-R-01 | §4.2 | — |
-| Primitive 집착 | `u64` / `String`으로 도메인 개념 직접 표현 | R-R-02 | §1.3, §2.2 | security.md §입력 검증 |
+| Primitive 집착 | `u64` / `String`으로 도메인 개념 직접 표현 | R-R-02 | §1.3, §2.2 | rust-security-style.md §3 입력 검증 |
 | 빈약한 도메인 모델 | 도메인 로직이 Service에만 있고 엔티티는 데이터만 보유 | R-R-02 | §2.2 | — |
 | Smart Constructor 부재 | 잘못된 값을 생성 시점에 막지 않음 (유효성 검사 없는 `new`) | R-R-02 | §1.3 | — |
 | Bool 플래그 조합 | `is_paid + is_shipped` — 불가능한 조합이 타입으로 방지 안 됨 | R-R-03 | §2.4, §2.2 | — |
@@ -327,18 +339,18 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 | 명령형 루프 | `for` + 수동 `push` — `filter`/`map`/`fold`로 전환 가능 | R-R-04 | §2.1, §1.4 | — |
 | 중복 코드 | 동일 패턴 3회 이상 반복 — 추상화 기회 (Rule of Three 충족) | R-R-05 | §2.3, §1.1 | — |
 | 성급한 추상화 | 단 한 곳에서만 쓰이는 Trait / 제네릭 — 제거 대상 | R-R-05 | §2.3 | — |
-| unwrap/expect 남용 | 라이브러리 코드에 `.unwrap()` / `.expect()` | R-R-06 | §5.4 | security.md §에러 응답 |
+| unwrap/expect 남용 | 라이브러리 코드에 `.unwrap()` / `.expect()` | R-R-06 | §5.4 | rust-security-style.md §5 에러 처리와 정보 노출 |
 | 인덱스 무방비 접근 | `items[0]`, `map["key"]` 직접 인덱싱 — 패닉 위험 | R-R-06 | §5.4 | — |
 | 침묵하는 실패 | `.unwrap_or_default()`, 의미 없는 기본값으로 실패 은폐 | R-R-06 | §5.3, §5.4 | — |
-| 문자열/Box 에러 타입 | `Box<dyn Error>`, `String`으로 에러 의미 소실 | R-R-06 | §5.3 | security.md §에러 응답 |
+| 문자열/Box 에러 타입 | `Box<dyn Error>`, `String`으로 에러 의미 소실 | R-R-06 | §5.3 | rust-security-style.md §5 에러 처리와 정보 노출 |
 | Clone 남용 | `.clone()`으로 컴파일 오류 회피 — 소유권 설계 재검토 신호 | R-R-07 | §1.1 | — |
 | String 파라미터 강제 | `fn f(s: String)` — `&str`이면 충분한 경우 | R-R-07 | §2.1 | — |
 | Vec 파라미터 강제 | `fn f(v: Vec<T>)` — `&[T]`이면 충분한 경우 | R-R-07 | §2.1 | — |
 | flat 모듈 구조 | `src/` 직하 10개+, 기능 단위(handlers/models/services) flat 구성 | R-R-08 | §1.3, §2.1 | — |
 | utils.rs 비즈니스 로직 | `utils.rs`에 도메인 계산·규칙 혼재 | R-R-08 | §1.3 | — |
 | 도메인 경계 미구분 | `models.rs`에 모든 모델, `services.rs`에 모든 로직 일괄 배치 | R-R-08 | §1.3, §2.1 | — |
-| unsafe SAFETY 주석 누락 | `unsafe` 블록에 `// SAFETY:` 없음 | — | — | **security-rust.md §2 메모리 안전** |
-| 비밀 정보 하드코딩 | API 키·토큰·비밀번호 소스코드 직접 포함 | — | — | **security.md §7 + security-rust.md §9** |
+| unsafe SAFETY 주석 누락 | `unsafe` 블록에 `// SAFETY:` 없음 | — | — | **rust-security-style.md §6 unsafe 코드** |
+| 비밀 정보 하드코딩 | API 키·토큰·비밀번호 소스코드 직접 포함 | — | — | **rust-security-style.md §7 시크릿 관리** |
 | 테스트 없음 | `#[cfg(test)]` 모듈 또는 `tests/` 파일 없음 | — | — | **rust-test-style.md §6. 테스트 피라미드** |
 | 에러 케이스 테스트 누락 | `Result` 반환 함수에 실패 케이스 테스트 없음 | — | — | **rust-test-style.md §6. 테스트 피라미드** |
 
@@ -417,7 +429,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 📖 이유:   [구체적 이유 1~2줄]
 ⚠️  위험도: [낮음 / 중간 / 높음]  ※ 높음·보안 이슈는 "전체 적용"에도 개별 확인 필수
 📐 근거:   coding-style.md §[섹션번호] [섹션명]
-📏 규칙:   [해당 시 — security.md §섹션 또는 rust-test-style.md §섹션]
+📏 규칙:   [해당 시 — rust-security-style.md §섹션 또는 rust-test-style.md §섹션]
 
 ─── BEFORE ──────────────────────────────
 [원본 코드]
@@ -428,7 +440,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 ─── 변경 요점 ───────────────────────────
   • [변경 포인트 1]
   • [변경 포인트 2]
-  • (보안 관련 시) 🔒 security.md §[섹션]: [적용 규칙 설명]
+  • (보안 관련 시) 🔒 rust-security-style.md §[섹션]: [적용 규칙 설명]
   • (테스트 관련 시) 🧪 rust-test-style.md §[섹션]: [확인 사항]
 
 ─── 권장 커밋 메시지 ────────────────────
@@ -545,8 +557,8 @@ PR 체크리스트:
   □ cargo clippy -D warnings 경고 0건
   □ cargo fmt --check 포맷 위반 없음
   □ 도메인 가시성 향상 확인 (리팩토링 전보다 도메인 개념이 명확히 드러나는가?)
-  □ unsafe 블록 SAFETY 주석 완비 (security-rust.md §2)
-  □ 비밀 정보 하드코딩 없음 (security.md §7 + security-rust.md §9)
+  □ 🔴 Critical 보안 이슈 없음 — 하드코딩 시크릿(§7) · SAFETY 주석 완비(§6) · SQL 파라미터 바인딩(§3.3) · unwrap in lib 없음(§5.3) · JWT none 차단(§4.1)
+  □ 🟠 High 보안 이슈 없음 — Newtype 입력 검증(§3.1) · BOLA 소유권 검증(§3.2) · 역직렬화 deny_unknown_fields(§3.4) · 에러 내부 정보 미노출(§5.1) · Argon2id 사용(§4.3) · SSRF 방지(§2.3)
   ■ 커버리지 ≥ 80% 확인 완료 (STEP 5-0 통과 필수)
   □ 공개 Trait/struct 시그니처 변경 없음
   □ 직렬화 형식 변경 없음 (serde 필드명)
@@ -634,22 +646,22 @@ PR 체크리스트:
 | 코드 | 제목 | `--scope` | coding-style.md | 핵심 변환 | 연계 규칙 |
 |------|------|-----------|-----------------|-----------|-----------|
 | **R-R-01** | 의도를 드러내는 네이밍 | `naming` | §1.2, §4 | 매직 넘버 → const, 의도 표현 이름 | — |
-| **R-R-02** | 빈약한 도메인 모델 개선 | `domain` | §1.3, §2.2 | primitive → Newtype + Smart Constructor | security.md §입력 검증 |
+| **R-R-02** | 빈약한 도메인 모델 개선 | `domain` | §1.3, §2.2 | primitive → Newtype + Smart Constructor | rust-security-style.md §3 입력 검증 |
 | **R-R-03** | 상태 & 제어 흐름 명확화 | `state` | §2.4, §2.2 | bool 플래그 → Enum 상태 머신, Early Return | — |
 | **R-R-04** | 함수 분해 & 단일 책임 | `function` | §2.1, §1.4 | 거대 함수 분해, 명령형 루프 → Iterator | — |
 | **R-R-05** | 중복 제거 & 적시 추상화 | `abstraction` | §2.3, §1.1 | 3회 반복 후 Trait 추출 (Rule of Three) | — |
-| **R-R-06** | 경계 조건 & 에러 처리 명시화 | `boundary` | §5, §1.2 | unwrap → thiserror + ?, 명시적 경계 | security.md §에러 응답 |
+| **R-R-06** | 경계 조건 & 에러 처리 명시화 | `boundary` | §5, §1.2 | unwrap → thiserror + ?, 명시적 경계 | rust-security-style.md §5 에러 처리와 정보 노출 |
 | **R-R-07** | 소유권 & 변경 용이성 | `ownership` | §1.1, §2.1 | `String` → `&str`, clone 제거 | — |
 | **R-R-08** | 모듈 구조 도메인화 | `module` | §1.3, §2.1 | flat → domain/infra/shared 계층 분리 | — |
-| **[보안]** | 보안 이슈 전체 | `security` | §7 | unsafe·panic·비밀정보·역직렬화 | **security.md + security-rust.md 전체** |
+| **[보안]** | 보안 이슈 전체 | `security` | §1~§12 | 🔴 하드코딩 시크릿·SAFETY 주석·SQL 포맷·unwrap·JWT none — 🟠 Newtype·BOLA·역직렬화·에러 노출·Argon2id·SSRF — 🟡 상수 시간 비교·Zeroizing·Rate Limiting·감사 로그 | **rust-security-style.md §1~§12 우선순위 기반** |
 
 ---
 
 ## 금지 사항
 
 ```
-🚫 unsafe 블록 임의 추가 (security-rust.md §2 메모리 안전 참조)
-🚫 비밀 정보 하드코딩 (security.md §7 + security-rust.md §9 참조)
+🚫 unsafe 블록 임의 추가 (rust-security-style.md §6 unsafe 코드 참조)
+🚫 비밀 정보 하드코딩 (rust-security-style.md §7 시크릿 관리 참조)
 🚫 테스트 삭제 또는 #[ignore] 무단 추가 (rust-test-style.md §13. PR 거절 신호 (Red Flags) 참조)
 🚫 공개(pub) Trait / struct 시그니처 변경
 🚫 기능 추가 또는 버그 수정 (리팩토링과 혼합 금지)
@@ -669,7 +681,6 @@ PR 체크리스트:
 |------|------|-----------|
 | `REFACTOR_RUST.md` | R-R-01~R-R-08 도메인 중심 카탈로그 | **STEP 2 분석 시작 전 로드** |
 | `../../rules/coding-style.md` | 도메인 중심 코딩 원칙 (분석 기준) | **STEP 2 분석 시작 전 로드** |
-| `../../rules/security.md` | 보안 규칙 (공통) | **STEP 2 분석 시작 전 로드** |
-| `../../rules/security-rust.md` | 보안 규칙 (Rust 전용) | **STEP 2 분석 시작 전 로드** |
+| `../../rules/rust-security-style.md` | 보안 규칙 §1~§12 (각 변환에 체크) | **STEP 2 분석 시작 전 로드** |
 | `../../rules/rust-test-style.md` | 테스트 규칙 | **STEP 2 분석 시작 전 로드** |
 | `SKILL.md` (이 파일) | 실행 지침 및 흐름 정의 | 커맨드 입력 시 |

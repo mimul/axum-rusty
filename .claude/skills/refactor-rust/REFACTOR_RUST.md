@@ -595,7 +595,7 @@ fn find_active_user(users: &[User], id: UserId) -> Result<&User, DomainError> {
 }
 ```
 
-> **에러 메시지 보안**: `#[error("...")]` 외부 노출 메시지에 DB 쿼리·파일 경로·스택 정보를 포함하지 않는다. `#[source]`로 내부 원인을 분리해 로그에만 기록한다 (`security.md §5 에러&로그` + `security-rust.md §6 에러 처리` 참조).
+> **에러 메시지 보안**: `#[error("...")]` 외부 노출 메시지에 DB 쿼리·파일 경로·스택 정보를 포함하지 않는다. `#[source]`로 내부 원인을 분리해 로그에만 기록한다 (`rust-security-style.md §5 에러 처리와 정보 노출` 참조).
 
 ---
 
@@ -920,5 +920,4 @@ coding-style.md §9 안티 패턴의 Rust 구현 기준:
 | API 가이드 | rust-lang.github.io/api-guidelines |
 | 코딩 스타일 | `.claude/rules/coding-style.md` |
 | 테스트 규칙 | `.claude/rules/rust-test-style.md` |
-| 보안 규칙 (공통) | `.claude/rules/security.md` |
-| 보안 규칙 (Rust 전용) | `.claude/rules/security-rust.md` |
+| 보안 규칙 §1~§12 | `.claude/rules/rust-security-style.md` |
