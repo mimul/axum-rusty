@@ -1,23 +1,81 @@
-name: Claude AI 코드 리뷰 준비 알림
+name: CI 통과 후 리뷰 라우팅
 
 # ──────────────────────────────────────────────────────────────────
-# 이 워크플로우는 ANTHROPIC_API_KEY 없이 동작합니다.
-# CI 통과 후 리뷰어에게 로컬 실행 방법을 안내하는 코멘트만 작성합니다.
+# ci-passed 라벨 부착 시 실행:
 #
-# 실제 Claude 코드 리뷰는 리뷰어가 로컬에서 수동으로 실행합니다:
-#   /code-review-rust --pr [PR번호]
+#   One-Way Door  → 인간 리뷰어 가이드 코멘트 + claude-review-ready 라벨
+#   Two-Way Door  → Claude 자동 코드 리뷰 & 수정 커밋
+#                   봇 커밋 감지 시 → 자동 병합(squash)
+#
+# 무한 루프 방지:
+#   - pr-classify.yml : github.actor != 'github-actions[bot]' 가드
+#   - 본 파일     : is_bot_commit 확인 → 봇 커밋이면 리뷰 건너뜀
+#   - ci-passed 라벨이 이미 있으면 GitHub 이 labeled 이벤트를 재발행하지 않음
 # ──────────────────────────────────────────────────────────────────
 
 on:
   pull_request:
-    types: [labeled]   # ci-passed 라벨이 붙으면 실행
+    types: [labeled]
+    branches: [main]
+
+concurrency:
+  group: review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-  notify-ready-for-review:
-    name: 📢 리뷰 준비 완료 알림
+  # ────────────────────────────────────────────────────────────────
+  # Job 1: Door 타입 · 봇 커밋 여부 판정
+  # ────────────────────────────────────────────────────────────────
+  route:
+    name: Door 타입 · 봇 커밋 확인
     if: github.event.label.name == 'ci-passed'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      issues: read
+    outputs:
+      door_type:     ${{ steps.check.outputs.door_type }}
+      is_bot_commit: ${{ steps.check.outputs.is_bot_commit }}
 
+    steps:
+      - name: 라벨 · 최신 커밋 작성자 확인
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // ── Door 타입 ───────────────────────────────────────
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            const labels   = pr.labels.map(l => l.name);
+            const doorType = labels.includes('one-way-door') ? 'one-way' : 'two-way';
+            core.setOutput('door_type', doorType);
+
+            // ── 최신 커밋이 봇인지 ───────────────────────────────
+            const { data: commits } = await github.rest.pulls.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            const last   = commits[commits.length - 1];
+            const email  = last?.commit?.author?.email ?? '';
+            const login  = last?.author?.login ?? '';
+            const isBot  =
+              login === 'github-actions[bot]' ||
+              email.includes('github-actions') ||
+              email.includes('41898282+github-actions');
+            core.setOutput('is_bot_commit', String(isBot));
+            core.info(`door_type=${doorType}  is_bot_commit=${isBot}`);
+
+  # ────────────────────────────────────────────────────────────────
+  # Job 2: One-Way Door — 인간 리뷰어 가이드
+  # ────────────────────────────────────────────────────────────────
+  one-way-guide:
+    needs: route
+    if: needs.route.outputs.door_type == 'one-way'
+    runs-on: ubuntu-latest
     permissions:
       pull-requests: write
       issues: write
@@ -43,17 +101,17 @@ jobs:
             core.setOutput('rs_count', count);
             core.setOutput('rs_list', rsFiles || '없음');
 
-      - name: 리뷰어에게 로컬 실행 안내 코멘트 작성
+      - name: 리뷰어 가이드 코멘트 작성
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const prNumber  = context.issue.number;
-            const prTitle   = context.payload.pull_request.title;
-            const base      = context.payload.pull_request.base.ref;
-            const head      = context.payload.pull_request.head.ref;
-            const rsCount   = '${{ steps.changed.outputs.rs_count }}';
-            const rsList    = `${{ steps.changed.outputs.rs_list }}`;
+            const prNumber = context.issue.number;
+            const prTitle  = context.payload.pull_request.title;
+            const base     = context.payload.pull_request.base.ref;
+            const head     = context.payload.pull_request.head.ref;
+            const rsCount  = '${{ steps.changed.outputs.rs_count }}';
+            const rsList   = `${{ steps.changed.outputs.rs_list }}`;
 
             const body = [
               `## ✅ CI 통과 — Claude 코드 리뷰 준비 완료`,
@@ -76,15 +134,9 @@ jobs:
               ``,
               `**실행 절차:**`,
               `\`\`\`bash`,
-              `# 1. 리뷰용 worktree 자동 생성`,
               `git fetch origin ${head}`,
               `git worktree add ./review-${prNumber} origin/${head}`,
               `cd ./review-${prNumber}`,
-              ``,
-              `# 2. 변경 파일 확인`,
-              `git diff --name-only origin/${base}...HEAD`,
-              ``,
-              `# 3. Claude Code에서 리뷰 커맨드 실행`,
               `/code-review-rust --pr ${prNumber}`,
               `\`\`\``,
               ``,
@@ -98,8 +150,6 @@ jobs:
               `---`,
               ``,
               `### 👤 인간 리뷰어 체크포인트`,
-              ``,
-              `> Claude가 확인하지 못하는 항목 — 리뷰어가 직접 판단해 주세요.`,
               ``,
               `- [ ] **비즈니스 로직 정확성** — 도메인 규칙에 맞게 동작하는가?`,
               `- [ ] **요구사항 충족** — 티켓/스펙 AC를 모두 만족하는가?`,
@@ -127,3 +177,174 @@ jobs:
               issue_number: context.issue.number,
               labels: ['claude-review-ready'],
             });
+
+  # ────────────────────────────────────────────────────────────────
+  # Job 3: Two-Way Door — Claude 자동 리뷰 & 수정
+  #         (마지막 커밋이 봇이 아닐 때만 실행)
+  # ────────────────────────────────────────────────────────────────
+  two-way-claude-review:
+    needs: route
+    if: |
+      needs.route.outputs.door_type == 'two-way' &&
+      needs.route.outputs.is_bot_commit == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rust 툴체인 설치 (rustfmt 포함)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Rust 빌드 캐시
+        uses: Swatinem/rust-cache@v2
+
+      - name: Git 사용자 설정 (봇 커밋 감지용)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Claude 자동 코드 리뷰 & 수정
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            이 PR(#${{ github.event.pull_request.number }})의 Rust 코드를 리뷰하고,
+            Critical/High 이슈를 직접 수정한 뒤 PR에 리뷰 결과를 코멘트로 남겨라.
+
+            ═══════════════════════════════════════════════
+            1. 대상 파일 확인
+            ═══════════════════════════════════════════════
+            ```bash
+            git diff --name-only origin/${{ github.base_ref }}...HEAD
+            ```
+            .rs 확장자 파일만 리뷰한다. 다른 파일은 건드리지 않는다.
+
+            ═══════════════════════════════════════════════
+            2. 리뷰 카테고리 (9가지) — rust-coding-style.md 기반
+            ═══════════════════════════════════════════════
+
+            [R-01] 소유권·Clone 남용 (High)
+            - 불필요한 .clone() → &str / &[T] / Arc<T> 참조로 대체
+            - String 파라미터 → &str, Vec<T> 파라미터 → &[T]
+
+            [R-02] 에러 처리 (Critical: 핸들러 내 panic, High: 라이브러리 내 unwrap)
+            - 핸들러·라이브러리에서 unwrap()/expect() → ? 연산자로 교체
+            - thiserror(라이브러리) / anyhow(바이너리) 활용
+
+            [R-03] async/await 패턴 (Critical: deadlock, High: 성능)
+            - async 함수 내 std::thread::sleep → tokio::time::sleep
+            - std::sync::Mutex in async → tokio::sync::Mutex / RwLock
+            - blocking I/O → tokio::task::spawn_blocking
+
+            [R-04] 타입 설계 (High)
+            - 도메인 식별자(UserId, OrderId) Newtype 패턴 누락
+            - bool 파라미터 → 의미 명확한 enum
+            - 상호 배타적 Option 필드 → enum에 데이터 부착
+
+            [R-05] 모듈 가시성 (Medium)
+            - 외부 공개 불필요한 pub → pub(crate) / pub(super)
+
+            [R-06] Clippy 패턴 (Medium)
+            - needless_pass_by_value, redundant_clone, map_unwrap_or 등
+
+            [R-07] 보안 (Critical)
+            - 문자열 포맷으로 SQL 조합 → sqlx 파라미터 바인딩
+            - 하드코딩된 시크릿
+            - 핸들러에서 unwrap()으로 panic
+
+            [R-08] 테스트 품질 (High: Assertion 없는 테스트)
+            - Assertion 없는 테스트 수정
+            - 통합 테스트에서 Mock DB → sqlx::test 로 변경 권고(코멘트)
+
+            [R-09] 문서화 (Low)
+            - pub fn / pub struct / pub trait 에 /// 주석 권고(코멘트)
+
+            ═══════════════════════════════════════════════
+            3. 수정 원칙
+            ═══════════════════════════════════════════════
+            직접 파일 수정 (Critical/High만):
+              - 핸들러의 unwrap()/expect() → ? 또는 적절한 에러 반환
+              - async 컨텍스트의 std::sync::Mutex → tokio::sync::Mutex
+              - SQL 인젝션 취약점
+              - Assertion 없는 테스트에 의미 있는 assert 추가
+
+            코멘트 제안만 (Medium/Low):
+              - 타입 설계 개선 제안
+              - 가시성 조정 제안
+              - 문서화 추가 제안
+
+            절대 금지:
+              - 리뷰 대상 아닌 파일 수정
+              - 비즈니스 로직 변경
+              - 테스트 삭제 또는 #[ignore] 추가
+              - Cargo.toml 수정
+
+            ═══════════════════════════════════════════════
+            4. 수정 후 처리 순서
+            ═══════════════════════════════════════════════
+            a) cargo fmt 실행:
+               ```bash
+               cargo fmt
+               ```
+
+            b) 변경된 파일이 있으면 커밋 & 푸시:
+               ```bash
+               git add -p   # 수정된 .rs 파일만 스테이징
+               git commit -m "fix: [Claude] 코드 리뷰 자동 수정 (#${{ github.event.pull_request.number }})"
+               git push origin HEAD:${{ github.event.pull_request.head.ref }}
+               ```
+
+            c) PR에 리뷰 요약 코멘트 작성:
+               ```bash
+               gh pr comment ${{ github.event.pull_request.number }} --body "$(cat <<'REVIEW'
+               ## 🤖 Claude 자동 리뷰 완료
+
+               ### Critical/High — 자동 수정됨
+               (수정한 항목 목록)
+
+               ### Medium/Low — 수동 처리 권장
+               (제안 목록)
+
+               ---
+               > CI 재실행 후 통과되면 자동 병합(squash)됩니다.
+               REVIEW
+               )"
+               ```
+
+            d) claude-reviewed 라벨 부착:
+               ```bash
+               gh pr edit ${{ github.event.pull_request.number }} --add-label "claude-reviewed"
+               ```
+
+  # ────────────────────────────────────────────────────────────────
+  # Job 4: Two-Way Door — 봇 커밋 감지 시 자동 병합
+  #         Claude 수정 커밋 → CI 재실행 → ci-passed → 이 job 실행
+  # ────────────────────────────────────────────────────────────────
+  two-way-auto-merge:
+    needs: route
+    if: |
+      needs.route.outputs.door_type == 'two-way' &&
+      needs.route.outputs.is_bot_commit == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: 자동 병합 활성화 (squash)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --auto --squash \
+            --repo "${{ github.repository }}"
