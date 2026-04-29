@@ -294,7 +294,7 @@ jobs:
         if: success()
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.WORKFLOW_TOKEN }}
           script: |
             // 제거 후 재추가로 labeled 이벤트를 항상 발생시킨다.
             // addLabels만 하면 라벨이 이미 있을 때 이벤트가 발생하지 않아
