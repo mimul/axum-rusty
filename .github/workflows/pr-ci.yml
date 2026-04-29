@@ -290,16 +290,27 @@ jobs:
               print('✅ 모든 필수 CI 통과')
           "
 
-      - name: ci-passed 라벨 부착 → claude-review.yml 트리거
+      - name: ci-passed 라벨 갱신 → claude-review.yml 트리거
         if: success()
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // ci-passed 라벨 추가 → claude-review.yml 이 리뷰어 안내 코멘트 작성
+            // 제거 후 재추가로 labeled 이벤트를 항상 발생시킨다.
+            // addLabels만 하면 라벨이 이미 있을 때 이벤트가 발생하지 않아
+            // Claude 봇 커밋 → CI 재실행 시 two-way-auto-merge job이 트리거되지 않는다.
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'ci-passed',
+              });
+            } catch (_) { /* 라벨 없으면 무시 */ }
+
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              labels: ['ci-passed']
+              labels: ['ci-passed'],
             });
