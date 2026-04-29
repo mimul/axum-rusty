@@ -76,20 +76,16 @@ pub async fn find_todo(
         return Err(AppError::Error("status is none".to_string()));
     }
     let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
-    let resp = uc.find_todo(query.into()).await;
-    match resp {
-        Ok(todos) => {
-            let message = if todos.is_empty() {
-                "todo not found.".to_string()
-            } else {
-                "success".to_string()
-            };
-            let json = JsonTodoList::new(todos.into_iter().map(|t| t.into()).collect());
-            let response = ApiResponse::success(message, json!({ "todoView": json }));
-            Ok((StatusCode::OK, Json(response)))
-        }
-        Err(err) => Err(internal_error(err)),
-    }
+    let todos = uc.find_todo(query.into()).await.map_err(internal_error)?;
+
+    let message = if todos.is_empty() {
+        "todo not found.".to_string()
+    } else {
+        "success".to_string()
+    };
+    let json = JsonTodoList::new(todos.into_iter().map(|t| t.into()).collect());
+    let response = ApiResponse::success(message, json!({ "todoView": json }));
+    Ok((StatusCode::OK, Json(response)))
 }
 
 #[utoipa::path(
