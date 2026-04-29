@@ -328,6 +328,7 @@ jobs:
                ```
 
       - name: 자동 병합 활성화 (squash) — 수정 커밋 유무 무관
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
