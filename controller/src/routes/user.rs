@@ -140,25 +140,26 @@ pub async fn get_user_by_username(
         return Err(AppError::Error("username is empty".to_string()));
     }
     let uc: Arc<dyn IUserUseCase> = state.module.resolve();
-    let user_view = uc.get_user_by_username(query.into()).await;
+    let user_view = uc
+        .get_user_by_username(query.into())
+        .await
+        .map_err(internal_error)?;
+
     match user_view {
-        Ok(user_view) => match user_view {
-            Some(uv) => {
-                info!("get_user_by_username: response user `{:?}`.", uv);
-                let json: JsonUser = uv.into();
-                let response = ApiResponse::success("success", json!({ "userView": json }));
-                Ok((StatusCode::OK, Json(response)))
-            }
-            None => {
-                let response: ApiResponse<Value> = ApiResponse {
-                    result: true,
-                    message: "user not found.".to_string(),
-                    data: None,
-                };
-                Ok((StatusCode::OK, Json(response)))
-            }
-        },
-        Err(err) => Err(internal_error(err)),
+        Some(uv) => {
+            info!("get_user_by_username: response user `{:?}`.", uv);
+            let json: JsonUser = uv.into();
+            let response = ApiResponse::success("success", json!({ "userView": json }));
+            Ok((StatusCode::OK, Json(response)))
+        }
+        None => {
+            let response: ApiResponse<Value> = ApiResponse {
+                result: true,
+                message: "user not found.".to_string(),
+                data: None,
+            };
+            Ok((StatusCode::OK, Json(response)))
+        }
     }
 }
 
