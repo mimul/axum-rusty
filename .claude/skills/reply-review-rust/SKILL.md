@@ -5,7 +5,7 @@ description: >
   /address-review-rust 로 리뷰 대응을 완료한 후, 각 리뷰 코멘트에
   대응한 취지(또는 대응 불필요로 판단한 이유)를 회신하는 스킬이다.
   대응 불필요로 판단된 지적에 대해서는 /address-review-rust가 제시한
-  coding-style.md §섹션 근거를 회신에 포함하여 리뷰어에게 명확히 전달한다.
+  rust-coding-style.md §섹션 근거를 회신에 포함하여 리뷰어에게 명확히 전달한다.
   인수 없이 실행하면 직전 대화의 리뷰 대응 요약을 자동 추출하여 사용한다.
   PR 번호 또는 GitHub URL을 지정하면 해당 PR 코멘트에 답장한다.
   답장 게시 전 반드시 회신 목록을 사용자에게 제시하고 승인을 받는다.
@@ -26,7 +26,7 @@ description: >
 - **게시 전 승인 필수** — 회신 목록을 사용자에게 제시하고 명시적 승인 후에만 게시
 - **중복 답장 금지** — 이미 답장된 코멘트는 건너뜀
 - **코드 무수정** — 소스 파일을 절대 변경하지 않음
-- **근거 전달** — 대응 불필요 판단 시 `/address-review-rust`가 제시한 `coding-style.md §섹션` 근거를 회신에 포함하여 리뷰어에게 명확히 전달한다
+- **근거 전달** — 대응 불필요 판단 시 `/address-review-rust`가 제시한 `rust-coding-style.md §섹션` 근거를 회신에 포함하여 리뷰어에게 명확히 전달한다
 
 ---
 
@@ -171,21 +171,21 @@ gh api repos/{owner}/{repo}/pulls/{번호}/reviews \
 
 **대응 불필요로 판단한 지적에 대한 회신:**
 
-`/address-review-rust`의 평가 결과에서 `coding-style.md §섹션` 근거를 추출하여 포함한다.
+`/address-review-rust`의 평가 결과에서 `rust-coding-style.md §섹션` 근거를 추출하여 포함한다.
 
 ```markdown
 확인했습니다만, 아래 이유로 현상 유지로 했습니다.
 
 {대응 불필요로 판단한 이유}
 
-📐 판단 근거: coding-style.md §{섹션번호} {섹션명}
+📐 판단 근거: rust-coding-style.md §{섹션번호} {섹션명}
 {해당 시} 🔒 보완: {rust-security-style.md §섹션 / rust-security-style.md §섹션 / rust-test-style.md §섹션}
 
 > 🤖 Claude Code
 ```
 
 **근거 추출 우선순위:**
-1. `/address-review-rust` 출력의 `근거: coding-style.md §[섹션] [섹션명] — [판단 이유]` 필드
+1. `/address-review-rust` 출력의 `근거: rust-coding-style.md §[섹션] [섹션명] — [판단 이유]` 필드
 2. 추출 실패 시: 기술적 타당성 설명만으로 회신 (근거 행 생략)
 
 **대응 요약에서 매핑되지 않은 코멘트 (매핑 실패):**
@@ -256,7 +256,7 @@ gh api repos/{owner}/{repo}/pulls/{번호}/reviews \
 사용하고 있습니다. `Arc<T>`로 대체하면 오히려 복잡성이 증가하여 현재
 설계를 유지하는 것이 적합하다고 판단했습니다.
 
-📐 판단 근거: coding-style.md §1.1 변화 용이성 우선 — 불필요한 추상화보다 현재 구조가 변경 비용이 낮음
+📐 판단 근거: rust-coding-style.md 핵심원칙§1 변화 용이성 우선 — 불필요한 추상화보다 현재 구조가 변경 비용이 낮음
 
 > 🤖 Claude Code
 ---
@@ -361,8 +361,8 @@ URL: [PR URL]
 - **중복 답장 금지** — `in_reply_to_id`가 있는 코멘트(기존 답장)와 이미 본인이 답장한 코멘트는 건너뛴다
 - **소스 무수정** — Edit / Write 도구를 사용하지 않는다
 - **매핑 실패 처리** — 대응 요약에서 매핑되지 않은 코멘트에는 확인 중 메시지를 게시한다
-- **coding-style.md 근거 전달** — `/address-review-rust` 출력에서 `coding-style.md §섹션` 근거를 추출하여 대응 불필요 회신에 반드시 포함한다. 근거를 추출할 수 없는 경우에만 생략한다
-- **근거 창작 금지** — coding-style.md §섹션 근거는 반드시 `/address-review-rust` 평가 결과에서 가져온다. Claude가 임의로 만들지 않는다
+- **rust-coding-style.md 근거 전달** — `/address-review-rust` 출력에서 `rust-coding-style.md §섹션` 근거를 추출하여 대응 불필요 회신에 반드시 포함한다. 근거를 추출할 수 없는 경우에만 생략한다
+- **근거 창작 금지** — rust-coding-style.md §섹션 근거는 반드시 `/address-review-rust` 평가 결과에서 가져온다. Claude가 임의로 만들지 않는다
 
 ---
 
@@ -370,4 +370,4 @@ URL: [PR URL]
 
 | 파일 | 용도 | 로드 시점 |
 |------|------|-----------|
-| `../../rules/coding-style.md` | 대응 불필요 근거 검증 참조 | STEP 2 회신 초안 작성 시 (근거 검증용) |
+| `../../rules/rust-coding-style.md` | 대응 불필요 근거 검증 참조 | STEP 2 회신 초안 작성 시 (근거 검증용) |

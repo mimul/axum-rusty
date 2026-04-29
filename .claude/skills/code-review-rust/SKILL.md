@@ -2,7 +2,7 @@
 name: code-review-rust
 description: >
   /code-review-rust 커맨드로 실행되는 Rust 코드 리뷰 스킬.
-  coding-style.md(도메인 중심 진화형 코딩 원칙)를 1차 판단 기준으로,
+  rust-coding-style.md(도메인 중심 진화형 코딩 원칙)를 1차 판단 기준으로,
   CODE_REVIEW_RUST.md의 9개 카테고리(R-01~R-09)를 통해 Rust 코드를 분석한다.
   일곱 가지 모드를 지원한다:
     PR 모드          — MCP로 PR 정보(제목·설명·대상 브랜치) 확인 후 전용 worktree를 생성하고, git diff로 변경 파일만 정확히 추출하여 리뷰한다.
@@ -12,7 +12,7 @@ description: >
     브랜치 모드       — --branch. 현재 브랜치와 기본 브랜치(main)의 diff를 리뷰한다.
     지정 브랜치 모드   — --branch <name>. 지정 브랜치와 기본 브랜치(main)의 diff를 리뷰한다.
     로컬 파일 모드     — 파일 경로 또는 모듈명 지정 시 해당 파일을 직접 리뷰한다.
-  이슈마다 coding-style.md §섹션 근거와 Before/After를 제시하고 인간 확인 후에만 수정을 적용한다.
+  이슈마다 rust-coding-style.md §섹션 근거와 Before/After를 제시하고 인간 확인 후에만 수정을 적용한다.
 ---
 
 # `/code-review-rust` 커맨드 스킬
@@ -21,13 +21,13 @@ description: >
 
 이 스킬은 **`/code-review-rust` 커맨드가 입력될 때 자동으로 실행**된다.
 `CODE_REVIEW_RUST.md`의 9개 카테고리(R-01~R-09)를 분석 구조로 삼되,
-**`coding-style.md`를 1차 판단 기준**으로, `rust-security-style.md`·`rust-test-style.md`를 보완 기준으로 적용한다.
-STEP 2 분석 시작 전 세 파일을 반드시 로드하고, 이슈마다 어느 `coding-style.md §섹션`을 근거로 판단했는지 명시한다.
+**`rust-coding-style.md`를 1차 판단 기준**으로, `rust-security-style.md`·`rust-test-style.md`를 보완 기준으로 적용한다.
+STEP 2 분석 시작 전 세 파일을 반드시 로드하고, 이슈마다 어느 `rust-coding-style.md §섹션`을 근거로 판단했는지 명시한다.
 
 리뷰의 핵심 불변 조건:
 - **PR 기반 격리** — PR 리뷰는 전용 worktree에서 수행, main 브랜치 보호
 - **변경분만 리뷰** — `git diff`로 실제 변경 파일만 정확히 추출
-- **coding-style.md 1차 적용** — R-01~R-09 전체 판단의 근거는 coding-style.md §섹션
+- **rust-coding-style.md 1차 적용** — R-01~R-09 전체 판단의 근거는 rust-coding-style.md §섹션
 - **rust-security-style.md 보완 적용** — R-04·R-05·R-09 판단 시 보안 규칙을 추가 기준으로 적용
 - **rust-test-style.md 보완 적용** — R-08 판단 시 테스트 규칙의 커버리지·네이밍 기준 적용
 - **보여주고 확인받기** — Before/After 제시 → 인간 승인 후에만 수정 적용
@@ -492,29 +492,29 @@ Read(file_path: "[지정된 파일 경로]")
 
 **분석 시작 전 아래 세 파일을 반드시 이 순서대로 로드한다:**
 
-1. `.claude/rules/coding-style.md` — **1차 판단 기준** (모든 카테고리의 근거)
+1. `.claude/rules/rust-coding-style.md` — **1차 판단 기준** (모든 카테고리의 근거)
 2. `.claude/rules/rust-security-style.md` — R-04·R-05·R-09 보완 기준
 3. `.claude/rules/rust-test-style.md` — R-08 보완 기준
 
 ---
 
-### coding-style.md → R-01~R-09 전체 판단 기준 (1차 기준)
+### rust-coding-style.md → R-01~R-09 전체 판단 기준 (1차 기준)
 
-모든 카테고리 판단의 **근본 기준**은 coding-style.md다. 이슈를 보고할 때 반드시 어느 §섹션을 근거로 판단했는지 명시한다.
+모든 카테고리 판단의 **근본 기준**은 rust-coding-style.md다. 이슈를 보고할 때 반드시 어느 §섹션을 근거로 판단했는지 명시한다.
 
-| 카테고리 | coding-style.md 근거 | 핵심 판단 원칙 |
-|----------|----------------------|----------------|
-| **R-01** 도메인 모델 | §1.3 도메인 중심 설계, §2.2 도메인 모델, §4 네이밍 규칙 | 도메인 개념이 타입으로 표현되는가? primitive 집착인가? 이름이 도메인 용어인가? 로직이 엔티티 내부에 캡슐화되어 있는가? |
-| **R-02** 상태 & 모델링 | §2.2 도메인 모델, §2.4 제어 흐름 | 상태가 enum으로 표현되는가? invalid state가 타입으로 방지되는가? Tell, Don't Ask 원칙이 적용되는가? |
-| **R-03** 경계 조건 & 에지 케이스 | §5 에지 케이스 & 경계 조건 전체 | 에지 케이스를 도메인의 일부로 처리하는가? 경계 조건이 코드에 명시적으로 드러나는가? 숨겨진 가정이 없는가? |
-| **R-04** 에러 처리 | §5.3 처리 방식, §5.4 금지, §1.2 의도를 드러내는 코드 | 에러가 의도를 드러내는가? 침묵하는 실패가 없는가? 에러 타입이 도메인 의미를 가지는가? |
-| **R-05** 소유권 & 메모리 | §1.1 변화 용이성 우선, §2.1 구조 | 변경하기 쉬운 소유권 구조인가? 불필요한 clone()이 없는가? mutable 상태가 최소화되어 있는가? |
-| **R-06** 제어 흐름 | §2.4 제어 흐름, §2.1 구조 | 명확한 흐름이 선택되었는가? 중첩 깊이가 2 이하인가? Tell, Don't Ask 원칙을 따르는가? |
-| **R-07** 추상화 & trait | §2.3 추상화, §1.1 변화 용이성 우선 | 추상화가 3번 반복(Rule of Three) 이후에 도입되었는가? 테스트 편의만을 위한 추상화가 아닌가? |
-| **R-08** 테스트 | §6 테스트 철학 전체 | 테스트가 도메인 행동을 검증하는가? 구현이 아닌 관찰 가능한 동작을 테스트하는가? 경계 조건이 검증되는가? |
-| **R-09** 보안 | §7 보안 기본 원칙 전체 | 신뢰하지 않은 입력이 검증되는가? 최소 권한 원칙을 따르는가? 민감 정보가 보호되는가? |
+| 카테고리 | rust-coding-style.md 근거 | 핵심 판단 원칙 |
+|----------|---------------------------|----------------|
+| **R-01** 도메인 모델 | 핵심원칙§3 도메인 언어, 설계§2 도메인 모델에 행동, 설계§4 접근권한 최소화, 네이밍 섹션 | 도메인 개념이 타입으로 표현되는가? primitive 집착인가? 이름이 도메인 용어인가? 로직이 엔티티 내부에 캡슐화되어 있는가? 접근권한이 최소화되어 있는가? |
+| **R-02** 상태 & 모델링 | 설계§2 도메인 모델에 행동, 설계§1 Tell Don't Ask, 경계조건(Invalid State·wildcard match) | 상태가 enum으로 표현되는가? Invalid State가 타입으로 방지되는가? (enum variant에 데이터 부착) Tell, Don't Ask 원칙이 적용되는가? `_ => {}`로 새 variant를 조용히 무시하지 않는가? |
+| **R-03** 경계 조건 & 에지 케이스 | 경계 조건은 도메인의 일부다(전체), 경계조건(match 완전성·에러 제어흐름 금지·None vs 빈컬렉션) | 에지 케이스를 도메인의 일부로 처리하는가? match 완전성이 유지되는가? 에러를 정상 제어 흐름으로 사용하지 않는가? None과 빈 컬렉션이 명확히 구분되는가? |
+| **R-04** 에러 처리 | 경계조건(unwrap 금지), Rust고유관례(에러 타입 레이어 분리), 핵심원칙§2 의도 드러내기 | 에러가 의도를 드러내는가? DomainError/AppError로 레이어가 분리되어 있는가? thiserror로 도메인 에러를, anyhow는 바이너리 main에서만 사용하는가? |
+| **R-05** 소유권 & 메모리 | 핵심원칙§1 변화 용이성, 설계§1 작고 조합 가능한 구조, 성능 섹션(N+1·clone·tokio::Mutex) | &str/&[T] 파라미터를 우선 사용하는가? 불필요한 clone()이 없는가? async 컨텍스트에서 tokio::sync::Mutex를 사용하는가? N+1 쿼리가 없는가? |
+| **R-06** 제어 흐름 | 설계§1(Early Return·Tell Don't Ask·조건 분해), 경계조건(match 완전성·에러를 제어흐름으로 사용 금지) | 명확한 흐름이 선택되었는가? 중첩 깊이가 2 이하인가? 복잡한 조건식이 의미 있는 변수로 분해되어 있는가? |
+| **R-07** 추상화 & trait | 설계§3 추상화(YAGNI), 설계§5 impl Trait, 핵심원칙§1 변화 용이성 | 추상화가 3번 반복(Rule of Three) 이후에 도입되었는가? 함수/메서드에 `impl Trait` 파라미터를 사용하는가? 반환 타입에도 `impl Trait`를 우선 사용하는가? |
+| **R-08** 테스트 | rust-test-style.md §1~§13 | 테스트가 도메인 행동을 검증하는가? 구현이 아닌 관찰 가능한 동작을 테스트하는가? 경계 조건이 검증되는가? |
+| **R-09** 보안 | rust-security-style.md §1~§12 | 신뢰하지 않은 입력이 검증되는가? 최소 권한 원칙을 따르는가? 민감 정보가 보호되는가? |
 
-coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
+rust-coding-style.md 안티 패턴 요약 섹션도 횡단적으로 체크한다:
 - 성급한 추상화 → R-07 이슈
 - 빈약한 도메인 모델 → R-01, R-02 이슈
 - 깊은 중첩 구조 → R-06 이슈
@@ -645,7 +645,7 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
 🚫 Blocking Issues ([N]건)
   • [R-XX] [파일명:행번호] [이슈 제목]
     → [설명]
-    📐 coding-style.md: §[섹션] [섹션명]
+    📐 rust-coding-style.md: [섹션명]
     / 보완 근거: [rust-security-style.md §섹션 또는 rust-test-style.md §섹션] (해당 시)
 
 ⚠️ Recommended Changes ([N]건)
@@ -662,7 +662,7 @@ coding-style.md §9 안티 패턴도 횡단적으로 체크한다:
   • [R-XX] [카테고리명] — 문제 없음
 
 📝 종합 평가
-  [설계 방향, 잠재 리스크, coding-style.md 철학 관점 개선 제안 3~5줄]
+  [설계 방향, 잠재 리스크, rust-coding-style.md 관점 개선 제안 3~5줄]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -713,7 +713,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 📍 위치:   [파일명 : 행번호]
 📖 문제:   [위험한 이유 1~2줄]
 🏷️  분류:   [🚫 Blocking / ⚠️ Recommended / 💡 Suggestion / 📝 Tech Debt]
-📐 근거:   coding-style.md §[섹션번호] [섹션명]
+📐 근거:   rust-coding-style.md [섹션명]
 📏 보완:   [해당 시 — rust-security-style.md §섹션 또는 rust-test-style.md §섹션]
 
 ─── BEFORE ──────────────────────────────
@@ -910,7 +910,7 @@ PR 체크리스트:
 ## 🤖 Claude 코드 리뷰 결과 (PR #[번호])
 
 > 리뷰 기준: CODE_REVIEW_RUST.md R-01~R-09
-> 1차 기준: .claude/rules/coding-style.md (도메인 중심 진화형 코딩 원칙)
+> 1차 기준: .claude/rules/rust-coding-style.md (도메인 중심 Rust 코딩 원칙)
 > 보완 기준: .claude/rules/rust-security-style.md · .claude/rules/rust-test-style.md
 > 리뷰 대상: [파일 목록]
 
@@ -1009,17 +1009,17 @@ PR 체크리스트:
 
 ## 카테고리 빠른 참조 (`/code-review-rust --catalog`)
 
-| 코드 | 카테고리 | coding-style.md | 핵심 탐지 신호 | 분류 | 보완 규칙 |
-|------|----------|-----------------|----------------|------|-----------|
-| **R-01** | 도메인 모델 | §1.3, §2.2, §4 | primitive 직접 사용, 유비쿼터스 언어 미반영, 이름이 구현 방식을 드러냄 | ⚠️💡 | — |
-| **R-02** | 상태 & 모델링 | §2.2, §2.4 | bool 남용, invalid state 존재, 상태 전이 불명확, Tell-Don't-Ask 위반 | 🚫⚠️ | — |
-| **R-03** | 경계 조건 | §5 전체 | `v[0]`, 0 나누기, 오버플로우, `unwrap_or_default()`, 침묵하는 실패 | 🚫 | — |
-| **R-04** | 에러 처리 | §5.3, §5.4, §1.2 | `unwrap()`, `panic!` in lib, 문자열 에러, 내부 정보 노출 | 🚫⚠️ | rust-security-style.md §5 에러 처리와 정보 노출 |
-| **R-05** | 소유권 & 메모리 | §1.1, §2.1 | `.clone()` 남발, `static mut`, `std::Mutex` in async, mutable 과다 | 🚫⚠️ | — |
-| **R-06** | 제어 흐름 | §2.4, §2.1 | 중첩 깊이 >2, 수동 루프, `_` 패턴 남용, 복잡한 표현 | ⚠️💡 | — |
-| **R-07** | 추상화 & trait | §2.3, §1.1 | 과도한 제네릭, 테스트 편의 추상화, 3회 미만 추상화 도입 | 💡 | — |
-| **R-08** | 테스트 | §6 전체 | 에러 케이스 없음, 도메인 행동 미검증, 구현 세부 검증 | ⚠️💡 | **rust-test-style.md 전체** |
-| **R-09** | 보안 | §7 전체 | 하드코딩 시크릿, SAFETY 주석 없음, SQL 포맷 조합, unwrap in lib, JWT none 허용, BOLA, 역직렬화 미검증, 내부 정보 노출 | 🚫 | **rust-security-style.md §1~§12** |
+| 코드 | 카테고리 | rust-coding-style.md 근거 | 핵심 탐지 신호 | 분류 | 보완 규칙 |
+|------|----------|---------------------------|----------------|------|-----------|
+| **R-01** | 도메인 모델 | 핵심원칙§3, 설계§2, 설계§4, 네이밍 | primitive 직접 사용, RFC 430 위반, 접근권한 과다 공개, 동사 혼용 | ⚠️💡 | — |
+| **R-02** | 상태 & 모델링 | 설계§2, 설계§1(Tell Don't Ask), 경계조건(Invalid State) | bool 남용, invalid state 허용, wildcard match, Tell-Don't-Ask 위반 | 🚫⚠️ | — |
+| **R-03** | 경계 조건 | 경계 조건은 도메인의 일부다(전체) | `v[0]`, 0 나누기, match 완전성 위반, 에러를 정상 흐름으로 사용, None vs 빈컬렉션 혼용 | 🚫 | — |
+| **R-04** | 에러 처리 | 경계조건(unwrap 금지), Rust고유관례(에러 타입 레이어), 핵심원칙§2 | `unwrap()`, `Box<dyn Error>`, 레이어 미분리, 내부 정보 노출 | 🚫⚠️ | rust-security-style.md §5 |
+| **R-05** | 소유권 & 메모리 | 핵심원칙§1, 설계§1, 성능(N+1·clone) | clone() 남발, String 파라미터, std::Mutex in async, N+1 쿼리 | 🚫⚠️ | — |
+| **R-06** | 제어 흐름 | 설계§1(Early Return·Tell Don't Ask·조건 분해), 경계조건(match 완전성·에러 제어흐름 금지) | 중첩>2, wildcard 남용, 에러를 정상 분기로 사용 | ⚠️💡 | — |
+| **R-07** | 추상화 & trait | 설계§3(YAGNI), 설계§5(impl Trait), 핵심원칙§1 | 과도한 제네릭, 테스트 편의 추상화, impl Trait 미사용 | 💡 | — |
+| **R-08** | 테스트 | rust-test-style.md §1~§13 | 에러 케이스 없음, 도메인 행동 미검증, 구현 세부 검증 | ⚠️💡 | **rust-test-style.md 전체** |
+| **R-09** | 보안 | rust-security-style.md §1~§12 | 하드코딩 시크릿, SAFETY 없음, SQL 포맷, unwrap in lib, BOLA | 🚫 | **rust-security-style.md §1~§12** |
 
 ---
 
@@ -1043,7 +1043,7 @@ PR 체크리스트:
 | 파일 | 용도 | 로드 시점 |
 |------|------|-----------|
 | `CODE_REVIEW_RUST.md` | R-01~R-09 체크리스트 | 스킬 실행 시 항상 |
-| `../../rules/coding-style.md` | 도메인 중심 코딩 원칙 — R-01~R-09 **1차 판단 기준** | **STEP 2 분석 시작 전 로드 (1순위)** |
+| `../../rules/rust-coding-style.md` | 도메인 중심 Rust 코딩 원칙 — R-01~R-09 **1차 판단 기준** | **STEP 2 분석 시작 전 로드 (1순위)** |
 | `../../rules/rust-security-style.md` | 보안 규칙 — R-04·R-05·R-09 보완 기준 | **STEP 2 분석 시작 전 로드 (2순위)** |
 | `../../rules/rust-test-style.md` | 테스트 규칙 — R-08 보완 기준 | **STEP 2 분석 시작 전 로드 (3순위)** |
 | `SKILL.md` (이 파일) | 실행 지침 및 흐름 정의 | 커맨드 입력 시 |

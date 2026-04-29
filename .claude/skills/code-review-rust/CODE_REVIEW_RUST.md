@@ -59,26 +59,34 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 
 - 도메인 개념이 타입으로 표현되는가?
 - primitive(`String`, `i32`)를 직접 사용하지 않았는가?
-- 동일 개념에 여러 이름이 존재하지 않는가?
+- 동일 개념에 여러 이름이 존재하지 않는가? (`find_`/`get_`/`retrieve_` 혼용 금지)
 - 로직이 타입 내부에 캡슐화되어 있는가?
+- 함수·타입명이 RFC 430 네이밍 관례를 따르는가? (`UpperCamelCase`/`snake_case`/`SCREAMING_SNAKE_CASE`)
+- 접근 권한이 최소화되어 있는가? (`pub` 대신 `pub(crate)` / `pub(super)` 우선)
+- 공개 API(`pub fn`, `pub struct`, `pub trait`)에 `///` 문서 주석이 있는가?
 
 **2.2 패턴**
 
 - Value Object로 의미를 강제
 - Smart Constructor로 invariant 보장
+- Newtype 패턴으로 도메인 식별자 보호 (`UserId(i64)`, `OrderId(i64)`)
+- 접근 권한 표: `(기본)` 비공개 → `pub(super)` → `pub(crate)` → `pub` (실제로 필요할 때만)
 
 ### 3. 상태 & 모델링 `R-02`
 
 **3.1 체크**
 
 - 상태가 `enum`으로 표현되는가?
-- invalid state가 존재하지 않는가?
+- Invalid State가 타입으로 방지되는가? (enum variant에 데이터 부착)
 - 상태 전이가 명확히 정의되어 있는가?
+- Tell, Don't Ask 원칙이 적용되는가? (상태를 물어 외부에서 결정하지 않고 객체에 행동 위임)
+- `_ => {}` wildcard 패턴으로 새 variant를 조용히 무시하지 않는가?
 
 **3.2 패턴**
 
-- Enum State Machine
-- 상태 전이 메서드로 제한
+- Enum State Machine (variant에 데이터 부착: `Paid { paid_at, transaction_id }`)
+- 상태 전이 메서드로 제한 (`order.mark_as_paid(tx_id)`)
+- Tell Don't Ask: `if user.role == Admin { ... }` → `user.grant_access()?`
 
 ### 4. 경계 조건 & 에지 케이스 `R-03`
 
@@ -87,65 +95,83 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 - `Option` / `Result`로 상태를 표현했는가?
 - 경계값(빈 컬렉션, 0, 최대값, 오버플로우)이 안전하게 처리되는가?
 - 경계 입력이 검증되는가?
+- `match`가 모든 variant를 명시적으로 처리하는가? (`_ => {}` 남용 금지)
+- 에러를 정상 제어 흐름으로 사용하지 않는가? (`Err`로 정상 분기 표현 금지)
+- `None`과 빈 컬렉션이 명확히 구분되는가?
+- 컬렉션 반환 시 `None` 대신 빈 `Vec`를 반환하는가?
 
 **4.2 패턴**
 
 - Parse → Validate → Construct
 - Fail Fast
-- Boundary Validation
+- Exhaustive Match (wildcard 없이 모든 variant 명시)
+- 에러 vs 정상 분기 구분: `Ok(user)` → 정상, `Err(...)` → 실제 실패만
 
 ### 5. 에러 처리 `R-04`
 
 **5.1 체크**
 
 - `unwrap()`/`expect()`가 라이브러리 코드에 없는가?
-- 에러가 enum으로 정의되어 있는가?
-- 문자열 기반 에러가 아닌가?
+- 에러가 레이어별로 분리된 enum으로 정의되어 있는가? (`DomainError` / `AppError`)
+- 문자열 기반 에러(`Box<dyn Error>`, `String`)가 아닌가?
 - 에러가 도메인 의미를 가지는가?
+- 에러 응답에 내부 구현 정보(스택 트레이스, DB 에러)가 노출되지 않는가?
+- `thiserror`로 도메인 에러를 정의하고, `anyhow`는 바이너리 main에서만 사용하는가?
 
 **5.2 패턴**
 
-- `Result<T, DomainError>`
-- Explicit Error Model
+- `Result<T, DomainError>` (도메인 레이어)
+- `Result<T, AppError>` (컨트롤러 레이어, `thiserror` + `IntoResponse`)
+- `#[from]`으로 에러 레이어 전환, `#[source]`로 원인 분리·로그만 기록
 
 ### 6. 소유권 & 메모리 `R-05`
 
 **6.1 체크**
 
-- 불필요한 `clone()`이 없는가?
-- 참조(`&`, `&mut`)가 적절한가?
+- 불필요한 `clone()`이 없는가? (컴파일 오류 회피용 `clone` 금지)
+- 함수 파라미터가 `String` 대신 `&str`, `Vec<T>` 대신 `&[T]`를 사용하는가?
 - mutable 상태가 최소화되어 있는가?
+- async 컨텍스트에서 `std::sync::Mutex` 대신 `tokio::sync::Mutex` / `RwLock`을 사용하는가?
+- N+1 쿼리 패턴이 없는가? (반복문 내 DB 조회 → 배치 조회로 전환)
 
 **6.2 패턴**
 
-- Ownership 기반 설계
-- Immutable 우선 설계
+- 파라미터: `&str` / `&[T]` 우선 (호출자 선택권 보장)
+- 공유 상태: `Arc<T>` / `tokio::sync::RwLock<T>`
+- N+1 해결: `find_by_ids(&ids).await?` 배치 조회
 
 ### 7. 제어 흐름 `R-06`
 
 **7.1 체크**
 
 - `match`가 상태를 명확히 표현하는가?
-- `_` 패턴으로 의미를 숨기지 않는가?
+- `_ => {}` 패턴으로 의미를 숨기지 않는가?
 - 중첩 깊이가 2 이하인가?
+- Tell, Don't Ask 원칙이 적용되는가?
+- 복잡한 조건식이 의미 있는 변수로 분해되어 있는가?
+- 에러를 제어 흐름으로 사용하지 않는가? (정상 분기를 `Err`로 표현 금지)
 
 **7.2 패턴**
 
-- exhaustive match
-- early return
+- Exhaustive match (모든 variant 명시)
+- Early Return (조건을 함수 상단으로 올림)
+- 조건 분해: `let can_access = is_admin && (has_recent_activity || is_superuser);`
 
 ### 8. 추상화 & trait `R-07`
 
 **8.1 체크**
 
-- trait가 필요한 경우에만 사용되는가?
+- trait가 필요한 경우에만 사용되는가? (Rule of Three: 3회 반복 이후에 도입)
 - 제네릭이 과도하지 않은가?
 - 테스트 편의만을 위한 추상화가 아닌가?
+- 함수/메서드 파라미터에 `impl Trait`를 사용하는가? (구체 타입 대신)
+- 반환 타입에도 `impl Iterator` 등 `impl Trait`를 우선 사용하는가?
 
 **8.2 패턴**
 
-- 최소 추상화
-- 명시적 trait
+- 최소 추상화 (YAGNI — 지금 필요하지 않은 trait 금지)
+- `impl Trait` 파라미터: `fn send(sender: &impl NotificationSender, msg: &str)`
+- `impl Trait` 반환: `fn active_users(users: &[User]) -> impl Iterator<Item = &User>`
 
 ### 9. 테스트 `R-08`
 

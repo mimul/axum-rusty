@@ -2,7 +2,7 @@
 name: refactor-rust
 description: >
   /refactor-rust 커맨드로 실행되는 Rust 코드 리팩토링 스킬.
-  coding-style.md에서 도출된 R-R-01~08 도메인 중심 카탈로그를 기준으로,
+  rust-coding-style.md에서 도출된 R-R-01~08 도메인 중심 카탈로그를 기준으로,
   git worktree 격리 환경에서 코드 냄새를 탐지하고 우선순위 기반 계획을 수립한다.
   Before/After 비교를 먼저 제시하고 인간의 확인을 받은 뒤에만 변환을 적용한다.
   도메인 명확성, 의도를 드러내는 네이밍, 변화 용이성을 핵심 목표로 하며
@@ -14,7 +14,7 @@ description: >
 ## 스킬 개요
 
 이 스킬은 **`/refactor-rust` 커맨드가 입력될 때 자동으로 실행**된다.
-`REFACTOR_RUST.md` 카탈로그(R-R-01~R-R-08)와 **`coding-style.md`** 를 기준으로
+`REFACTOR_RUST.md` 카탈로그(R-R-01~R-R-08)와 **`rust-coding-style.md`** 를 기준으로
 리팩토링 계획을 수립한 뒤, **`rust-security-style.md`·`rust-test-style.md` 규칙을 분석 전 반드시 로드하여**
 리팩토링 전 과정에 적용한다.
 
@@ -234,14 +234,14 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 
 로드 순서:
 1. `REFACTOR_RUST.md` — R-R-01~R-R-08 도메인 중심 카탈로그 (탐지 기준)
-2. `.claude/rules/coding-style.md` — 도메인 중심 코딩 원칙 (분석 판단 기준)
+2. `.claude/rules/rust-coding-style.md` — 도메인 중심 코딩 원칙 (분석 판단 기준)
 3. `.claude/rules/rust-security-style.md` — 보안 규칙 §1~§12 (각 변환에 체크)
 5. `.claude/rules/rust-test-style.md` — 테스트 규칙 (커버리지·테스트 구조 확인)
 
 **`--scope` 옵션이 지정된 경우**: 해당 스코프에 매핑된 카탈로그 항목만 탐지한다.
 (아래 카탈로그 & 스코프 표 참조. `--scope security`는 R-R-02, R-R-06 + `[보안]` 태그 전체를 탐지한다.)
 
-#### coding-style.md 적용 항목
+#### rust-coding-style.md 적용 항목
 
 분석 중 아래 도메인 중심 원칙을 체크한다:
 
@@ -324,7 +324,7 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
   [위험도: 높음]
   • [R-R-XX 또는 보안/테스트 태그] [fn명 또는 위치]
     증상: [구체적 설명]
-    카탈로그: [R-R-XX] / coding-style.md: [§섹션]
+    카탈로그: [R-R-XX] / rust-coding-style.md: [§섹션]
     규칙: [rust-security-style.md §섹션 또는 rust-test-style.md §섹션] (해당 시)
 
   [위험도: 중간]
@@ -341,32 +341,32 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 
 탐지 기준표:
 
-| 코드 냄새 | 증상 | 카탈로그 | coding-style.md | 추가 적용 규칙 |
+| 코드 냄새 | 증상 | 카탈로그 | rust-coding-style.md | 추가 적용 규칙 |
 |-----------|------|----------|-----------------|----------------|
-| 의미 없는 이름 | `data`, `util`, `manager`, `tmp` 등 모호한 이름 | R-R-01 | §1.2, §4.2 | — |
-| 매직 넘버 | `8`, `72`, `100` 리터럴 직접 사용, 의미 불명 | R-R-01 | §1.2, §4 | — |
-| 구현 방식 이름 | `StringParser`, `ListProcessor` — "어떻게"가 이름에 드러남 | R-R-01 | §1.2, §4.1 | — |
-| 불필요한 축약어 | `usr`, `cnt`, `idx` — 의도 불명확 | R-R-01 | §4.2 | — |
-| 동일 개념 여러 이름 | `user_id` / `userId` / `uid` 혼재 | R-R-01 | §4.2 | — |
-| Primitive 집착 | `u64` / `String`으로 도메인 개념 직접 표현 | R-R-02 | §1.3, §2.2 | rust-security-style.md §3 입력 검증 |
-| 빈약한 도메인 모델 | 도메인 로직이 Service에만 있고 엔티티는 데이터만 보유 | R-R-02 | §2.2 | — |
-| Smart Constructor 부재 | 잘못된 값을 생성 시점에 막지 않음 (유효성 검사 없는 `new`) | R-R-02 | §1.3 | — |
-| Bool 플래그 조합 | `is_paid + is_shipped` — 불가능한 조합이 타입으로 방지 안 됨 | R-R-03 | §2.4, §2.2 | — |
-| 문자열 상태 표현 | `status == "active"` 문자열 비교 | R-R-03 | §2.4 | — |
-| 깊은 중첩 | `if` / `match` 3단계 이상, Early Return 미사용 | R-R-03 | §2.1 | — |
-| 거대 함수 | 50줄 초과, 여러 책임(집계·필터·포맷·저장) 혼재 | R-R-04 | §2.1 | — |
-| 명령형 루프 | `for` + 수동 `push` — `filter`/`map`/`fold`로 전환 가능 | R-R-04 | §2.1, §1.4 | — |
-| 중복 코드 | 동일 패턴 3회 이상 반복 — 추상화 기회 (Rule of Three 충족) | R-R-05 | §2.3, §1.1 | — |
-| 성급한 추상화 | 단 한 곳에서만 쓰이는 Trait / 제네릭 — 제거 대상 | R-R-05 | §2.3 | — |
-| unwrap/expect 남용 | 라이브러리 코드에 `.unwrap()` / `.expect()` | R-R-06 | §5.4 | rust-security-style.md §5 에러 처리와 정보 노출 |
-| 인덱스 무방비 접근 | `items[0]`, `map["key"]` 직접 인덱싱 — 패닉 위험 | R-R-06 | §5.4 | — |
-| 침묵하는 실패 | `.unwrap_or_default()`, 의미 없는 기본값으로 실패 은폐 | R-R-06 | §5.3, §5.4 | — |
-| 문자열/Box 에러 타입 | `Box<dyn Error>`, `String`으로 에러 의미 소실 | R-R-06 | §5.3 | rust-security-style.md §5 에러 처리와 정보 노출 |
-| Clone 남용 | `.clone()`으로 컴파일 오류 회피 — 소유권 설계 재검토 신호 | R-R-07 | §1.1 | — |
-| String 파라미터 강제 | `fn f(s: String)` — `&str`이면 충분한 경우 | R-R-07 | §2.1 | — |
-| Vec 파라미터 강제 | `fn f(v: Vec<T>)` — `&[T]`이면 충분한 경우 | R-R-07 | §2.1 | — |
-| flat 모듈 구조 | `src/` 직하 10개+, 기능 단위(handlers/models/services) flat 구성 | R-R-08 | §1.3, §2.1 | — |
-| utils.rs 비즈니스 로직 | `utils.rs`에 도메인 계산·규칙 혼재 | R-R-08 | §1.3 | — |
+| 의미 없는 이름 | `data`, `util`, `manager`, `tmp` 등 모호한 이름 | R-R-01 | 핵심원칙§2, 네이밍 섹션 | — |
+| 매직 넘버 | `8`, `72`, `100` 리터럴 직접 사용, 의미 불명 | R-R-01 | 핵심원칙§2, 네이밍 섹션 | — |
+| 구현 방식 이름 | `StringParser`, `ListProcessor` — "어떻게"가 이름에 드러남 | R-R-01 | 핵심원칙§2, 네이밍 섹션 | — |
+| 불필요한 축약어 | `usr`, `cnt`, `idx` — 의도 불명확 | R-R-01 | 네이밍 섹션 | — |
+| 동일 개념 여러 이름 | `user_id` / `userId` / `uid` 혼재 | R-R-01 | 네이밍 섹션 | — |
+| Primitive 집착 | `u64` / `String`으로 도메인 개념 직접 표현 | R-R-02 | 핵심원칙§3, 설계§2 | rust-security-style.md §3 입력 검증 |
+| 빈약한 도메인 모델 | 도메인 로직이 Service에만 있고 엔티티는 데이터만 보유 | R-R-02 | 설계§2 | — |
+| Smart Constructor 부재 | 잘못된 값을 생성 시점에 막지 않음 (유효성 검사 없는 `new`) | R-R-02 | 핵심원칙§3 | — |
+| Bool 플래그 조합 | `is_paid + is_shipped` — 불가능한 조합이 타입으로 방지 안 됨 | R-R-03 | 설계§1(Tell Don't Ask), 설계§2 | — |
+| 문자열 상태 표현 | `status == "active"` 문자열 비교 | R-R-03 | 설계§1(Tell Don't Ask) | — |
+| 깊은 중첩 | `if` / `match` 3단계 이상, Early Return 미사용 | R-R-03 | 설계§1(Early Return) | — |
+| 거대 함수 | 50줄 초과, 여러 책임(집계·필터·포맷·저장) 혼재 | R-R-04 | 설계§1 | — |
+| 명령형 루프 | `for` + 수동 `push` — `filter`/`map`/`fold`로 전환 가능 | R-R-04 | 설계§1, 핵심원칙§4 | — |
+| 중복 코드 | 동일 패턴 3회 이상 반복 — 추상화 기회 (Rule of Three 충족) | R-R-05 | 설계§3(YAGNI), 핵심원칙§1 | — |
+| 성급한 추상화 | 단 한 곳에서만 쓰이는 Trait / 제네릭 — 제거 대상 | R-R-05 | 설계§3(YAGNI) | — |
+| unwrap/expect 남용 | 라이브러리 코드에 `.unwrap()` / `.expect()` | R-R-06 | 경계조건(unwrap 금지) | rust-security-style.md §5 에러 처리와 정보 노출 |
+| 인덱스 무방비 접근 | `items[0]`, `map["key"]` 직접 인덱싱 — 패닉 위험 | R-R-06 | 경계조건(unwrap 금지) | — |
+| 침묵하는 실패 | `.unwrap_or_default()`, 의미 없는 기본값으로 실패 은폐 | R-R-06 | 경계조건(None vs 빈컬렉션·unwrap 금지) | — |
+| 문자열/Box 에러 타입 | `Box<dyn Error>`, `String`으로 에러 의미 소실 | R-R-06 | 경계조건(Invalid State), Rust고유관례(에러 타입 레이어) | rust-security-style.md §5 에러 처리와 정보 노출 |
+| Clone 남용 | `.clone()`으로 컴파일 오류 회피 — 소유권 설계 재검토 신호 | R-R-07 | 핵심원칙§1 | — |
+| String 파라미터 강제 | `fn f(s: String)` — `&str`이면 충분한 경우 | R-R-07 | 설계§1 | — |
+| Vec 파라미터 강제 | `fn f(v: Vec<T>)` — `&[T]`이면 충분한 경우 | R-R-07 | 설계§1 | — |
+| flat 모듈 구조 | `src/` 직하 10개+, 기능 단위(handlers/models/services) flat 구성 | R-R-08 | 핵심원칙§3, 설계§1 | — |
+| utils.rs 비즈니스 로직 | `utils.rs`에 도메인 계산·규칙 혼재 | R-R-08 | 핵심원칙§3 | — |
 | 도메인 경계 미구분 | `models.rs`에 모든 모델, `services.rs`에 모든 로직 일괄 배치 | R-R-08 | §1.3, §2.1 | — |
 | unsafe SAFETY 주석 누락 | `unsafe` 블록에 `// SAFETY:` 없음 | — | — | **rust-security-style.md §6 unsafe 코드** |
 | 비밀 정보 하드코딩 | API 키·토큰·비밀번호 소스코드 직접 포함 | — | — | **rust-security-style.md §7 시크릿 관리** |
@@ -390,7 +390,7 @@ cargo clippy --manifest-path "$MANIFEST" -- -D warnings 2>&1 | tee "$WORKTREE_PA
 │ [R-R-XX 또는 보안/테스트] [제목]           │
 │   위치: [fn명 / struct명]                  │
 │   변환: [Before 패턴] → [After 패턴]       │
-│   근거: coding-style.md §[섹션]            │
+│   근거: rust-coding-style.md §[섹션]            │
 │   검증: cargo test [테스트명]              │
 └───────────────────────────────────────────┘
 
@@ -447,7 +447,7 @@ Claude는 **절대 먼저 코드를 변경하지 않는다.**
 📍 대상:   [fn명 / struct명 / 파일명]
 📖 이유:   [구체적 이유 1~2줄]
 ⚠️  위험도: [낮음 / 중간 / 높음]  ※ 높음·보안 이슈는 "전체 적용"에도 개별 확인 필수
-📐 근거:   coding-style.md §[섹션번호] [섹션명]
+📐 근거:   rust-coding-style.md §[섹션번호] [섹션명]
 📏 규칙:   [해당 시 — rust-security-style.md §섹션 또는 rust-test-style.md §섹션]
 
 ─── BEFORE ──────────────────────────────
@@ -625,7 +625,7 @@ PR 체크리스트:
 
 ## 적용된 리팩토링 ([N]건)
 
-| 항목 | coding-style.md | 변환 내용 | 파일 |
+| 항목 | rust-coding-style.md | 변환 내용 | 파일 |
 |------|-----------------|-----------|------|
 | [R-R-XX] [제목] | §[섹션] | [Before] → [After] | [파일명] |
 
@@ -633,7 +633,7 @@ PR 체크리스트:
 ### [R-R-XX] [제목]
 - 변경 전: [문제 1줄]
 - 변경 후: [해결 1줄]
-- coding-style.md 근거: §[섹션] [섹션명]
+- rust-coding-style.md 근거: §[섹션] [섹션명]
 - 효과: [도메인 가시성·안전성·가독성]
 
 ## 보안·테스트 체크
@@ -661,16 +661,16 @@ PR 체크리스트:
 
 ## 카탈로그 & 스코프 빠른 참조 (`/refactor-rust --catalog`)
 
-| 코드 | 제목 | `--scope` | coding-style.md | 핵심 변환 | 연계 규칙 |
+| 코드 | 제목 | `--scope` | rust-coding-style.md | 핵심 변환 | 연계 규칙 |
 |------|------|-----------|-----------------|-----------|-----------|
-| **R-R-01** | 의도를 드러내는 네이밍 | `naming` | §1.2, §4 | 매직 넘버 → const, 의도 표현 이름 | — |
-| **R-R-02** | 빈약한 도메인 모델 개선 | `domain` | §1.3, §2.2 | primitive → Newtype + Smart Constructor | rust-security-style.md §3 입력 검증 |
-| **R-R-03** | 상태 & 제어 흐름 명확화 | `state` | §2.4, §2.2 | bool 플래그 → Enum 상태 머신, Early Return | — |
-| **R-R-04** | 함수 분해 & 단일 책임 | `function` | §2.1, §1.4 | 거대 함수 분해, 명령형 루프 → Iterator | — |
-| **R-R-05** | 중복 제거 & 적시 추상화 | `abstraction` | §2.3, §1.1 | 3회 반복 후 Trait 추출 (Rule of Three) | — |
-| **R-R-06** | 경계 조건 & 에러 처리 명시화 | `boundary` | §5, §1.2 | unwrap → thiserror + ?, 명시적 경계 | rust-security-style.md §5 에러 처리와 정보 노출 |
-| **R-R-07** | 소유권 & 변경 용이성 | `ownership` | §1.1, §2.1 | `String` → `&str`, clone 제거 | — |
-| **R-R-08** | 모듈 구조 도메인화 | `module` | §1.3, §2.1 | flat → domain/infra/shared 계층 분리 | — |
+| **R-R-01** | 의도를 드러내는 네이밍 | `naming` | 핵심원칙§2, 네이밍 섹션 | 매직 넘버 → const, 의도 표현 이름 | — |
+| **R-R-02** | 빈약한 도메인 모델 개선 | `domain` | 핵심원칙§3, 설계§2 | primitive → Newtype + Smart Constructor | rust-security-style.md §3 입력 검증 |
+| **R-R-03** | 상태 & 제어 흐름 명확화 | `state` | 설계§1(Tell Don't Ask·Early Return), 설계§2 | bool 플래그 → Enum 상태 머신, Early Return | — |
+| **R-R-04** | 함수 분해 & 단일 책임 | `function` | 설계§1, 핵심원칙§4 | 거대 함수 분해, 명령형 루프 → Iterator | — |
+| **R-R-05** | 중복 제거 & 적시 추상화 | `abstraction` | 설계§3(YAGNI), 핵심원칙§1 | 3회 반복 후 Trait 추출 (Rule of Three) | — |
+| **R-R-06** | 경계 조건 & 에러 처리 명시화 | `boundary` | 경계 조건은 도메인의 일부다(전체), 핵심원칙§2 | unwrap → thiserror + ?, 명시적 경계 | rust-security-style.md §5 에러 처리와 정보 노출 |
+| **R-R-07** | 소유권 & 변경 용이성 | `ownership` | 핵심원칙§1, 설계§1, 성능 섹션(N+1·clone) | `String` → `&str`, clone 제거 | — |
+| **R-R-08** | 모듈 구조 도메인화 | `module` | 핵심원칙§3, 설계§4(접근권한 최소화) | flat → domain/infra/shared 계층 분리 | — |
 | **[보안]** | 보안 이슈 전체 | `security` | §1~§12 | 🚫 하드코딩 시크릿·SAFETY 주석·SQL 포맷·unwrap·JWT none·Newtype·BOLA·역직렬화·에러 노출·Argon2id·SSRF — ⚠️ 상수 시간 비교·Zeroizing·Rate Limiting·감사 로그 | **rust-security-style.md §1~§12 우선순위 기반** |
 
 ---
@@ -687,8 +687,8 @@ PR 체크리스트:
 🚫 에러 메시지 / 코드 변경 (모니터링 연계 영향)
 🚫 serde 필드명 변경 (직렬화 호환성 파괴)
 🚫 여러 리팩토링 항목을 단일 커밋으로 묶기
-🚫 동일 패턴이 3번 미만인데 추상화 도입 (coding-style.md §2.3 Rule of Three 위반)
-🚫 도메인 개념 없는 범용 util 추가 (coding-style.md §1.3 위반)
+🚫 동일 패턴이 3번 미만인데 추상화 도입 (rust-coding-style.md 설계§3(YAGNI) Rule of Three 위반)
+🚫 도메인 개념 없는 범용 util 추가 (rust-coding-style.md 핵심원칙§3 위반)
 ```
 
 ---
@@ -698,7 +698,7 @@ PR 체크리스트:
 | 파일 | 용도 | 로드 시점 |
 |------|------|-----------|
 | `REFACTOR_RUST.md` | R-R-01~R-R-08 도메인 중심 카탈로그 | **STEP 2 분석 시작 전 로드** |
-| `../../rules/coding-style.md` | 도메인 중심 코딩 원칙 (분석 기준) | **STEP 2 분석 시작 전 로드** |
+| `../../rules/rust-coding-style.md` | 도메인 중심 코딩 원칙 (분석 기준) | **STEP 2 분석 시작 전 로드** |
 | `../../rules/rust-security-style.md` | 보안 규칙 §1~§12 (각 변환에 체크) | **STEP 2 분석 시작 전 로드** |
 | `../../rules/rust-test-style.md` | 테스트 규칙 | **STEP 2 분석 시작 전 로드** |
 | `SKILL.md` (이 파일) | 실행 지침 및 흐름 정의 | 커맨드 입력 시 |
