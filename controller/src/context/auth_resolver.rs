@@ -5,7 +5,7 @@ use crate::module::usecase_module::AppState;
 use axum::extract::{Request, State};
 use axum::{middleware::Next, response::IntoResponse};
 use common::auth::webs::{get_auth_header, get_cookie_from_headers};
-use jsonwebtoken::{decode, DecodingKey, Validation};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use log::{error, info};
 use shaku::HasComponent;
 use std::sync::Arc;
@@ -38,10 +38,12 @@ pub async fn auth(
         access_token: String,
         state: &AppState,
     ) -> Result<UserView, AppError> {
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.validate_exp = true;
         let claims = decode::<TokenClaims>(
             access_token.as_str(),
             &DecodingKey::from_secret(state.config.jwt_secret.as_ref()),
-            &Validation::default(),
+            &validation,
         );
 
         match claims {
