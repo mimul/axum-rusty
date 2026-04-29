@@ -29,7 +29,8 @@ impl Modify for SecurityAddon {
         openapi.components.as_mut().unwrap().add_security_scheme(
             "Authorization",
             SecurityScheme::Http(
-                HttpBuilder::new() .scheme(HttpAuthScheme::Bearer)
+                HttpBuilder::new()
+                    .scheme(HttpAuthScheme::Bearer)
                     .bearer_format("JWT")
                     .build(),
             ),
