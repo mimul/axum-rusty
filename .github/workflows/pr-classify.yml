@@ -1,0 +1,287 @@
+name: PR 분류 — One-Way / Two-Way Door
+
+# ──────────────────────────────────────────────────────────────────
+# PR이 열리면 즉시 변경 파일을 분석해 One-Way / Two-Way Door로 분류한다.
+#
+# One-Way Door (인간 리뷰 필수):
+#   되돌려도 피해가 잔존하는 변경 — DB 마이그레이션, 인증, 의존성, CI/CD 등
+#
+# Two-Way Door (Claude 자동 리뷰 + 병합):
+#   One-Way Door가 아닌 모든 변경
+#
+# 분류 결과는 라벨(one-way-door / two-way-door)로 부착되며,
+# claude-review.yml 이 ci-passed 수신 후 라벨을 읽어 경로를 결정한다.
+# ──────────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+concurrency:
+  group: classify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  classify:
+    name: One-Way / Two-Way Door 분류
+    # Bot 커밋(Claude 자동 수정)으로 인한 재트리거 방지
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    outputs:
+      door_type: ${{ steps.door.outputs.type }}
+      reason:    ${{ steps.door.outputs.reason }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── 라벨 사전 보장 ──────────────────────────────────────────
+      - name: 필요 라벨 생성 (없으면 신규 생성)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [
+              { name: 'one-way-door',    color: 'D93F0B', description: '되돌리기 어려운 변경 — 인간 리뷰 필요' },
+              { name: 'two-way-door',    color: '0075CA', description: '자동 리뷰 가능 — Claude 처리' },
+              { name: 'claude-reviewed', color: '6E5494', description: 'Claude 자동 리뷰 완료' },
+            ];
+            for (const l of labels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner, repo: context.repo.repo, name: l.name
+                });
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner, repo: context.repo.repo,
+                    name: l.name, color: l.color, description: l.description
+                  });
+                }
+              }
+            }
+
+      # ── One-Way / Two-Way 분류 ─────────────────────────────────
+      - name: 변경 파일 분석 및 분류
+        id: door
+        shell: bash
+        run: |
+          BASE="${{ github.base_ref }}"
+          CHANGED=$(git diff --name-only "origin/${BASE}...HEAD" 2>/dev/null || echo "")
+          echo "::group::변경 파일"
+          echo "$CHANGED"
+          echo "::endgroup::"
+
+          ONE_WAY=false
+          declare -a REASONS
+
+          while IFS= read -r f; do
+            [[ -z "$f" ]] && continue
+
+            # ① DB 스키마 마이그레이션
+            #    컬럼 삭제·타입 변경은 프로덕션 적용 후 DDL 롤백 불가, 데이터 손실 위험
+            if [[ "$f" =~ ^migrations/ ]]; then
+              ONE_WAY=true; REASONS+=("DB 마이그레이션")
+            fi
+
+            # ② Row-Level Security (RLS) 정책
+            if grep -qiE 'row.level.security|enable rls|create policy' "$f" 2>/dev/null; then
+              ONE_WAY=true; REASONS+=("RLS 정책 변경")
+            fi
+
+            # ③ 인증·인가 (인증 바이패스·세션 누설은 revert해도 피해 잔존)
+            if [[ "$f" =~ ^src/common/(auth|session|jwt|token|cookie|middleware) ]]; then
+              ONE_WAY=true; REASONS+=("인증·인가 코드")
+            fi
+
+            # ④ 횡단적 관심사 (미들웨어, 에러 처리 전략, 로깅 기반)
+            if [[ "$f" =~ ^src/common/ ]]; then
+              ONE_WAY=true; REASONS+=("공통 횡단 모듈(src/common/)")
+            fi
+
+            # ⑤ 인프라/IaC/CI-CD 배포 시스템
+            if [[ "$f" =~ ^\.github/workflows/ ]]; then
+              ONE_WAY=true; REASONS+=("CI/CD 워크플로우")
+            fi
+
+            # ⑥ 기반 라이브러리 추가·교체 (프레임워크, ORM, 인증, AI 기반 등)
+            #    Major 업데이트 또는 신규 의존성 — Cargo.toml 변경
+            if [[ "$f" == "Cargo.toml" ]]; then
+              ONE_WAY=true; REASONS+=("Cargo.toml 의존성 변경")
+            fi
+
+            # ⑦ DB 인프라 설정 (Docker, 초기화 스크립트)
+            if [[ "$f" =~ ^database/ ]]; then
+              ONE_WAY=true; REASONS+=("DB 인프라 설정")
+            fi
+
+            # ⑧ 아키텍처 변경 신호: 공개 모듈 인터페이스(lib.rs / mod.rs)
+            if [[ "$f" =~ (lib|mod)\.rs$ ]] && \
+               [[ "$f" =~ ^src/(domain|infra|controller|usecase)/ ]]; then
+              ONE_WAY=true; REASONS+=("공개 모듈 인터페이스(${f})")
+            fi
+
+            # ⑨ 관리 서비스·모노리포 설정 변경
+            if [[ "$f" =~ ^(infra|deploy|k8s|terraform)/ ]] && \
+               [[ "$f" =~ \.(tf|hcl|yaml|yml)$ ]]; then
+              ONE_WAY=true; REASONS+=("관리 서비스/IaC 설정")
+            fi
+
+          done <<< "$CHANGED"
+
+          # 브랜치 네이밍 힌트: 명시적 Two-Way Door 브랜치
+          BRANCH="${{ github.head_ref }}"
+          if [[ "$BRANCH" =~ ^(fix/cr-|feature/refactor-) ]] && [[ "$ONE_WAY" == "false" ]]; then
+            echo "type=two-way" >> "$GITHUB_OUTPUT"
+            echo "reason=리팩토링/CR 수정 브랜치 (${BRANCH})" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$ONE_WAY" == "true" ]]; then
+            UNIQUE=$(printf '%s\n' "${REASONS[@]}" | sort -u | tr '\n' ', ' | sed 's/, $//')
+            echo "type=one-way"  >> "$GITHUB_OUTPUT"
+            echo "reason=${UNIQUE}" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=two-way"  >> "$GITHUB_OUTPUT"
+            echo "reason=자동 리뷰 가능 범위" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── 이전 Door 라벨 정리 후 새 라벨 부착 ──────────────────────
+      - name: Door 라벨 갱신
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const doorType = '${{ steps.door.outputs.type }}';
+            const toAdd    = doorType === 'one-way' ? 'one-way-door' : 'two-way-door';
+            const toRemove = doorType === 'one-way' ? 'two-way-door' : 'one-way-door';
+
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, name: toRemove
+              });
+            } catch (_) {}
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, labels: [toAdd]
+            });
+
+      # ────────────────────────────────────────────────────────────
+      # One-Way Door: PR 코멘트 + Slack 리뷰어 알림
+      # ────────────────────────────────────────────────────────────
+      - name: "[One-Way] PR 코멘트 — 인간 리뷰 필요"
+        if: steps.door.outputs.type == 'one-way'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const reason = `${{ steps.door.outputs.reason }}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                '## 🚪 One-Way Door — 인간 리뷰 필요',
+                '',
+                `**분류 이유**: ${reason}`,
+                '',
+                '이 PR은 되돌려도 피해가 잔존하거나 광범위한 영향을 미치는 변경을 포함합니다.',
+                '**담당 리뷰어의 직접 승인 후 병합**해 주세요.',
+                '',
+                '> ⚠️ Claude 자동 리뷰·자동 병합이 비활성화됩니다.',
+                '> Slack 리뷰어 채널로 알림이 발송되었습니다.',
+              ].join('\n')
+            });
+
+      - name: "[One-Way] Slack — 리뷰어 채널 알림"
+        if: steps.door.outputs.type == 'one-way'
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "channel": "C9LDU960J",
+              "text": "🚪 One-Way Door PR 리뷰 요청 (#fittobe)",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": { "type": "plain_text", "text": "🚪 One-Way Door PR — 인간 리뷰 필요" }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*PR*\n<${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }} ${{ github.event.pull_request.title }}>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*작성자*\n`${{ github.event.pull_request.user.login }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*분류 이유*\n${{ steps.door.outputs.reason }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*브랜치*\n`${{ github.head_ref }}` → `${{ github.base_ref }}`"
+                    }
+                  ]
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "📌 채널: *#fittobe* | 저장소: `${{ github.repository }}`"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": { "type": "plain_text", "text": "PR 리뷰하기" },
+                      "url": "${{ github.event.pull_request.html_url }}",
+                      "style": "primary"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_REVIEWER_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      # ────────────────────────────────────────────────────────────
+      # Two-Way Door: 자동 리뷰 예정 안내 (PR 최초 오픈 시만)
+      # ────────────────────────────────────────────────────────────
+      - name: "[Two-Way] PR 코멘트 — 자동 리뷰 예정 안내"
+        if: |
+          steps.door.outputs.type == 'two-way' &&
+          github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                '## ✅ Two-Way Door — Claude 자동 리뷰 예정',
+                '',
+                'CI 검사 통과 후 **Claude가 Rust 코드 리뷰 및 품질 수정을 자동으로 수행**합니다.',
+                '🚫 Blocking 이슈가 없으면 PR이 자동 병합(squash)됩니다.',
+                '',
+                '| 단계 | 상태 |',
+                '|------|------|',
+                '| ① CI 검사 (fmt / clippy / security / test) | ⏳ 진행 중 |',
+                '| ② Claude 코드 리뷰 & 자동 수정 | ⏳ CI 완료 후 시작 |',
+                '| ③ 자동 병합 (squash) | ⏳ 리뷰 완료 후 |',
+              ].join('\n')
+            });
