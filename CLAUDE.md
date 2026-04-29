@@ -150,7 +150,7 @@ type: feat | fix | refactor | test | docs | chore
 
 ## Claude Code 스킬
 
-### Rust 전용
+### 프로젝트 전용
 
 | 커맨드 | 용도 |
 |--------|------|
