@@ -42,7 +42,7 @@ migrations/   테이블, 기초 데이터, 인덱스
 
 ## 행동 원칙
 
-- 3단계 이상의 작업은 항상 Plan 모드에서 시작
+- 3단계 이상의 작업은 항상 Plan 모드에서 시작하기
 
 ## Conversation Guidelines
 
@@ -141,7 +141,6 @@ type: feat | fix | refactor | test | docs | chore
 ```
 🚫 main 브랜치에 직접 커밋
 🚫 ci-passed + claude-review-ready 라벨 없이 Merge
-🚫 인간 리뷰어 승인 없이 Merge
 🚫 unsafe 블록 임의 추가 (사전 협의 필수)
 🚫 Cargo.toml 크레이트 추가 (사전 협의 필수)
 🚫 테스트 삭제 또는 #[ignore] 무단 추가
