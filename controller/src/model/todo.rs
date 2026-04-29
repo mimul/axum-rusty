@@ -60,8 +60,12 @@ impl TryFrom<JsonCreateTodo> for CreateTodo {
 
     fn try_from(jc: JsonCreateTodo) -> Result<Self, Self::Error> {
         Ok(CreateTodo {
-            title: jc.title.ok_or_else(|| AppError::Error("`title` is required".to_string()))?,
-            description: jc.description.ok_or_else(|| AppError::Error("`description` is required".to_string()))?,
+            title: jc
+                .title
+                .ok_or_else(|| AppError::Error("`title` is required".to_string()))?,
+            description: jc
+                .description
+                .ok_or_else(|| AppError::Error("`description` is required".to_string()))?,
         })
     }
 }
@@ -124,9 +128,12 @@ impl JsonUpsertTodoContents {
     pub fn try_to_view(self, id: String) -> Result<UpsertTodoView, AppError> {
         Ok(UpsertTodoView::new(
             id,
-            self.title.ok_or_else(|| AppError::Error("`title` is required".to_string()))?,
-            self.description.ok_or_else(|| AppError::Error("`description` is required".to_string()))?,
-            self.status_code.ok_or_else(|| AppError::Error("`statusCode` is required".to_string()))?,
+            self.title
+                .ok_or_else(|| AppError::Error("`title` is required".to_string()))?,
+            self.description
+                .ok_or_else(|| AppError::Error("`description` is required".to_string()))?,
+            self.status_code
+                .ok_or_else(|| AppError::Error("`statusCode` is required".to_string()))?,
         ))
     }
 }
