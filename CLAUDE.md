@@ -42,7 +42,7 @@ migrations/   테이블, 기초 데이터, 인덱스
 
 ## 행동 원칙
 
-- 3단계 이상의 작업은 항상 Plan 모드에서 시작
+- 3단계 이상의 작업은 항상 Plan 모드에서 시작하기
 
 ## Conversation Guidelines
 
