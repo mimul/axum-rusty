@@ -327,6 +327,14 @@ jobs:
                gh pr edit ${{ github.event.pull_request.number }} --add-label "claude-reviewed"
                ```
 
+      - name: 자동 병합 활성화 (squash) — 수정 커밋 유무 무관
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --auto --squash \
+            --repo "${{ github.repository }}"
+
   # ────────────────────────────────────────────────────────────────
   # Job 4: Two-Way Door — 봇 커밋 감지 시 자동 병합
   #         Claude 수정 커밋 → CI 재실행 → ci-passed → 이 job 실행
