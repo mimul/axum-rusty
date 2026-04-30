@@ -2,10 +2,7 @@
 name: rust-test-style
 description: >
   Rust 프로젝트의 테스트 철학·전략·규칙을 정의한 권위 문서.
-  /test-rust 스킬의 1차 판단 기준으로 사용되며,
-  단위·통합·DB·HTTP API 테스트의 작성 방식, 모킹 경계,
-  네이밍, Assertion 스타일, Flaky 테스트 처리,
-  Property-Based Testing(proptest), PR Red Flags를 포함한다.
+  /test-rust 스킬의 1차 판단 기준으로 사용되며, 단위·통합·DB·HTTP API 테스트의 작성 방식, 모킹 경계, 네이밍, Assertion 스타일, Flaky 테스트 처리, Property-Based Testing(proptest), PR Red Flags를 포함한다.
   새 테스트 작성, 기존 테스트 리뷰, Mockist→Classicist 마이그레이션 시 참조한다.
 ---
 
