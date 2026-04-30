@@ -168,7 +168,6 @@ type: feat | fix | refactor | test | docs | chore
 | 커맨드 | 용도 |
 |--------|------|
 | `/plan` | 기능 구현 전 요구사항 분석 및 단계별 계획 수립 |
-| `/security-review` | 보안 취약점 점검 |
 | `/test-coverage` | 테스트 커버리지 측정 및 개선 |
 | `/update-docs` | 문서 및 코드맵 업데이트 |
 | `/update-codemaps` | 코드맵 전용 업데이트 |
