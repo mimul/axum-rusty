@@ -10,7 +10,7 @@ use std::sync::Arc;
 async fn main() -> anyhow::Result<()> {
     log4rs::init_file("common/src/config/log4rs.yaml", Default::default())?;
     dotenv().ok();
-    let config = ApplicationConfig::init();
+    let config = ApplicationConfig::try_init()?;
     info!("main: config={:?}", config);
 
     let pool = create_pool(&config).await?;

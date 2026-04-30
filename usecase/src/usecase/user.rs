@@ -54,7 +54,7 @@ impl IUserUseCase for UserUseCase {
 
     async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView> {
         // bcrypt::hash는 CPU-blocking → spawn_blocking으로 tokio worker thread 분리
-        let password = source.password.clone();
+        let password = source.password;
         let hashed_password: String =
             tokio::task::spawn_blocking(move || bcrypt::hash(&password, BCRYPT_COST))
                 .await
@@ -97,7 +97,7 @@ impl IUserUseCase for UserUseCase {
             })?;
 
         // bcrypt::verify는 CPU-blocking → spawn_blocking으로 tokio worker thread 분리
-        let input_password = source.password.clone();
+        let input_password = source.password;
         let stored_hash = user.password.clone();
         let login_result: bool =
             tokio::task::spawn_blocking(move || bcrypt::verify(&input_password, &stored_hash))

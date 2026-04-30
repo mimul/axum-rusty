@@ -5,7 +5,7 @@ use crate::module::usecase_module::AppState;
 use axum::extract::{Request, State};
 use axum::{middleware::Next, response::IntoResponse};
 use common::auth::webs::{get_auth_header, get_cookie_from_headers};
-use jsonwebtoken::{decode, DecodingKey, Validation};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use log::{error, info};
 use shaku::HasComponent;
 use std::sync::Arc;
@@ -23,47 +23,39 @@ pub async fn auth(
     info!("auth: access_token={:?}", access_token);
     log::logger().flush();
 
-    match authorize_current_user(access_token, &state).await {
-        Ok(current_user) => {
-            req.extensions_mut().insert(current_user);
-            return Ok(next.run(req).await);
-        }
-        Err(err) => {
+    let current_user = authorize_current_user(access_token, &state)
+        .await
+        .map_err(|err| {
             error!("error authorizing user: {:?}", err);
-            return Err(InvalidJwt(err.to_string()));
-        }
-    }
+            InvalidJwt(err.to_string())
+        })?;
+    req.extensions_mut().insert(current_user);
+    Ok(next.run(req).await)
+}
 
-    async fn authorize_current_user(
-        access_token: String,
-        state: &AppState,
-    ) -> Result<UserView, AppError> {
-        let claims = decode::<TokenClaims>(
-            access_token.as_str(),
-            &DecodingKey::from_secret(state.config.jwt_secret.as_ref()),
-            &Validation::default(),
-        );
+async fn authorize_current_user(
+    access_token: String,
+    state: &AppState,
+) -> Result<UserView, AppError> {
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.validate_exp = true;
+    let claims = decode::<TokenClaims>(
+        access_token.as_str(),
+        &DecodingKey::from_secret(state.config.jwt_secret.as_ref()),
+        &validation,
+    )
+    .map_err(|err| {
+        error!("Error decoding token: {:?}", err);
+        InvalidJwt(err.to_string())
+    })?;
 
-        match claims {
-            Ok(claims) => {
-                let user_id = claims.claims.sub;
-                let uc: Arc<dyn IUserUseCase> = state.module.resolve();
-                let user_view = uc.get_user(user_id).await;
-                match user_view {
-                    Ok(user_view) => match user_view {
-                        Some(uv) => Ok(uv),
-                        None => Err(InvalidJwt("user not found".to_string())),
-                    },
-                    Err(err) => {
-                        error!("Unexpected error: {:?}", err);
-                        Err(InvalidJwt(err.to_string()))
-                    }
-                }
-            }
-            Err(err) => {
-                error!("Error decoding token: {:?}", err);
-                Err(InvalidJwt(err.to_string()))
-            }
-        }
-    }
+    let user_id = claims.claims.sub;
+    let uc: Arc<dyn IUserUseCase> = state.module.resolve();
+    uc.get_user(user_id)
+        .await
+        .map_err(|err| {
+            error!("Unexpected error: {:?}", err);
+            InvalidJwt(err.to_string())
+        })?
+        .ok_or_else(|| InvalidJwt("user not found".to_string()))
 }
