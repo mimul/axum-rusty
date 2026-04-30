@@ -272,6 +272,57 @@ async fn find_todo_with_status_code_filter_returns_only_matching_todos() {
     );
 }
 
+// ─── create_and_update_todo (happy path) ─────────────────────────────────────
+
+#[tokio::test]
+async fn create_and_update_todo_with_valid_input_returns_both_views() {
+    let pool = setup_test_db().await;
+    let module = build_usecase_test_module(pool);
+    let uc: Arc<dyn ITodoUseCase> = module.resolve();
+
+    // Arrange: update 대상 todo를 미리 생성
+    let target = uc
+        .create_todo(CreateTodo::new(
+            "Update Target".to_string(),
+            "target desc".to_string(),
+        ))
+        .await
+        .expect("setup: create target todo must succeed");
+
+    // Act: create와 update를 동일 트랜잭션에서 실행
+    let create_source = CreateTodo::new(
+        "__HAPPY_CREATE_AND_UPDATE__".to_string(),
+        "created in same tx".to_string(),
+    );
+    let update_source = UpdateTodoView::new(
+        target.id.clone(),
+        Some("Updated in same tx".to_string()),
+        None,
+        None,
+    );
+    let result = uc
+        .create_and_update_todo(create_source, update_source)
+        .await;
+
+    // Assert: 두 TodoView 모두 반환 + 내용 검증
+    let (created_view, updated_view) =
+        result.expect("create_and_update_todo must succeed with valid input");
+
+    assert!(!created_view.id.is_empty(), "created todo must have an id");
+    assert_eq!(created_view.title, "__HAPPY_CREATE_AND_UPDATE__");
+    assert_eq!(created_view.description, "created in same tx");
+
+    assert_eq!(
+        updated_view.id, target.id,
+        "updated todo must have the same id as target"
+    );
+    assert_eq!(updated_view.title, "Updated in same tx");
+    assert_eq!(
+        updated_view.description, "target desc",
+        "description must be unchanged when not provided"
+    );
+}
+
 // ─── 에러 케이스 ──────────────────────────────────────────────────────────────
 
 #[tokio::test]
