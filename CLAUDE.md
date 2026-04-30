@@ -168,8 +168,6 @@ type: feat | fix | refactor | test | docs | chore
 | 커맨드 | 용도 |
 |--------|------|
 | `/plan` | 기능 구현 전 요구사항 분석 및 단계별 계획 수립 |
-| `/tdd` | 테스트 주도 개발 워크플로우 (RED→GREEN→IMPROVE) |
-| `/code-review` | 일반 코드 리뷰 |
 | `/security-review` | 보안 취약점 점검 |
 | `/build-fix` | 빌드·타입 오류 해결 |
 | `/refactor-clean` | 불필요한 코드 정리 및 통합 |
