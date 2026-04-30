@@ -28,7 +28,7 @@ description: >
 - **코드 무수정** — 어떤 상황에서도 소스 파일을 변경하지 않는다
 - **변경분만 분석** — `git diff`로 실제 변경 파일만 정확히 추출
 - **rust-coding-style.md 1차 적용** — R-01~R-09 전체 판단의 근거는 rust-coding-style.md §섹션
-- **rust-security-style.md + rust-security-style.md 보완 적용** — R-04·R-05·R-09 판단 시 보안 규칙을 추가 기준으로 적용
+- **rust-security-style.md 보완 적용** — R-04·R-05·R-09 판단 시 보안 규칙을 추가 기준으로 적용
 - **rust-test-style.md 보완 적용** — R-08 판단 시 테스트 규칙의 커버리지·네이밍 기준 적용
 - **인라인 코멘트 우선** — 가능하면 해당 파일·행에 직접 인라인으로 게시
 - **게시 전 확인** — 코멘트 초안을 먼저 보여주고 인간 승인 후에만 게시
