@@ -594,3 +594,158 @@ async fn get_user_by_username_with_empty_username_returns_error_result() {
     let json = body_json(resp.into_body()).await;
     assert_eq!(json["result"], false);
 }
+
+// ─── find_todo: status 없이 호출 → 200 result:false ──────────────────────────
+
+#[tokio::test]
+async fn find_todo_without_status_returns_error_result() {
+    let app = common::build_test_app().await;
+    let email = unique_email();
+    let token = create_user_and_login(&app, &email).await;
+    let req = Request::builder()
+        .method(Method::GET)
+        .uri("/v1/todo")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(json["result"], false);
+}
+
+// ─── get_todo: 존재하지 않는 ID → 200 result:false ───────────────────────────
+
+#[tokio::test]
+async fn get_todo_with_nonexistent_id_returns_error_result() {
+    let app = common::build_test_app().await;
+    let email = unique_email();
+    let token = create_user_and_login(&app, &email).await;
+    let fake_id = "00000000000000000000000001";
+    let req = Request::builder()
+        .method(Method::GET)
+        .uri(format!("/v1/todo/{fake_id}"))
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(json["result"], false);
+}
+
+// ─── delete_todo: 존재하지 않는 ID → 200 result:false ────────────────────────
+
+#[tokio::test]
+async fn delete_todo_with_nonexistent_id_returns_error_result() {
+    let app = common::build_test_app().await;
+    let email = unique_email();
+    let token = create_user_and_login(&app, &email).await;
+    let fake_id = "00000000000000000000000001";
+    let req = Request::builder()
+        .method(Method::DELETE)
+        .uri(format!("/v1/todo/{fake_id}"))
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(json["result"], false);
+}
+
+// ─── get_user: 존재하지 않는 ID → 200 result:false ───────────────────────────
+
+#[tokio::test]
+async fn get_user_with_nonexistent_id_returns_error_result() {
+    let app = common::build_test_app().await;
+    let email = unique_email();
+    let token = create_user_and_login(&app, &email).await;
+    let fake_id = "00000000000000000000000001";
+    let req = Request::builder()
+        .method(Method::GET)
+        .uri(format!("/v1/user/{fake_id}"))
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(json["result"], false);
+}
+
+// ─── create_user: 중복 username → 200 result:false ───────────────────────────
+
+#[tokio::test]
+async fn create_user_with_duplicate_username_returns_error_result() {
+    let app = common::build_test_app().await;
+    let email = unique_email();
+    let body = json!({
+        "username": email,
+        "password": "Test1234!",
+        "fullname": "Test User"
+    });
+
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/auth/create")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(json["result"], true, "setup: first create must succeed");
+
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/auth/create")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(json["result"], false);
+}
+
+// ─── Cookie 인증 → 200 result:true ───────────────────────────────────────────
+
+#[tokio::test]
+async fn protected_route_with_cookie_token_returns_ok() {
+    let app = common::build_test_app().await;
+    let email = unique_email();
+
+    let body = json!({ "username": email, "password": "Test1234!", "fullname": "Test User" });
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/auth/create")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(json["result"], true, "setup: create_user must succeed");
+    let user_id = json["data"]["userView"]["id"].as_str().unwrap().to_string();
+
+    let login = json!({ "username": email, "password": "Test1234!" });
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/auth/login")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(login.to_string()))
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let json = body_json(resp.into_body()).await;
+    let token = json["data"]["token"].as_str().unwrap().to_string();
+
+    let req = Request::builder()
+        .method(Method::GET)
+        .uri(format!("/v1/user/{user_id}"))
+        .header(header::COOKIE, format!("access_token={token}"))
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(json["result"], true, "cookie auth must succeed: {json}");
+}
