@@ -1,3 +1,8 @@
+---
+name: rust-coding-style
+description: Rust 도메인 중심 코딩 원칙. 소유권·네이밍·설계·경계 조건·성능 등 Rust 고유 관례를 포함한 코딩 스타일 가이드. /refactor-rust·/code-review-rust 스킬의 1차 판단 기준.
+---
+
 # Rust 도메인 중심 코딩 원칙
 
 > 기원: [언어에 의존하지 않는 도메인 중심 코딩 원칙과 실천법](https://www.mimul.com/blog/ai-coding-style/)을 Rust에 맞게 적용한 문서.

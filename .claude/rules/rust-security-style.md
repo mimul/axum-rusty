@@ -1,3 +1,8 @@
+---
+name: rust-security-style
+description: Rust 보안 스타일 가이드. STRIDE 위협 모델·입력 검증·인증·에러 처리·unsafe·시크릿 관리·감사 로그 등 OWASP Top 10 대응 패턴을 포함한 Rust 보안 설계 원칙. /security-review·/refactor-rust 스킬의 보안 판단 기준.
+---
+
 # Rust 보안 스타일 가이드
 
 > 보안은 기술적 대응이 아니라, 가정과 위험을 지속적으로 검증하는 **설계 중심 사고 체계**다.
