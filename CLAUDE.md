@@ -162,6 +162,8 @@ type: feat | fix | refactor | test | docs | chore
 | `/reply-review-rust` | 리뷰 대응 완료 후 PR 코멘트에 회신 |
 | `/test-rust` | 테스트 작성 (단위: src/, 통합·DB·API: tests/) |
 | `/test-rust --type [unit\|db\|integration\|api]` | 특정 종류 테스트만 작성 |
+| `/security-full-scan <대상 경로>` | 전체 소스 + 의존성 CVE + 시크릿 전수 보안 감사 |
+| `/security-scan <환경명(staging)>` | 스테이징 환경에 전개된 서버에 대해 런타임 환경의 보안 감사 |
 
 ### 공통
 

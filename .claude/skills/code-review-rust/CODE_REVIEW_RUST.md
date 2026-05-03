@@ -175,108 +175,120 @@ let user = find_user(id).ok_or(AppError::NotFound)?;
 
 ### 9. 테스트 `R-08`
 
-**9.1 체크** — `rust-test-style.md` §1~§13 기반
+**9.1 체크** — `rust-test-style.md` §1~§15 기반
 
-🚫 **Blocking** — 즉시 차단, PR 즉시 반려 (§13.1)
+🚫 **Blocking** — 즉시 반려, §13.1 PR 거절 신호에 해당
 
 | 항목 | 근거 |
 |------|------|
-| 상호작용 검증만 있고 결과 상태 검증이 없는 테스트가 없는가? (side-effect가 요구사항인 경우 제외) | §13.1, §5.2 |
-| 통합 테스트에서 Mock DB / Mock Repository를 사용하지 않는가? (in-memory Fake는 허용) | §13.1, §4.3 |
-| `SystemTime::now()`, 시드 없는 난수 등 비결정적 출력을 고정값처럼 사용하지 않는가? | §13.1, §10.2 |
-| 이슈 링크·담당자·기한 없이 단순 `#[ignore]`가 없는가? | §13.1, §10.3 |
-| Assertion이 없는 테스트가 없는가? | §13.1 |
-| 의미 없는 Assertion만 있는 테스트가 없는가? (`assert!(result.is_some())` 단독 등) | §13.1 |
-| 기존 도구(wiremock, sqlx::test)로 충분한데 새 Mock 크레이트를 추가하지 않았는가? | §13.1 |
+| Assertion이 전혀 없는 테스트가 있는가? (`assert!`·`assert_eq!`·`assert_matches!` 없이 컴파일·실행만 확인) | §13.1 ⑧ |
+| `assert!(result.is_some())`·`assert!(result.is_ok())` 처럼 타입 존재만 확인하는 의미 없는 Assertion만 있는가? | §13.1 ⑨ |
+| `mockall`의 `expect_xxx().times(n)` 등 상호작용 검증만 있고 반환값·DB 저장 상태·HTTP 응답 같은 결과 상태 검증이 없는가? (이메일 발송·이벤트 발행처럼 side-effect가 비즈니스 요구사항인 경우 제외) | §13.1 ①, §5.2 |
+| 통합 테스트에서 `MockOrderRepository` 같이 `mockall`로 DB·Repository를 대체하는가? (`in-memory Fake` 또는 `#[sqlx::test]` 실제 DB 사용 필요) | §13.1 ②, §4.3 |
+| `SystemTime::now()`·시드 없는 `rand::random()`·LLM 응답처럼 비결정적 출력을 특정 값으로 단정하는가? (`Clock` 인터페이스 주입·`FakeClock` 사용 필요) | §13.1 ④, §10.2 |
+| `#[ignore]`에 이슈 링크·담당자·기한·원인 가설 없이 단순 사유만 기재하는가? | §13.1 ⑤, §10.3 |
+| `test_find_unique_called_once`·`test_calls_upsert_then_emits_event`처럼 테스트 이름이 함수명이나 내부 구현 구조를 그대로 반영하는가? | §13.1 ⑥, §3.1 |
+| `mod tests` 외부에서 `pub(super)` 등을 이용해 비공개 구현에 직접 접근하는가? | §13.1 ③ |
+| `wiremock`·`sqlx::test` 등 기존 도구로 충분한데 새 모킹 크레이트를 `Cargo.toml`에 추가하는가? | §13.1 ⑦ |
 
 ⚠️ **Recommended** — 머지 전 필수 수정
 
 | 항목 | 근거 |
 |------|------|
-| 인증·권한 체크·결제 등 핵심 비즈니스 로직에 테스트가 있는가? | §6.3 |
-| 복잡한 분기·상태 전환 로직에 테스트가 있는가? | §6.3 |
-| 과거 버그 발생 경로에 회귀 테스트가 있는가? | §6.3 |
-| `mockall expect` 호출이 실제 assert보다 압도적으로 많지 않은가? | §13.2 |
-| Arrange(설정·모킹) 코드가 Assert(검증) 코드보다 10배 이상 길지 않은가? (→ Builder/Fixture 필요) | §13.2, §11 |
+| 인증·권한·결제·도메인 상태 전환 등 핵심 비즈니스 로직에 테스트가 없는가? 이번 PR이 버그 수정인데 해당 버그를 재현하는 회귀 테스트가 없는가? | §6.3 |
+| 메서드 이름 변경·루프→재귀 같은 순수 리팩토링이 테스트를 깨뜨리는가? (구현이 아닌 관찰 가능한 동작을 잠가야 함) | §1.1 |
+| DB·캐시·같은 crate 내 협력자를 `mockall`로 Mock하는가? (자체 소유·통제하는 것은 실제 구현 또는 `in-memory Fake` 사용 필요) | §1.2, §4.3 |
+| 서비스가 DB 행에 직접 산술 연산·상태 전환을 수행하여 도메인 로직을 DB 없이 단위 테스트할 수 없는가? (도메인 엔티티 추출 신호 — §8.1 판단 기준 하나 이상 해당 시) | §8.1, §8.2 |
+| `mockall expect` 호출이 실제 `assert_eq!`·`assert_matches!`보다 압도적으로 많은가? | §13.2 ① |
+| Arrange(설정·모킹) 코드가 Assert(검증) 코드보다 10배 이상 긴가? (Builder 패턴·Fixture 도입 신호) | §13.2 ②, §11.1 |
 
 💡 **Suggestions** — 가능하면 이번 PR에 반영
 
 | 항목 | 근거 |
 |------|------|
-| 테스트 이름이 `<동작>_<예상_결과>_when_<조건>` 템플릿을 따르는가? | §3.2 |
-| AAA(Arrange / Act / Assert) 패턴을 준수하는가? | §5.1 |
-| 비동기 테스트에 `#[tokio::test]` / `#[sqlx::test]`를 사용하는가? | §7 |
-| 단위 70% / 통합 20% / E2E 10% 피라미드 비율에 근접한가? | §6.1 |
-
-📝 **Tech Debt** — 향후 개선 권고
-
-| 항목 | 근거 |
-|------|------|
-| 동일 함수에 예시 테스트 4개 이상 작성 시 proptest 전환을 검토했는가? | §9.1 |
-| Flaky 테스트 격리 시 이슈 링크·담당자·기한이 명시되어 있는가? | §10.3 |
-| 설정·모킹 코드가 검증 코드보다 훨씬 많다면 Builder 패턴을 도입했는가? | §11.1 |
-
-**9.2 패턴**
-
-- AAA (Arrange / Act / Assert)
-- Classicist TDD — 상태 검증 우선
-- `#[sqlx::test]` — 실제 DB 기반 통합 테스트
-- `wiremock` — 외부 HTTP API만 Mock
-- Builder / Fixture — 복잡한 테스트 데이터 구성
-
-### 10. 보안 `R-09`
-
-**10.1 체크** — `rust-security-style.md` §1~§12 기반
-
-🚫 **Blocking** — 즉시 차단, 보안 사고 직결
-
-| 항목 | 근거 |
-|------|------|
-| 하드코딩된 시크릿(JWT 시크릿·API 키·비밀번호)이 소스에 없는가? | §7 시크릿 관리 |
-| `unsafe` 블록에 `// SAFETY:` 주석이 있는가? | §6 unsafe 코드 |
-| SQL 쿼리를 문자열 포맷으로 조합하지 않는가? (`sqlx` 파라미터 바인딩 전용) | §3.3 SQL 인젝션 방지 |
-| 라이브러리·핸들러 코드에 `unwrap()`/`expect()`가 없는가? (DoS 패닉 위험) | §5.3 unwrap 금지 |
-| JWT 검증 시 알고리즘이 명시되고 `none` 알고리즘을 허용하지 않는가? | §4.1 JWT 검증 |
-
-⚠️ **Recommended** — 머지 전 필수 수정
-
-| 항목 | 근거 |
-|------|------|
-| 모든 외부 입력이 타입 수준에서 검증되는가? (Newtype + `validator`) | §2 신뢰 경계, §3.1 |
-| 소유권·권한 검증이 데이터 접근과 결합되어 있는가? (BOLA 방지) | §3.2 |
-| `#[serde(deny_unknown_fields)]` 적용 + 민감 필드가 요청 구조체에 없는가? | §3.4 역직렬화 보안 |
-| 에러 응답에 스택 트레이스·DB 에러·파일 경로 등 내부 정보가 없는가? | §5.1 |
-| 로그에 패스워드·JWT 토큰·API 키 등 민감 데이터가 기록되지 않는가? | §5.2 |
-| 패스워드 해싱에 Argon2id를 사용하는가? (MD5/SHA1 금지) | §4.3 |
-| async 컨텍스트에서 `std::sync::Mutex` 대신 `tokio::sync::Mutex`를 사용하는가? | §6 |
-| 외부 URL을 받는 기능에 SSRF 방지(허용 호스트 검증, 내부 네트워크 차단)가 있는가? | §2.3 |
-
-💡 **Suggestions** — 가능하면 이번 PR에 반영
-
-| 항목 | 근거 |
-|------|------|
-| 비밀값 비교에 상수 시간 비교(`subtle::ConstantTimeEq`)를 사용하는가? | §4.2 |
-| 민감한 값이 `Zeroizing<T>`로 메모리 정리되는가? | §4.4 |
-| 인증 엔드포인트에 Rate Limiting이 적용되는가? | §1.2 DoS 방어 |
-| 보안 이벤트(로그인 성공·실패, 권한 거부)가 구조화된 감사 로그로 기록되는가? | §9 |
+| 테스트 이름이 `<동작>_<예상_결과>_when_<조건>` 형식이고, `returns`·`fails`·`rejects`·`succeeds` 같은 일관된 동사를 사용하는가? | §3.2 |
+| AAA(Arrange / Act / Assert) 구조를 따르는가? Act(동작 실행)가 정확히 한 번인가? | §5.1 |
+| `Result` 에러 검증 시 `unwrap_err()` 단독 사용에 그치지 않고 `assert!(matches!(err, DomainError::InvalidInput(_)))`처럼 에러 타입까지 검증하는가? | §5.4 |
+| 타임스탬프·자동 생성 UUID처럼 비결정적 필드를 제외하고, 검증 가능한 결정적 필드만 비교하는가? | §5.3 |
+| `#[tokio::test]`·`#[sqlx::test(fixtures(...))]`·`axum::test + tower::ServiceExt`를 용도에 맞게 사용하는가? | §7.1, §7.2, §7.3 |
+| 단위 70% / 통합 20% / E2E 10% 피라미드 비율에 근접하는가? 특정 레이어에 편중되지 않는가? | §6.1 |
+| 순수 CRUD·프레임워크 배선(axum 라우팅, DI)·정적 상수·삭제 예정 코드에 테스트를 작성하는가? ("이 테스트가 보호하는 동작을 한 문장으로 설명할 수 없으면 작성하지 말 것") | §12 |
 
 📝 **Tech Debt** — 향후 개선 고려
 
 | 항목 | 근거 |
 |------|------|
-| `#![warn(clippy::unwrap_used)]` 등 보안 Clippy lint가 설정되어 있는가? | §8.3 |
-| `cargo audit`이 CI 파이프라인에 포함되어 있는가? | §8.2 |
-| FFI `unsafe` 블록이 안전한 Rust 공개 래퍼로 감싸져 있는가? | §6.2 |
+| 같은 함수에 예시 기반 테스트를 4회 이상 작성하려는 시점에서 `proptest`(멱등성·불변식·교환법칙 검증)로 전환을 검토했는가? | §9.1, §9.2 |
+| 여러 테스트 파일에서 반복되는 setup 코드가 `tests/common/mod.rs` 또는 `tests/helpers.rs`로 분리되어 있는가? | §14.2 |
+| 반복되는 DB 시드 데이터를 `tests/fixtures/*.sql`로 분리하여 `#[sqlx::test(fixtures("..."))]`로 재사용하는가? | §11.2 |
+| 단위 테스트 1ms·통합 테스트 100~300ms 기준을 크게 초과하는 테스트가 있는가? (CI 전체 5분 목표) | §14.3 |
 
-**10.2 패턴**
+**9.2 패턴** — `rust-test-style.md` 핵심 설계 사상
 
-- **Allowlist validation** — 허용 목록 기반 입력 검증 (§2.1)
-- **Secure defaults** — 기본값이 가장 안전한 선택 (§1.3)
-- **Fail closed** — 실패 시 접근 거부, 정보 미노출 (§5.1)
-- **Defense in Depth** — 입력 검증 → 인가 → 에러 처리 → 감사 로그 각 계층 독립 동작 (§1.3)
-- **`// SAFETY:` 주석 필수** — unsafe 블록 안전 불변식 증명 (§6.1)
-- **Newtype 패턴** — 도메인 식별자·민감 값 래핑 (`UserId`, `ApiKey`) (§3.1)
-- **`thiserror` + `IntoResponse`** — 내부 에러와 외부 응답 분리 (§5.1)
+- **Classicist TDD** (§1.3) — 상태 검증 우선. `mockall`은 이메일 발송·이벤트 발행처럼 side-effect가 비즈니스 요구사항일 때만. AI 리팩토링 시 Mockist 테스트는 깨지지만 Classicist는 사양을 만족하면 통과
+- **시스템 경계 모킹** (§1.2 / §4.1) — "내가 통제·소유하는 것은 실제 구현 사용, 외부 경계(결제 API·OAuth·외부 HTTP)만 `wiremock`으로 대체." DB·Repository는 절대 Mock 금지
+- **FIDT 원칙** (§1.5) — Fast(단위 1ms)·Isolated(공유 전역 상태 없음)·Deterministic(`Clock`·난수 주입으로 비결정성 제거)·Trustworthy(실패 시 실제 버그 재현). 하나라도 무너지면 스위트 전체 신뢰도 저하
+- **동작 기반 네이밍** (§1.1 / §3.1) — `<동작>_<예상_결과>_when_<조건>`. 함수명·호출 순서가 아닌 관찰 가능한 행동을 설명. 순수 리팩토링 후에도 테스트 이름이 유효해야 함
+- **in-memory Fake vs `#[sqlx::test]`** (§4.3 / §4.4) — 도메인 순수 로직 → `in-memory Fake`로 DB 없이 단위 테스트. 유스케이스·레포지토리 → `#[sqlx::test]`로 실제 DB + 자동 트랜잭션 롤백
+- **AAA + 단일 Act** (§5.1) — Arrange → Act(정확히 1회) → Assert. Act가 두 번 나타나면 테스트 분리 신호. 각 테스트는 관찰 가능한 결과 하나만 검증
+- **Builder 패턴** (§11.1) — 설정·모킹 코드가 검증 코드보다 훨씬 많을 때 도입. 테스트 의도가 데이터 구성 코드에 묻히지 않도록
+
+### 10. 보안 `R-09`
+
+**10.1 체크** — `rust-security-style.md` §1~§12 기반. OWASP Top 10 / STRIDE 위협 모델 적용.
+
+🚫 **Blocking** — 즉시 차단, 보안 사고 직결
+
+| 항목 | OWASP / STRIDE |
+|------|----------------|
+| 소스코드에 JWT_SECRET·API 키·DB URL 등 시크릿 리터럴이 하드코딩되어 있는가? (`Config::from_env()` + 환경 변수 로드 필수) | A02·A03 / Spoofing |
+| `format!()` 또는 문자열 연결로 SQL을 동적으로 조합하는가? (`sqlx` 파라미터 바인딩·`query!` 매크로 전용) | A05 인젝션 / Tampering |
+| 리소스 접근 시 `find_by_id_and_owner` 패턴 없이 ID만으로 조회하여 타인 리소스 열람이 가능한가? (접근 거부는 403이 아닌 404로 통일하여 리소스 존재 여부를 숨겨야 함) | A01 접근 제어 우회 / Elevation of Privilege |
+| 라이브러리·핸들러 코드에서 `unwrap()`/`expect()`로 패닉을 유발하는가? (`expect()`는 컴파일 타임 유효성이 보장된 리터럴에만 허용하며 이유 주석 필수) | A10 예외 처리 취약점 / Denial of Service |
+| JWT 검증에서 알고리즘을 명시하지 않거나 (`Validation::new(Algorithm::HS256)` 필수), `validate_exp`·`validate_nbf`가 `true`로 설정되지 않아 만료·미래 토큰을 허용하는가? | A07 인증 실패 / Spoofing |
+| `unsafe` 블록에 `// SAFETY:` 주석 없이 포인터 유효성·비중첩 보장 등 안전 불변식을 증명하지 않는가? | (메모리 안전) / Tampering |
+
+⚠️ **Recommended** — 머지 전 필수 수정
+
+| 항목 | OWASP / STRIDE |
+|------|----------------|
+| HTTP 파라미터·헤더·파일·메시지 큐 등 외부 입력이 `req.validate()`로 Allowlist 기반 검증되는가? ("내부 요청"이라는 이유로 검증을 생략하는가?) | A02 보안 설정 오류 / Tampering |
+| 요청 구조체에 `#[serde(deny_unknown_fields)]`가 없거나, `role`·`is_admin`·`permissions` 같은 민감 필드가 포함되어 공격자의 권한 상승에 악용될 수 있는가? | A08 무결성 실패 / Elevation of Privilege |
+| 서로 다른 도메인 식별자(`UserId`, `OrderId`)가 동일한 원시 타입(`i64`)으로 선언되어 파라미터 혼동이 컴파일 타임에 차단되지 않는가? (Newtype + `#[sqlx(transparent)]`) | A01 접근 제어 우회 / Elevation of Privilege |
+| 패스워드 해싱에 MD5·SHA1·SHA256·저비용 bcrypt 등 취약한 알고리즘을 사용하는가? (`argon2` 크레이트의 `Argon2::default()` — Argon2id 기본값 — 필수) | A04 암호화 결함 / Information Disclosure |
+| `IntoResponse` 구현에서 `e.to_string()`, DB 에러 원인, 파일 경로, 스택 트레이스를 클라이언트에 직접 반환하는가? (`thiserror`로 에러 타입 정의, `IntoResponse`에서 제네릭 외부 메시지만 반환) | A10 예외 처리 취약점 / Information Disclosure |
+| `tracing` 로그에 패스워드·JWT 토큰·API 키·신용카드번호·주민등록번호가 구조화 필드나 포맷 문자열로 기록되는가? | A09 로깅·경보 실패 / Information Disclosure |
+| 사용자 입력 URL로 외부 요청을 전달하는 기능에 `ALLOWED_HOSTS` 목록 검증과 내부 네트워크 주소(169.254.x.x·10.x.x.x·172.16.x.x 등) 차단이 없는가? | A10 예외 처리 취약점 / Elevation of Privilege |
+
+💡 **Suggestions** — 가능하면 이번 PR에 반영
+
+| 항목 | OWASP / STRIDE |
+|------|----------------|
+| API 키·세션 토큰·HMAC 등 비밀값 비교에 `==` 연산자를 사용하여 실행 시간 차이로 값이 추론 가능한가? (`subtle::ConstantTimeEq` 사용 필수) | A07 인증 실패 / Spoofing |
+| 패스워드·API 키 등 민감한 값이 `Zeroizing<T>`로 래핑되지 않아 함수 종료 후에도 메모리에 남아 있는가? | A04 암호화 결함 / Information Disclosure |
+| 인증·로그인·비밀번호 재설정 엔드포인트에 Rate Limiting이 없어 브루트 포스 공격이 가능한가? | A07 인증 실패 / Denial of Service |
+| 인증 성공·실패, 권한 거부, 민감 리소스 접근 이벤트가 `tracing`으로 Who(user_id)·What(action)·When(타임스탬프)·Result(success/forbidden)를 포함하여 구조화 기록되는가? | A09 로깅·경보 실패 / Repudiation |
+| 새 API에 대해 "비정상 호출 순서", "권한 없는 사용자의 ID 추측", "입력값 의도적 변형" 시나리오를 설계 단계에서 검토했는가? (할인 중복 적용·결제 흐름 우회 같은 비즈니스 로직 취약점은 SAST 도구로 탐지 불가) | A06 안전하지 않은 설계 / Tampering·Elevation |
+
+📝 **Tech Debt** — 향후 개선 고려
+
+| 항목 | 근거 |
+|------|------|
+| `src/lib.rs`에 `#![warn(clippy::unwrap_used)]`·`#![warn(clippy::expect_used)]`·`#![warn(clippy::panic)]`·`#![warn(clippy::integer_arithmetic)]`가 설정되어 있는가? | §8.3 보안 Clippy lint |
+| `cargo audit --deny warnings`가 CI에 포함되어 있는가? Cargo.toml 의존성에 `default-features = false`를 적용하여 불필요한 기능을 비활성화하는가? | §8.1 정기 감사, §8.2 CI 게이트 |
+| `gitleaks detect --source . --log-opts="HEAD"`로 Git 이력 전체의 시크릿 누출을 스캔하는가? | §7.2 시크릿 감사 |
+| C 라이브러리 FFI에서 내부 `unsafe`를 공개 API에 직접 노출하지 않고 안전한 Rust 래퍼로 감싸며 `// SAFETY:` 주석을 포함하는가? | §6.2 FFI 경계 |
+
+**10.2 패턴** — `rust-security-style.md` 핵심 설계 사상
+
+- **악용 명세 우선** (§1.1) — "어떻게 동작해야 하는가"가 아닌 "어떻게 악용될 수 있는가"를 먼저 설계. 비즈니스 로직 취약점은 SAST·DAST 도구로 탐지 불가, 오직 설계 단계에서만 제거 가능
+- **Find-by-Owner** (§3.2) — `find_by_id_and_owner()`: 소유권 검증과 DB 조회를 단일 연산으로 결합. 접근 거부는 반드시 404로 통일하여 리소스 존재 여부 자체를 숨김
+- **Allowlist Validation** (§2.1) — Blocklist(차단 목록)이 아닌 Allowlist(허용 목록) 기반 입력 검증. "내부 요청"이라는 이유만으로 검증 생략 금지
+- **Assume Breach + Defense in Depth** (§1.3) — 침해를 전제로 Blast Radius 최소화. 입력 검증 → 인가 → 에러 처리 → 감사 로그, 각 계층이 독립적으로 방어
+- **Zeroize on Drop** (§4.4) — `Zeroizing<T>`: 민감 값이 Drop될 때 메모리를 0으로 덮어써 메모리 덤프·스왑 파일 공격 방어
+- **STRIDE 체크포인트** (§1.2) — 기능 추가·변경마다 Data Flow와 Trust Boundary를 Spoofing·Tampering·Repudiation·Information Disclosure·DoS·Elevation 6가지 관점으로 재검토
+- **thiserror + IntoResponse 분리** (§5.1) — `thiserror`로 내부 에러 타입 정의, `IntoResponse`에서 제네릭 외부 메시지만 반환. DB 에러 원인·테이블명이 클라이언트에 노출되지 않도록
+- **상수 시간 비교** (§4.2) — `subtle::ConstantTimeEq`: 비밀값 비교 시 실행 시간 차이로 값을 추론하는 타이밍 채널 공격 방어
 
 ---
 
