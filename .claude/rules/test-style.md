@@ -476,11 +476,7 @@ async fn create_todo_returns_201() {
 
 ## 7.1 AAA Structure
 
-```text
-Arrange
-Act
-Assert
-```
+테스트 코드를 Arrange(준비), Act(실행), Assert(확인)의 세 단계로 나누어 작성한다.
 
 ## 7.2 Prefer Explicitness
 
