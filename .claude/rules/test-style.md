@@ -41,7 +41,7 @@ Readable Test
 
 # 1. Think Before Testing
 
-테스트는 “코드를 실행해보는 작업”이 아니다.
+테스트는 "코드를 실행해보는 작업"이 아니다.
 
 테스트는:
 
@@ -201,6 +201,14 @@ pub struct OrderService<C: Clock> {
 }
 ```
 
+## 요약 체크리스트
+
+- 프로세스 경계를 반드시 대체했는가?
+- DB/Repository에 Mock 대신 Fake 또는 실제 DB를 사용하는가?
+- 시간/환경 의존성을 주입 가능한 인터페이스로 교체했는가?
+- 자체 소유 도메인 객체를 Mock하지 않는가?
+
+---
 
 # 4. Classicist TDD
 
@@ -357,6 +365,32 @@ proptest! {
 }
 ```
 
+## 5.5 State Transition Invariant
+
+상태 전이 순서 자체를 property로 검증한다.
+
+```text
+Todo → Doing → Done
+```
+
+유효하지 않은 전이는 항상 에러를 반환해야 한다:
+
+```rust
+proptest! {
+    #[test]
+    fn todo_state_cannot_skip_doing(
+        title in ".{1,50}"
+    ) {
+        let mut todo = Todo::new(
+            TodoTitle::new(title).unwrap()
+        );
+
+        // Todo 상태에서 바로 Done 전이 불가
+        prop_assert!(todo.complete().is_err());
+    }
+}
+```
+
 ## 요약 체크리스트
 
 - property 기반 사고를 하는가?
@@ -366,89 +400,11 @@ proptest! {
 
 ---
 
-## 6. Flaky 테스트
-
-### 6.1 핵심 원칙
-
-불안정한 테스트는 절대 커밋하지 않는다.
-
-### 6.2 근본 원인
-
-```rust
-// ❌ 공유 전역 상태 — 테스트 간 격리 미흡
-static COUNTER: AtomicUsize = AtomicUsize::new(0);
-
-// ❌ 시스템 시계 직접 의존
-let now = SystemTime::now(); // 비결정적
-
-// ❌ 시드 없는 난수
-let random_id = rand::random::<u64>(); // 비결정적
-
-// ✅ Clock 인터페이스 주입으로 결정적 처리
-let clock = FakeClock::fixed(Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap());
-```
-
-**공통 원인**:
-- 공유 전역 상태 (테스트 간 격리 미흡)
-- `SystemTime::now()` 직접 사용
-- 실행 순서 의존
-- 시드 없는 난수
-- 네트워크/외부 서비스 직접 의존
-- 비동기 Race Condition (`tokio::time::sleep` 남용)
-- 병렬 실행 시 DB 자원 충돌 (sqlx::test으로 해결)
-
-### 6.3 격리(Quarantine) 기준
-
-단순 `#[ignore]`가 아닌, 이슈 링크 + 담당자 + 기한 + 원인 가설 기록:
-
-```rust
-// ✅ 올바른 격리
-#[ignore = "Flaky: race condition in async setup. Issue: #123, Owner: @mimul, Due: 2024-03-01"]
-#[tokio::test]
-async fn flaky_test_with_context() { }
-
-// ❌ 이유 없는 ignore
-#[ignore]
-#[tokio::test]
-async fn ignored_without_reason() { }
-```
-
-임시방편 금지: 재시도, `tokio::time::sleep`, 타임아웃 증가
-
----
-
-# 7. Invariant Testing
-
-Invariant는 시스템이 항상 유지해야 하는 규칙이다.
-
-## 7.1 Business Invariant First
-
-예:
-
-- 완료된 Todo는 다시 진행 중 상태가 될 수 없다
-- 삭제된 Todo는 조회되지 않는다
-
-## 7.2 Prefer Transition Testing
-
-```text
-Todo -> Doing -> Done
-```
-
-상태 전이를 검증한다.
-
-## 요약 체크리스트
-
-- invariant를 정의했는가?
-- 상태 전이를 검증하는가?
-- workflow를 검증하는가?
-
----
-
-# 8. Architecture-Aligned Testing
+# 6. Architecture-Aligned Testing
 
 테스트 구조도 production architecture를 따라야 한다.
 
-## 8.1 Domain Test First
+## 6.1 Domain Test First
 
 ```rust
 #[test]
@@ -465,7 +421,7 @@ fn todo_cannot_complete_twice() {
 }
 ```
 
-## 8.2 Usecase Test
+## 6.2 Usecase Test
 
 ```rust
 #[tokio::test]
@@ -484,7 +440,7 @@ async fn user_can_create_todo() {
 }
 ```
 
-## 8.3 Controller Integration Test
+## 6.3 Controller Integration Test
 
 ```rust
 #[tokio::test]
@@ -514,11 +470,11 @@ async fn create_todo_returns_201() {
 
 ---
 
-# 9. Test Readability
+# 7. Test Readability
 
 테스트는 production code보다 읽기 쉬워야 한다.
 
-## 9.1 AAA Structure
+## 7.1 AAA Structure
 
 ```text
 Arrange
@@ -526,7 +482,7 @@ Act
 Assert
 ```
 
-## 9.2 Prefer Explicitness
+## 7.2 Prefer Explicitness
 
 ```rust
 let todo = result.unwrap();
@@ -537,47 +493,123 @@ assert_eq!(
 );
 ```
 
+## 7.3 Test Naming Convention
+
+테스트 이름은 `<행동>_<기대결과>_when_<조건>` 패턴을 따른다.
+
+```rust
+// ❌ 구현 구조 반영
+fn test_complete()
+fn test_todo_repository_save()
+
+// ✅ 행동(behavior) 기반
+fn complete_todo_returns_error_when_already_done()
+fn create_todo_fails_when_title_is_empty()
+fn get_todo_returns_not_found_when_id_unknown()
+```
+
+`handle_`, `process_`, `run_` 같은 의미가 약한 접두사는 사용하지 않는다.
+
 ## 요약 체크리스트
 
 - AAA 구조를 사용하는가?
 - explicit assertion을 사용하는가?
-- 테스트 이름이 의미를 설명하는가?
+- 테스트 이름이 `<행동>_<기대결과>_when_<조건>` 패턴을 따르는가?
+- 함수명이나 내부 구현 구조를 그대로 반영하지 않는가?
 
 ---
 
-# 10. Stable & Deterministic Tests
+# 8. Flaky & Deterministic Tests
 
-Flaky test는 버그와 같다.
+불안정한 테스트는 버그와 같다.
 
-## 8.1 Avoid Timing Dependency
+## 8.1 핵심 원칙
+
+- 불안정한 테스트는 절대 커밋하지 않는다.
+- 이미 존재하는 Flaky 테스트는 **24시간 내** 격리(Quarantine)한다.
+- 결정적(deterministic)이지 않은 테스트는 신뢰할 수 없다.
+
+## 8.2 근본 원인
 
 ```rust
+// ❌ 공유 전역 상태 — 테스트 간 격리 미흡
+static COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+// ❌ 시스템 시계 직접 의존
+let now = SystemTime::now(); // 비결정적
+
+// ❌ 시드 없는 난수
+let random_id = rand::random::<u64>(); // 비결정적
+
+// ✅ Clock 인터페이스 주입으로 결정적 처리
+let clock = FakeClock::fixed(Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap());
+```
+
+**공통 원인**:
+- 공유 전역 상태 (테스트 간 격리 미흡)
+- `SystemTime::now()` 직접 사용
+- 실행 순서 의존
+- 시드 없는 난수
+- 네트워크/외부 서비스 직접 의존
+- 비동기 Race Condition (`tokio::time::sleep` 남용)
+- 병렬 실행 시 DB 자원 충돌 (sqlx::test으로 해결)
+
+## 8.3 결정론적 테스트 원칙
+
+타이밍에 의존하는 패턴을 제거한다:
+
+```rust
+// ❌ sleep으로 타이밍 조정
 sleep(Duration::from_secs(1)).await;
+
+// ✅ 상태 기반 대기 또는 채널 동기화
+rx.recv().await.expect("이벤트 수신 실패");
 ```
 
-같은 패턴을 피한다.
-
-## 10.2 Avoid Shared Mutable State
+각 테스트는 독립적으로 실행 가능해야 한다:
 
 ```rust
-let app = TestApp::new();
+// ❌ 공유 인스턴스에 의존
+static APP: OnceCell<TestApp> = OnceCell::new();
+
+// ✅ 테스트마다 독립적인 인스턴스
+let app = TestApp::new().await;
 ```
 
-각 테스트는 독립적이어야 한다.
+## 8.4 격리(Quarantine) 기준
+
+단순 `#[ignore]`가 아닌, 이슈 링크 + 담당자 + 기한 + 원인 가설 기록:
+
+```rust
+// ✅ 올바른 격리
+#[ignore = "Flaky: race condition in async setup. Issue: #123, Owner: @mimul, Due: 2024-03-01"]
+#[tokio::test]
+async fn flaky_test_with_context() { }
+
+// ❌ 이유 없는 ignore
+#[ignore]
+#[tokio::test]
+async fn ignored_without_reason() { }
+```
+
+임시방편 금지: 재시도, `tokio::time::sleep`, 타임아웃 증가
 
 ## 요약 체크리스트
 
-- flaky test를 방지하는가?
+- flaky 테스트를 커밋하지 않는가?
+- 발견된 flaky 테스트를 24시간 내 격리했는가?
 - timing dependency를 피하는가?
-- deterministic 테스트인가?
+- 공유 전역 상태를 제거했는가?
+- 각 테스트가 독립적으로 실행 가능한가?
+- 격리 시 이슈 링크·담당자·기한을 기록했는가?
 
 ---
 
-# 11. Boundary & Failure Testing
+# 9. Boundary & Failure Testing
 
 성공 케이스만 테스트하지 않는다.
 
-## 11.1 Validation Failure
+## 9.1 Validation Failure
 
 다음을 테스트한다.
 
@@ -586,7 +618,7 @@ let app = TestApp::new();
 - oversized payload
 - invalid UUID
 
-## 11.2 Unauthorized Access
+## 9.2 Unauthorized Access
 
 ```text
 다른 사용자의 Todo 수정 시 403 반환
@@ -600,7 +632,7 @@ let app = TestApp::new();
 
 ---
 
-# 12. Integration over Mock Chains
+# 10. Integration over Mock Chains
 
 긴 mock chain은 brittle test를 만든다.
 
@@ -615,7 +647,7 @@ let app = TestApp::new();
 
 을 검증한다.
 
-## 12.2 Black Box Style
+## 10.2 Black Box Style
 
 ```rust
 let response = client
@@ -633,7 +665,7 @@ let response = client
 
 ---
 
-# 13. Security Testing
+# 11. Security Testing
 
 보안은 테스트 가능한 규칙이어야 한다.
 
@@ -645,7 +677,7 @@ let response = client
 - expired token
 - missing auth header
 
-## 13.2 Authorization Testing
+## 11.2 Authorization Testing
 
 ```text
 사용자는 자신의 Todo만 수정 가능
@@ -659,11 +691,11 @@ let response = client
 
 ---
 
-# 13. Performance & Reliability Testing
+# 12. Performance & Reliability Testing
 
 성능 테스트는 운영 안정성을 검증하는 것이다.
 
-## 13.1 Benchmark Critical Path
+## 12.1 Benchmark Critical Path
 
 측정 대상:
 
@@ -671,7 +703,7 @@ let response = client
 - DB hotspot
 - serialization
 
-## 13.2 Detect N+1 Query
+## 12.2 Detect N+1 Query
 
 integration/logging 기반으로 검출한다.
 
@@ -683,11 +715,11 @@ integration/logging 기반으로 검출한다.
 
 ---
 
-# 14. AI-Assisted Testing
+# 13. AI-Assisted Testing
 
 AI-generated test도 동일한 품질 기준을 따라야 한다.
 
-## 14.1 Never Trust Blindly
+## 13.1 Never Trust Blindly
 
 검토 항목:
 
@@ -704,7 +736,7 @@ AI-generated test도 동일한 품질 기준을 따라야 한다.
 
 ---
 
-# 15. Recommended Tooling
+# 14. Recommended Tooling
 
 | Category | Tool |
 |---|---|
@@ -729,9 +761,19 @@ cargo audit
 
 ---
 
-# 16. 테스트 파일 구조
+# 15. 테스트 파일 구조
 
-## 16.1 배치 원칙
+## 15.1 테스트 피라미드 비율
+
+| 종류 | 비율 | 특징 |
+|------|------|------|
+| 단위 테스트 | 70% | 빠름, 격리, domain/usecase 중심 |
+| 통합 테스트 | 20% | 실제 DB/HTTP, 계층 간 계약 검증 |
+| E2E 테스트 | 10% | 중요 사용자 흐름 |
+
+순수 CRUD는 통합 테스트 1개로 충분하다. 단위 테스트를 많이 작성하는 것이 목표가 아니라, 각 레이어에서 가장 효과적인 테스트 종류를 선택하는 것이 목표다.
+
+## 15.2 배치 원칙
 
 | 테스트 종류 | 위치 | 이유 |
 |------------|------|------|
@@ -760,7 +802,7 @@ infra/
     user_repository_test.rs           # DB 구현체
 ```
 
-### 16.2 단위 테스트 모듈 구조
+## 15.3 단위 테스트 모듈 구조
 
 ```rust
 // src/domain/order.rs
@@ -785,7 +827,7 @@ mod tests {
 
 ---
 
-## 17. 테스트 피해야 할 경우
+# 16. 테스트 피해야 할 경우
 
 다음의 경우 테스트 작성을 피한다:
 
@@ -799,9 +841,9 @@ mod tests {
 
 ---
 
-## 18. PR 거절 신호 (Red Flags)
+# 17. PR 거절 신호 (Red Flags)
 
-### 18.1 즉시 반려
+## 17.1 즉시 반려
 
 1. 상호작용 검증만 있고 결과 상태 검증 없음
    - 예외: 이메일 발송, 이벤트 발행 등 side-effect가 비즈니스 요구사항
@@ -814,16 +856,16 @@ mod tests {
 8. **Assertion이 없는 테스트**
 9. 의미 없는 Assertion (`assert!(result.is_some())` 단독 사용)
 
-### 18.2 주의 깊게 검토
+## 17.2 주의 깊게 검토
 
 1. `mockall` expect 호출이 실제 assert보다 압도적으로 많음
 2. Arrange(설정·모킹) 코드가 Assert(검증) 코드보다 10배 이상 긴 경우 → Builder/Fixture 도입 필요
 
 ---
 
-## 19. Rust 관례
+# 18. Rust 관례
 
-### 19.1 테스트 모듈 위치 요약
+## 18.1 테스트 모듈 위치 요약
 
 ```rust
 // 단위 테스트: 같은 파일 하단
@@ -837,7 +879,7 @@ mod tests {
 // tests/integration/order_api.rs
 ```
 
-### 19.2 테스트 헬퍼 크레이트
+## 18.2 테스트 헬퍼 크레이트
 
 반복되는 test helper는 별도 모듈로 분리:
 
@@ -847,14 +889,14 @@ pub async fn setup_test_app() -> TestApp { /* ... */ }
 pub fn create_test_token(user_id: i64) -> String { /* ... */ }
 ```
 
-### 19.3 성능 목표
+## 18.3 성능 목표
 
 - 단위 테스트: 1ms 이하
 - 통합 테스트 1개당: 100~300ms
 - 전체 테스트 스위트: 5분 이내 (CI 기준)
 - PR 단위: 1분 이내
 
-### 19.4 추천 크레이트
+## 18.4 추천 크레이트
 
 | 목적 | 크레이트 |
 |------|---------|
@@ -868,20 +910,20 @@ pub fn create_test_token(user_id: i64) -> String { /* ... */ }
 
 ---
 
-## 20. 마이그레이션 (기존 Mockist 코드베이스)
+# 19. 마이그레이션 (기존 Mockist 코드베이스)
 
 **새 테스트부터 Classicist로**
-   
+
 - 도메인 로직 → in-memory 단위 테스트
 - 유스케이스 → `sqlx::test` 통합 테스트
 
 **수정하는 파일과 함께 개선**
-   
+
 - 내부 모킹 제거, 외부 경계 모킹은 유지
 - 동작 변경과 테스트 리팩토링을 별도 커밋으로 분리
 
 **최악의 파일부터**
-   
+
 - `expect_xxx().times(n)` 가장 많은 곳
 - 변경 빈도 높고 버그 자주 나는 곳
 - Flaky가 자주 나타나는 곳
@@ -893,7 +935,9 @@ pub fn create_test_token(user_id: i64) -> String { /* ... */ }
 - 테스트 실패 시 실제 버그 재현율 증가
 - CI 안정성 향상
 
-# 21. Final Testing Principles
+---
+
+# 20. Final Testing Principles
 
 1. 테스트는 behavior verification이다.
 2. implementation coupling을 최소화한다.
