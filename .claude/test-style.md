@@ -1,4 +1,4 @@
---A
+--
 name: test-style
 description: >
   Axum-Rusty 프로젝트의 테스트 철학·전략·규칙을 정의한 권위 문서.
