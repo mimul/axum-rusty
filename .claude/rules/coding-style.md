@@ -1,6 +1,6 @@
 ---
 name: Axum-Rusty Style Guide & Coding Standards
-description: Rust 도메인 중심 코딩 원칙. 소유권·네이밍·설계·경계 조건·성능 등 Rust 고유 관례를 포함한 코딩 스타일 가이드. /refactor-rust·/code-review-rust 스킬의 1차 판단 기준.
+description: Rust 도메인 중심 코딩 원칙. 소유권·네이밍·설계·경계 조건·성능 등 Rust 고유 관례를 포함한 코딩 스타일 가이드.
 ---
 
 # Axum-Rusty Style Guide & Coding Standards
@@ -976,8 +976,3 @@ AI도 결국 기존 코드 패턴을 학습한다.
 8. 일관성은 cognitive load를 줄인다.
 9. 타입 시스템으로 invalid state를 제거한다.
 10. AI 시대일수록 predictable architecture가 중요하다.
-## 참고 문서
-
-- [언어에 의존하지 않는 도메인 중심 코딩 원칙과 실천법](https://www.mimul.com/blog/ai-coding-style/)
-- `.claude/rules/security-style.md` — 보안 원칙
-- `.claude/rules/test-style.md` — 테스트 원칙
