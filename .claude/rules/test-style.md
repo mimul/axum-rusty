@@ -1,6 +1,6 @@
 ---
 name: test-style
-description: Classicist TDD 철학 기반 테스트 전략·규칙. 모킹 3계층 경계·Fake vs Mock vs Stub 구분·상태 검증 우선·proptest·`<행동>_<기대결과>_when_<조건>` 네이밍·Flaky 24시간 격리·PR Red Flags·Mockist→Classicist 마이그레이션을 20개 섹션과 코드 예시로 정의. /test-rust·/address-review-rust 스킬의 1차 판단 기준. 테스트 작성·리뷰·마이그레이션 시 참조.
+description: Classicist TDD 철학 기반 테스트 전략·규칙. 모킹 3계층 경계·Fake vs Mock vs Stub 구분·상태 검증 우선·proptest·네이밍·Flaky 24시간 격리·PR Red Flags·Mockist→Classicist 마이그레이션을 20개 섹션과 코드 예시로 정의. /test-rust·/address-review-rust 스킬의 1차 판단 기준. 테스트 작성·리뷰·마이그레이션 시 참조.
 ---
 
 # Axum-Rusty Test Style Guide & Test Standards
