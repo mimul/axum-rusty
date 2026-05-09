@@ -115,10 +115,14 @@ type: feat | fix | refactor | test | docs | chore
 
 ## 코딩 컨벤션
 
+> 상세 원칙은 `.claude/rules/coding-style.md` 참조 (Domain First 철학, 19개 섹션).
+
 ### 에러 처리
-- `unwrap()` / `expect()` — 라이브러리 코드에서 **절대 금지**
+- `unwrap()` — 라이브러리·핸들러 코드에서 **절대 금지**
+- `expect()` — 진입 불가능한 상태임을 증명할 수 있을 때만 허용, 이유 주석 필수
 - 에러 타입 정의 — `thiserror` (라이브러리), `anyhow` (바이너리 main)
 - 에러 전파 — `?` 연산자 우선
+- 에러 경계 — 각 레이어는 하위 에러를 자신의 타입으로 변환해 상위에 노출
 
 ### 소유권
 - 파라미터 — `String` 대신 `&str`, `Vec<T>` 대신 `&[T]` 우선
@@ -126,7 +130,17 @@ type: feat | fix | refactor | test | docs | chore
 
 ### 타입 설계
 - 도메인 식별자 (`UserId`, `OrderId`) — Newtype 패턴 필수
+- 상태·분류값 (`Status`, `Role`) — `String` 대신 `enum` 필수
 - `bool` 파라미터 — `enum`으로 대체
+
+### 네이밍
+- 함수명 — `<동사>_<대상>` 형태로 의도를 드러냄 (`complete_todo`, `authorize_user`)
+- 금지 접두사 — `handle_`, `process_`, `run_`, `do_` (의미 불명확)
+
+### 로깅
+- `tracing` 필드 기반 구조화 로깅 사용
+- 좋은 예: `error!(error = ?err, user_id = %id, "auth failed");`
+- 나쁜 예: `error!("auth failed: {:?}", err);`
 
 ### 공개 범위
 - `pub` — 외부 공개가 실제 필요한 경우만
