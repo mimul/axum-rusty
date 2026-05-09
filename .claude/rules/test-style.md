@@ -1,6 +1,6 @@
 ---
 name: test-style
-description: Axum-Rusty 프로젝트의 테스트 철학·전략·규칙을 정의한 문서. /test-rust 스킬의 1차 판단 기준으로 사용되며, 단위·통합·DB·HTTP API 테스트의 작성 방식, 모킹 경계, 네이밍, Assertion 스타일, Flaky 테스트 처리, Property-Based Testing(proptest), PR Red Flags를 포함한다. 새 테스트 작성, 기존 테스트 리뷰, Mockist→Classicist 마이그레이션 시 참조한다.
+description: Classicist TDD 철학 기반 테스트 전략·규칙. 모킹 3계층 경계·Fake vs Mock vs Stub 구분·상태 검증 우선·proptest·`<행동>_<기대결과>_when_<조건>` 네이밍·Flaky 24시간 격리·PR Red Flags·Mockist→Classicist 마이그레이션을 20개 섹션과 코드 예시로 정의. /test-rust·/address-review-rust 스킬의 1차 판단 기준. 테스트 작성·리뷰·마이그레이션 시 참조.
 ---
 
 # Axum-Rusty Test Style Guide & Test Standards
