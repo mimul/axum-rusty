@@ -49,18 +49,24 @@ AI가 구현을 리팩토링할 때마다 Mockist 테스트(상호작용 검증)
 | DB/HTTP API 테스트 | `{crate}/tests/` 하위 | 실제 인프라 필요 |
 
 ```
-src/
-  domain/
-    order.rs          # 도메인 로직 + #[cfg(test)] 단위 테스트
-  usecase/
-    create_order.rs   # 유스케이스 구현
-  infra/
-    order_repo.rs     # DB 구현체
-tests/
-  integration/
-    order_api.rs      # HTTP API 통합 테스트
-  db/
-    order_repo.rs     # DB 통합 테스트
+controller/
+  src/
+    routes/
+      user.rs                        # User API 구현체 + #[cfg(test)] 단위 테스트
+  tests/
+    api_test.rs                      # HTTP API 통합 테스트
+usecase/
+  src/
+    usecase/
+      user.rs                        # User 유스케이스 구현체.
+  tests/
+    user_usecase_integration_test.rs # User 유스케이스 통합 테스트
+infra/
+  src/
+    repository/
+      user.rs                         # user repository 구현체
+  tests/
+    user_repository_test.rs           # DB 구현체
 ```
 
 ### 2.2 단위 테스트 모듈 구조
