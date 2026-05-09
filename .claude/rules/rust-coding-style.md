@@ -3,820 +3,947 @@ name: rust-coding-style
 description: Rust 도메인 중심 코딩 원칙. 소유권·네이밍·설계·경계 조건·성능 등 Rust 고유 관례를 포함한 코딩 스타일 가이드. /refactor-rust·/code-review-rust 스킬의 1차 판단 기준.
 ---
 
-# Rust 도메인 중심 코딩 원칙
+단순히 Axum으로 API를 만든 프로젝트가 아니라, Rust의 타입 시스템을 활용해 Clean Architecture 사상을 코드의 구조(계층)에 반영하고 DDD는 도메인 모델링과 비즈니스 로직에 집중하여 서로의 약점을 보완해 유지보수성과 확장성이 뛰어난 시스템을 구축하는 것이 목표다.
 
-> 기원: [언어에 의존하지 않는 도메인 중심 코딩 원칙과 실천법](https://www.mimul.com/blog/ai-coding-style/)을 Rust에 맞게 적용한 문서.
-> Rust의 소유권, 타입 시스템, 트레이트 기반 설계를 활용하여 원칙을 더욱 강하게 실현한다.
-
----
-
-## 철학적 뿌리
-
-세 사람의 사상이 이 원칙의 근간을 이룬다.
-
-**Kent Beck**: "변경하기 쉬운 상태를 항상 유지하는 것"이 소프트웨어 설계의 목표다.  
-**Martin Fowler**: 리팩토링은 개발의 "리듬"으로서 자연스럽게 녹아있어야 한다.  
-**Eric Evans**: "코드가 비즈니스 도메인의 언어를 반영해야 한다." — Rust의 타입 시스템은 이 원칙을 컴파일 타임에 강제한다.
-
-**핵심 통찰**: "코드는 읽히고, 이해되고, 변경될 것이다. Rust에서는 그 변경이 안전하게 이루어지도록 컴파일러가 함께 설계에 참여한다."
+특정 문법 스타일만 정의하는 문서가 아니라, 왜 이런 구조를 선택했는지, 어떤 사고 흐름으로 코드를 작성해야 하는지까지 포함한다.
 
 ---
 
-## 핵심 원칙 (6가지)
+# 1. Architecture First
 
-### 1. 변화 용이성을 최우선으로
+Rust의 타입 시스템을 활용해 Clean Architecture의 의존 방향을 컴파일 타임에 강제하려는 프로젝트다. 핵심은 “기능 구현”보다 "의존 구조 유지"가 우선이라는 점이다.
 
-"3개월 후 누군가가 이 코드를 쉽게 수정할 수 있을까?"가 모든 설계 결정의 기준이다.
+## 1.1 Layer Responsibility
 
-**Rule of Three**: 동일한 패턴이 세 번 반복되기 전까지 추상화(트레이트, 제네릭)를 도입하지 않는다.
+레이어는 역할 중심으로 나눈다.
+
+| Layer      | 책임                                    |
+| ---------- | ------------------------------------- |
+| controller | HTTP 요청/응답, validation, serialization |
+| usecase    | 애플리케이션 유스케이스 orchestration            |
+| domain     | 핵심 도메인 모델과 비즈니스 규칙                    |
+| infra      | DB/외부 시스템 구현                          |
+
+각 레이어는 자신보다 상위 관심사를 몰라야 한다.
+
+예:
+
+* domain은 axum을 몰라야 한다.
+* infra는 HTTP 응답 타입을 몰라야 한다.
+* usecase는 SQL을 직접 몰라야 한다.
+
+좋은 예:
 
 ```rust
-// ❌ 조기 추상화 — 사용처가 하나뿐인데 트레이트를 꺼냄
-trait Processor {
-    fn process(&self, input: &str) -> String;
+pub struct TodoUseCase<R: RepositoriesModuleExt> {
+    repositories: Arc<R>,
 }
-struct EmailProcessor;
-impl Processor for EmailProcessor {
-    fn process(&self, input: &str) -> String { todo!() }
-}
-
-// ✅ 중복이 드러날 때까지 단순하게
-fn process_email(input: &str) -> String { todo!() }
 ```
 
-성능은 실제 병목이 `cargo bench` 또는 `perf`로 측정된 이후에 고민한다.
+나쁜 예:
+
+```rust
+pub struct TodoUseCase {
+    db: PgPool,
+}
+```
+
+위 나쁜 예는 usecase가 infra 구현(sqlx)에 직접 의존한다.
+
+## 1.2 Dependency Direction
+
+의존 방향은 항상 안쪽(domain)으로 향한다.
+
+```text
+controller -> usecase -> domain <- infra
+```
+
+infra는 domain trait를 구현한다.
+
+```rust
+#[async_trait]
+pub trait TodoRepository {
+    async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>>;
+}
+```
+
+```rust
+impl TodoRepository for DatabaseRepositoryImpl<Todo> {
+    async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>> {
+        ...
+    }
+}
+```
+
+핵심은 domain이 “구현”이 아니라 “계약(contract)”을 소유한다는 점이다.
+
+## 1.3 Cargo Workspace as Architecture Boundary
+
+Rust workspace는 단순 build 분리가 아니라 architectural boundary 역할을 한다.
+
+```toml
+[dependencies]
+todo-domain = { path = "../todo-domain" }
+todo-infra = { path = "../todo-infra" }
+```
+
+usecase crate가 controller crate를 dependency에 추가하지 않았다면, 컴파일 레벨에서 의존 위반이 불가능하다.
+
+## 요약 체크리스트
+
+* 레이어 책임이 명확한가?
+* domain이 framework를 모르고 있는가?
+* usecase가 infra 구현에 직접 의존하지 않는가?
+* Cargo workspace로 의존 방향이 강제되는가?
+* trait는 domain에, 구현은 infra에 있는가?
 
 ---
 
-### 2. 코드는 의도를 명확하게 말해야 한다
+# 2. Domain First
 
-좋은 코드는 "무엇을 하는지"가 아니라 "왜 존재하는지"를 전달한다.
+핵심 철학은 “DB 모델”이 아니라 “도메인 모델” 중심 설계다. DB schema를 그대로 서비스 구조로 사용하는 순간, 비즈니스 정책이 persistence 구조에 종속된다. 따라서 domain layer는 DB row 구조가 아니라 business meaning을 표현해야 한다.
+
+## 2.1 Domain Model != Database Model
+
+좋은 예:
 
 ```rust
-// ❌ 숫자와 상태 코드 직접 비교 — 의도 불명
-if user.role == 1 && user.status == 0 {
-    send_notification(&user);
-}
-
-// ✅ 도메인 언어로 의도를 드러냄
-if user.is_eligible_for_notification() {
-    send_notification(&user);
+pub struct Todo {
+    pub id: Id<Todo>,
+    pub title: String,
+    pub description: String,
+    pub status: TodoStatus,
 }
 ```
 
-**매직 넘버를 상수 또는 enum으로 제거**:
+나쁜 예:
 
 ```rust
-// ❌ 숫자 리터럴 직접 사용
-fn mile_to_metre(miles: f64) -> f64 {
-    miles * 1609.344
-}
-
-// ✅ 의미를 가진 상수
-const METRES_PER_MILE: f64 = 1609.344;
-
-fn mile_to_metre(miles: f64) -> f64 {
-    miles * METRES_PER_MILE
+pub struct Todo {
+    pub status_id: String,
+    pub created_at: DateTime<Utc>,
 }
 ```
 
-**반환 타입에 의도를 명시**:
+`status_id`는 DB concern이다. 도메인은 상태 의미를 가져야 한다.
+
+## 2.2 Explicit Conversion
+
+레이어 간 객체 전달은 명시적으로 변환한다.
 
 ```rust
-// ✅ Result로 실패 이유까지 타입에서 전달
-fn find_user(id: UserId) -> Result<User, UserError> {
-    self.store.get(&id).cloned().ok_or(UserError::NotFound(id))
+impl TryFrom<StoredTodo> for Todo {
+    type Error = anyhow::Error;
+
+    fn try_from(source: StoredTodo) -> Result<Self, Self::Error> {
+        ...
+    }
 }
 ```
 
-**주석 원칙**: 주석은 "왜(why)"를 적는다. 코드로 표현할 수 없는 숨겨진 제약, 비즈니스 의사결정 맥락만 남긴다.
+장점:
+
+* 레이어 경계가 명확해진다.
+* 암묵적 coupling이 줄어든다.
+* 변환 시 validation을 넣을 수 있다.
+* persistence 변경 영향이 줄어든다.
+
+## 2.3 Rich Domain over Primitive Obsession
+
+문자열(String) 남용을 줄인다.
+
+좋은 예:
 
 ```rust
-// ❌ 코드가 이미 말하는 것을 반복
-// discount_rate가 0.05이면 5% 할인 적용
-let discounted = total * (1.0 - 0.05);
-
-// ✅ 코드만으로는 알 수 없는 "왜"를 설명
-// 2018년 VIP 캠페인 약정 (기획서 #1234): 1만원 이상 주문에 5% 할인
-let discounted = total * (1.0 - VIP_DISCOUNT_RATE);
+pub struct Id<T> {
+    pub value: Uuid,
+    _marker: PhantomData<T>,
+}
 ```
+
+나쁜 예:
+
+```rust
+pub id: String
+```
+
+강한 타입은 컴파일 타임 안정성을 높인다. 특히 Rust에서는 타입 설계가 곧 validation 전략이다.
+
+## 요약 체크리스트
+
+* domain model이 business meaning을 표현하는가?
+* DB schema가 domain으로 새어 나오지 않는가?
+* 레이어 간 변환이 명시적인가?
+* primitive obsession을 줄였는가?
+* 타입 시스템으로 invalid state를 줄이고 있는가?
 
 ---
 
-### 3. 도메인 언어를 코드에 반영한다
+# 3. Usecase Oriented Design
 
-도메인 전문가가 "주문 취소"라고 말하면 코드에서도 `cancel_order`다. 번역 없이 일대일로 대응해야 한다.
+usecase는 단순 service class가 아니다. 하나의 business flow를 orchestration하는 application layer다. controller에는 비즈니스 로직이 없어야 한다.
 
-```rust
-// ❌ 기술 용어로 도메인을 덮음
-fn update_order_flag(order_id: i64, flag: i32) { }
+## 3.1 Thin Controller
 
-// ✅ 도메인 언어 그대로
-fn cancel_order(order_id: OrderId) -> Result<(), OrderError> { todo!() }
-fn ship_order(order_id: OrderId, address: ShippingAddress) -> Result<(), OrderError> { todo!() }
-```
-
-Rust의 `enum`은 도메인 상태를 표현하는 가장 강력한 도구다:
+좋은 예:
 
 ```rust
-// ❌ 상태를 정수로 표현 — 도메인 의미 소실
-struct Order {
-    status: i32, // 0=pending, 1=paid, 2=shipped, 3=cancelled
-}
+pub async fn create_todo(
+    modules: State<Arc<Modules>>,
+    Json(body): Json<JsonCreateTodo>,
+) -> Result<impl IntoResponse, AppError> {
+    let result = modules
+        .todo_use_case()
+        .create(body.try_into()?)
+        .await?;
 
-// ✅ enum으로 도메인 상태와 데이터를 함께 명확하게 표현
-enum OrderStatus {
-    Pending,
-    Paid { paid_at: DateTime<Utc> },
-    Shipped { tracking_number: TrackingNumber },
-    Cancelled { reason: CancellationReason },
+    Ok(Json(result))
 }
 ```
 
----
+controller 역할:
 
-### 4. 작고 되돌릴 수 있는 단위로 변경한다
+* request parsing
+* validation
+* usecase 호출
+* response serialization
 
-커밋 하나에 하나의 명확한 의도만 담는다. 큰 리팩토링도 항상 `cargo test`가 통과하는 상태를 유지하며 진행한다.
+여기서 business rule 판단을 하면 안 된다.
 
-```
-# 좋은 커밋 예시
-git commit -m "refactor(order): [R-R-02] OrderId에 Newtype 패턴 적용"
-git commit -m "refactor(order): [R-R-06] unwrap() 제거 및 ? 연산자로 교체"
-```
+## 3.2 Usecase Owns Workflow
 
-중간 상태가 컴파일·테스트를 통과해야만 언제든 되돌릴 수 있다.
-
----
-
-### 5. 기존 컨텍스트의 관례를 따른다
-
-기존 코드베이스에 합류할 때는 파일과 프로젝트의 관례가 개인 취향보다 우선이다. 스타일이 혼재하는 것은 어느 한쪽이 나쁜 스타일인 것보다 더 큰 문제다.
-
-`rustfmt`와 `clippy`를 CI 게이트로 강제하면 스타일 논의를 자동으로 없앨 수 있다:
-
-```bash
-cargo fmt --check          # 포맷 위반 시 CI 실패
-cargo clippy -- -D warnings  # 경고를 에러로 처리
-```
-
----
-
-### 6. 불확실할 때는 질문한다
-
-요구사항이 모호하면 추측하지 않는다. 추측으로 만들어진 타입 설계는 나중에 큰 수정 비용을 유발한다.
-
----
-
-## 설계 원칙 (6가지)
-
-### 1. 작고 조합 가능한 구조
-
-함수는 하나의 책임만 가진다. 중첩 깊이는 최대 2단계.
-
-**조기 반환(Early Return)으로 중첩 제거**:
+좋은 예:
 
 ```rust
-// ❌ 깊은 중첩 — 핵심 로직이 깊은 곳에 숨어있다
-fn process_order(order: &Order) -> Result<Receipt, OrderError> {
-    if order.is_paid() {
-        if let Some(items) = order.items() {
-            if !items.is_empty() {
-                return Ok(generate_receipt(items));
-            }
+pub async fn create(&self, source: NewTodo) -> anyhow::Result<Todo> {
+    self.repositories
+        .todo_repository()
+        .insert(source)
+        .await
+}
+```
+
+유스케이스는:
+
+* transaction boundary
+* workflow ordering
+* domain collaboration
+* external dependency orchestration
+
+를 담당한다.
+
+## 3.3 One Usecase, One Intention
+
+usecase 함수는 “행동(intent)” 중심이어야 한다.
+
+좋은 예:
+
+```rust
+create_todo()
+complete_todo()
+assign_user()
+```
+
+나쁜 예:
+
+```rust
+save_todo()
+process_data()
+handle_request()
+```
+
+동사가 구체적이어야 business meaning이 드러난다.
+
+## 요약 체크리스트
+
+* controller가 thin한가?
+* business logic이 controller에 없는가?
+* usecase가 workflow를 소유하는가?
+* 함수명이 business intention을 드러내는가?
+* generic한 process/save 이름을 남용하지 않는가?
+
+---
+
+# 4. Dependency Injection
+
+생성자 기반 DI를 사용한다. Rust에서는 런타임 reflection 기반 DI보다 명시적 의존 전달이 훨씬 자연스럽다.
+
+## 4.1 Constructor Injection
+
+좋은 예:
+
+```rust
+impl<R: RepositoriesModuleExt> TodoUseCase<R> {
+    pub fn new(repositories: Arc<R>) -> Self {
+        Self { repositories }
+    }
+}
+```
+
+장점:
+
+* dependency가 명시적이다
+* 테스트가 쉽다
+* hidden dependency가 없다
+* compile-time validation 가능
+
+## 4.2 Modules as Composition Root
+
+Modules는 dependency composition root다.
+
+```rust
+impl Modules {
+    pub async fn new() -> Self {
+        let db = Db::new().await;
+        let repositories_module = Arc::new(RepositoriesModule::new(db.clone()));
+
+        let todo_use_case = TodoUseCase::new(repositories_module.clone());
+
+        Self {
+            todo_use_case,
         }
     }
-    Err(OrderError::InvalidState)
-}
-
-// ✅ 조기 반환으로 조건을 위로 올림 — 핵심 로직이 마지막에 명확하게
-fn process_order(order: &Order) -> Result<Receipt, OrderError> {
-    if !order.is_paid() {
-        return Err(OrderError::NotPaid);
-    }
-    let items = order.items().ok_or(OrderError::MissingItems)?;
-    if items.is_empty() {
-        return Err(OrderError::EmptyOrder);
-    }
-    Ok(generate_receipt(items))
 }
 ```
 
-**Tell, Don't Ask** — 상태를 물어 외부에서 결정하지 말고 객체에 행동을 위임:
+객체 생성은 한 곳에서 조립한다. 비즈니스 코드 내부에서 객체를 직접 생성하지 않는다.
+
+나쁜 예:
 
 ```rust
-// ❌ Ask: 외부에서 상태를 물어 결정
-if order.status == OrderStatus::Pending && !order.items.is_empty() {
-    order.status = OrderStatus::Confirmed;
-}
-
-// ✅ Tell: 객체에 행동을 위임
-order.confirm()?;
+let repository = TodoRepositoryImpl::new();
 ```
 
-**복잡한 조건식은 의미 있는 변수로 분해**:
+이런 코드는 dependency inversion을 깨뜨린다.
+
+## 4.3 Prefer Trait Boundary
+
+구현보다 trait에 의존한다.
 
 ```rust
-// ❌ 한 줄에 모든 조건 압축
-if user.role == UserRole::Admin && (user.last_login_at > cutoff || user.is_superuser) {
-    grant_access();
-}
-
-// ✅ 의도가 드러나는 임시 변수로 분해
-let is_admin = user.role == UserRole::Admin;
-let has_recent_activity = user.last_login_at > cutoff;
-let can_access = is_admin && (has_recent_activity || user.is_superuser);
-if can_access {
-    grant_access();
-}
+pub struct TodoUseCase<R: RepositoriesModuleExt>
 ```
+
+이는:
+
+* 테스트 mock 교체
+* 구현 변경
+* infra 교체
+* feature 확장
+
+을 쉽게 만든다.
+
+## 요약 체크리스트
+
+* constructor injection을 사용하는가?
+* dependency가 명시적인가?
+* composition root가 존재하는가?
+* business code 내부에서 new 하지 않는가?
+* 구현보다 trait에 의존하는가?
 
 ---
 
-### 2. 도메인 모델에 행동을 담는다
+# 5. Error Handling
 
-Rust에서 빈약한 도메인 모델은 `impl` 블록 없이 필드만 있는 struct다.
+Rust에서는 panic보다 Result 기반 흐름이 기본이다. anyhow + thiserror 조합을 사용한다.
 
-```rust
-// ❌ 빈약한 모델: 데이터만 있고 행동이 없음 — 로직이 서비스에 흩어짐
-struct Order {
-    total: Money,
-    status: OrderStatus,
-}
+## 5.1 Recoverable Error vs Panic
 
-impl OrderService {
-    fn apply_discount(&self, order: &mut Order, rate: f64) {
-        let discount = order.total.amount() as f64 * rate;
-        order.total = Money::new((order.total.amount() as f64 - discount) as i64);
-    }
-}
+panic은 시스템 불변식이 깨졌을 때만 사용한다.
 
-// ✅ 풍부한 도메인 모델: 도메인 불변식을 struct 자신이 보호
-impl Order {
-    pub fn apply_discount(&mut self, rate: f64) -> Result<(), DomainError> {
-        if !(0.0..=MAX_DISCOUNT_RATE).contains(&rate) {
-            return Err(DomainError::InvalidDiscountRate(rate));
-        }
-        let discount = (self.total.amount() as f64 * rate) as i64;
-        self.total = self.total.subtract(Money::new(discount))?;
-        Ok(())
-    }
-
-    pub fn cancel(&mut self, reason: CancellationReason) -> Result<(), DomainError> {
-        if !matches!(self.status, OrderStatus::Pending | OrderStatus::Paid { .. }) {
-            return Err(DomainError::InvalidStatusTransition);
-        }
-        self.status = OrderStatus::Cancelled { reason };
-        Ok(())
-    }
-}
-```
-
-**Newtype 패턴으로 도메인 식별자 보호**:
+좋은 예:
 
 ```rust
-// ❌ 원시 타입: user_id와 order_id를 컴파일러가 구분할 수 없음
-fn get_order(user_id: i64, order_id: i64) -> Result<Order, Error> { todo!() }
-
-// ✅ Newtype: 컴파일 타임에 인수 혼동을 원천 차단
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, sqlx::Type)]
-#[sqlx(transparent)]
-pub struct UserId(i64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, sqlx::Type)]
-#[sqlx(transparent)]
-pub struct OrderId(i64);
-
-fn get_order(user_id: UserId, order_id: OrderId) -> Result<Order, Error> { todo!() }
+pub async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>>
 ```
+
+나쁜 예:
+
+```rust
+.unwrap()
+.expect("todo not found")
+```
+
+HTTP API에서는 대부분 recoverable error다.
+
+## 5.2 Domain Error Mapping
+
+에러는 의미를 보존해야 한다.
+
+좋은 예:
+
+```rust
+Err(AppError::InvalidJwt(err.to_string()))
+```
+
+나쁜 예:
+
+```rust
+Err(anyhow!("something wrong"))
+```
+
+generic error message는 debugging과 observability를 망친다.
+
+## 5.3 Error Boundary
+
+에러 변환은 layer boundary에서 처리한다.
+
+예:
+
+* sqlx error → infra
+* domain error → usecase
+* http error → controller
+
+각 레이어는 자신이 이해 가능한 error abstraction만 알아야 한다.
+
+## 요약 체크리스트
+
+* unwrap/expect 남용을 피하는가?
+* panic을 exceptional case에만 사용하는가?
+* 에러 의미가 보존되는가?
+* 레이어별 error boundary가 존재하는가?
+* generic message 대신 domain 의미를 표현하는가?
 
 ---
 
-### 3. 추상화는 중복이 드러난 이후에
+# 6. Type-Driven Design
 
-YAGNI — 지금 필요하지 않은 트레이트, 제네릭, 레이어를 만들지 않는다.
+Rust에서는 타입 설계가 곧 설계 문서다. trait, generic, enum을 적극 활용한다.
+
+## 6.1 Encode Rules in Types
+
+좋은 예:
 
 ```rust
-// ❌ 사용처가 하나뿐인데 조기에 만든 트레이트
-pub trait UserRepository {
-    fn find_by_id(&self, id: UserId) -> Option<User>;
-    fn save(&self, user: User) -> Result<(), Error>;
-}
+Option<TodoStatus>
+```
 
-// ✅ 두 번째 구현체(e.g., InMemoryUserRepository)가 필요해졌을 때 트레이트 도입
-pub struct PostgresUserRepository { pool: PgPool }
+이는 상태가 없을 수 있다는 의미를 타입으로 표현한다.
 
-impl PostgresUserRepository {
-    pub async fn find_by_id(&self, id: UserId) -> Result<Option<User>, Error> { todo!() }
-    pub async fn save(&self, user: &User) -> Result<(), Error> { todo!() }
+나쁜 예:
+
+```rust
+String
+```
+
+문자열만 보면 nullable인지, enum인지, uuid인지 알 수 없다.
+
+## 6.2 Prefer Enum over String
+
+좋은 예:
+
+```rust
+pub enum TodoStatus {
+    Todo,
+    Doing,
+    Done,
 }
 ```
 
-트레이트는 기본적으로 봉인 상태로 설계한다. 외부 크레이트에서 구현을 허용하는 것은 API 공개와 같으므로, 필요가 명확해진 후에만 연다.
+나쁜 예:
+
+```rust
+status: String
+```
+
+enum은:
+
+* invalid state 제거
+* exhaustive match 보장
+* compiler assistance 제공
+
+효과가 있다.
+
+## 6.3 Generic Boundary
+
+좋은 예:
+
+```rust
+pub struct DatabaseRepositoryImpl<T>
+```
+
+generic abstraction은 중복을 줄이되, domain meaning을 숨기지 않는 수준까지만 사용한다. generic이 과도하면 readability가 급격히 떨어진다.
+
+## 요약 체크리스트
+
+* 타입이 비즈니스 규칙을 표현하는가?
+* String 남용을 줄였는가?
+* enum으로 invalid state를 제거했는가?
+* Option 의미가 명확한가?
+* generic이 readability를 해치지 않는가?
 
 ---
 
-### 4. 접근 권한은 최소한으로 정의한다
+# 7. Async & Concurrency
 
-새 아이템은 항상 가장 좁은 범위부터 시작한다.
+Rust async는 단순 성능 최적화가 아니라 ownership 기반 concurrency safety를 제공한다.
+
+## 7.1 Shared State with Arc
+
+좋은 예:
 
 ```rust
-// ❌ 불필요하게 넓은 공개 범위
-pub struct OrderRepository {
-    pub pool: PgPool,    // 외부에서 pool을 직접 건드릴 이유 없음
-}
-
-// ✅ 필요한 최소 범위
-pub struct OrderRepository {
-    pool: PgPool,        // 비공개 — 기본값
-}
+#[derive(Clone)]
+pub struct Db(pub(crate) Arc<Pool<Postgres>>);
 ```
 
-| 범위 | 선언 | 사용 시점 |
-|------|------|-----------|
-| 비공개 | (기본) | 기본값 — 항상 여기서 시작 |
-| 크레이트 공유 | `pub(crate)` | 같은 크레이트 내 모듈 간 |
-| 상위 모듈 공유 | `pub(super)` | 부모 모듈까지만 |
-| 공개 API | `pub` | 외부 크레이트에 실제로 필요할 때만 |
+Arc를 통해 thread-safe shared ownership을 명시한다.
+
+## 7.2 Minimize Mutable State
+
+mutable state는 concurrency complexity를 급격히 증가시킨다.
+
+가능하면:
+
+* immutable data
+* pure transformation
+* ownership transfer
+
+를 우선 사용한다.
+
+## 7.3 Async Boundary Clarity
+
+async는 I/O boundary에 집중한다.
+
+좋은 예:
+
+```rust
+repository.get(id).await
+```
+
+나쁜 예:
+
+```rust
+complex_cpu_calculation().await
+```
+
+CPU 작업을 무분별하게 async로 만들면 오히려 구조가 복잡해진다.
+
+## 요약 체크리스트
+
+* shared state를 명시적으로 관리하는가?
+* mutable state를 최소화했는가?
+* async가 I/O 중심으로 사용되는가?
+* ownership 흐름이 명확한가?
+* concurrency safety를 타입으로 보장하는가?
 
 ---
 
-### 5. 트레이트 경계로 추상 타입을 참조한다
+# 8. Database & Repository
+
+Repository는 단순 CRUD wrapper가 아니다. 도메인 persistence abstraction이다.
+
+## 8.1 Repository Hides Persistence Detail
+
+좋은 예:
 
 ```rust
-// ❌ 구체 타입을 파라미터로 받아 구현 교체 시 시그니처도 바꿔야 함
-fn send_notification(sender: &SmtpSender, message: &str) { todo!() }
-
-// ✅ 트레이트 경계: 구현을 교체해도 호출부 변경 없음
-fn send_notification(sender: &impl NotificationSender, message: &str) { todo!() }
+async fn find(&self, status: Option<TodoStatus>)
 ```
 
-반환 타입에서도 구체 타입 대신 `impl Trait`를 우선한다:
+나쁜 예:
 
 ```rust
-// ✅ 호출자가 구현 세부 사항에 의존하지 않음
-fn active_users(users: &[User]) -> impl Iterator<Item = &User> {
-    users.iter().filter(|u| u.is_active())
-}
+async fn find_by_sql(sql: &str)
 ```
+
+domain layer는 SQL을 몰라야 한다.
+
+## 8.2 Query Responsibility
+
+infra만 SQL을 가진다.
+
+```rust
+let sql = r#"
+select ...
+"#;
+```
+
+SQL 최적화 concern은 infra에 존재한다.
+
+## 8.3 Transaction Boundary in Usecase
+
+트랜잭션은 usecase에서 orchestration한다.
+
+```rust
+executor: impl PostgresAcquire<'_>
+```
+
+이 구조는:
+
+* Pool
+* Transaction
+
+모두를 동일 abstraction으로 처리 가능하게 만든다.
+
+## 요약 체크리스트
+
+* repository가 persistence detail을 숨기는가?
+* domain이 SQL을 모르고 있는가?
+* transaction boundary가 usecase에 있는가?
+* infra가 DB concern을 소유하는가?
+* CRUD abstraction이 business meaning을 유지하는가?
 
 ---
 
-### 6. 변수는 사용 직전에 선언하고 스코프를 최소화한다
+# 9. API Design
+
+HTTP API는 transport protocol이 아니라 public contract다.
+
+## 9.1 Explicit Request/Response Model
+
+좋은 예:
 
 ```rust
-// ❌ 선언과 사용이 멀다
-let result;
-let items = fetch_items().await?;
-// ... 다른 처리들 ...
-result = calculate_total(&items);
-
-// ✅ 필요한 순간에 선언 + 체이닝으로 스코프 최소화
-let total = fetch_items().await?
-    .iter()
-    .filter(|i| i.is_active())
-    .map(|i| i.price)
-    .sum::<Money>();
+#[derive(Deserialize, Debug, Validate)]
+pub struct JsonCreateTodo {
+    ...
+}
 ```
 
-블록으로 스코프를 명시적으로 제한한다:
+request model을 명시적으로 분리한다.
+
+## 9.2 Validation at Boundary
+
+validation은 가능한 boundary 가까이 수행한다.
 
 ```rust
-// 임시 변수가 블록 밖으로 노출되지 않도록
-let config = {
-    let raw = std::env::var("APP_CONFIG")?;
-    parse_config(&raw)?
-};
-// raw는 이 시점에서 이미 스코프 밖
+#[validate(length(min = 1))]
+pub title: Option<String>
 ```
+
+잘못된 입력은 domain까지 들어가지 않게 한다.
+
+## 9.3 Serialization is Controller Concern
+
+serde model은 controller concern이다. domain model을 그대로 API response로 노출하지 않는다.
+
+이유:
+
+* API evolution
+* security
+* backward compatibility
+* transport independence
+
+를 위해서다.
+
+## 요약 체크리스트
+
+* request/response model이 분리되어 있는가?
+* boundary에서 validation 하는가?
+* domain model을 직접 노출하지 않는가?
+* API contract가 명시적인가?
+* transport concern이 controller에 머무는가?
 
 ---
 
-## 리팩토링은 개발의 리듬이다
+# 10. Authentication & Middleware
 
-리팩토링은 기능 추가와 교대로 이루어진다. 새 기능을 추가하기 어려운 구조라면, 기능을 넣기 전에 먼저 구조를 개선한다.
+인증은 business logic이 아니라 cross-cutting concern이다. 따라서 middleware/AOP 형태로 분리한다.
 
-### 리팩토링이 필요하다는 신호
+## 10.1 Authentication as Middleware
 
-- 동일한 코드가 3번 이상 반복될 때 (Rule of Three)
-- 변수나 함수 이름이 도메인 의도를 충분히 설명하지 못할 때
-- `impl` 블록 하나가 너무 많은 책임을 가질 때
-- `clippy`가 같은 패턴을 반복적으로 경고할 때
-- `match` 분기가 계속 늘어나며 새 variant 추가가 무서워질 때
-- 서비스 레이어에 도메인 조건문이 점점 쌓일 때
+좋은 예:
 
-### 죽은 코드는 과감하게 제거한다
-
-주석 처리된 코드, `#[allow(dead_code)]`로 숨겨진 미사용 함수, 오래된 설정은 즉시 삭제한다. git이 모든 이력을 보관한다.
-
-```bash
-cargo check 2>&1 | grep "unused"
-cargo clippy -- -D dead_code
+```rust
+pub async fn auth(
+    modules: State<Arc<Modules>>,
+    mut req: Request,
+    next: Next,
+)
 ```
 
-### 실천하는 태도
+모든 controller에서 JWT parsing을 반복하지 않는다.
 
-리팩토링은 항상 작은 단위로, `cargo test`가 통과하는 상태를 유지하며 진행한다.
+## 10.2 Context Injection
 
+인증 완료 후:
+
+```rust
+req.extensions_mut().insert(current_user);
 ```
-# ❌ 의도를 알 수 없는 커밋
-git commit -m "코드 정리"
 
-# ✅ 의도가 명확한 커밋
-git commit -m "refactor(payment): [R-R-01] clone() 제거 — Arc<T>로 공유 소유권 전환"
-git commit -m "refactor(user): [R-R-02] UserId Newtype 적용 — user_id: i64 혼동 방지"
+request context에 사용자 정보를 주입한다. 이는 controller를 단순화한다.
+
+## 10.3 Security Boundary
+
+인증 실패는 명확하게 처리한다.
+
+좋은 예:
+
+```rust
+return Err(InvalidJwt("auth_header not found".to_string()));
 ```
+
+보안 로직은 “암묵적 fallback”이 없어야 한다.
+
+## 요약 체크리스트
+
+* 인증이 middleware로 분리되어 있는가?
+* controller에서 인증 중복이 없는가?
+* request context를 사용하는가?
+* 인증 실패가 명확한가?
+* 보안 로직에 암묵적 fallback이 없는가?
 
 ---
 
-## 네이밍은 도메인의 번역이다
+# 11. Observability & Logging
 
-### 피해야 할 이름들
+운영 가능한 시스템은 tracing 가능해야 한다. tracing 기반 logging을 사용한다.
 
-`data`, `util`, `helper`, `manager`, `processor` — 역할과 책임이 불명확하다는 신호다.
+## 11.1 Structured Logging
 
-```rust
-// ❌ 이름이 아무것도 말하지 않는다
-struct DataHelper;
-fn process_data(data: &Data) -> Result<Data, Error> { todo!() }
-
-// ✅ 도메인 역할이 이름에 드러난다
-struct InvoiceCalculator;
-fn apply_discount(order: &mut Order, rate: f64) -> Result<(), DomainError> { todo!() }
-```
-
-### Rust 네이밍 관례 (RFC 430)
-
-| 아이템 | 관례 | 예시 |
-|--------|------|------|
-| 타입, 트레이트, enum variant | `UpperCamelCase` | `OrderStatus`, `Repository` |
-| 함수, 메서드, 변수, 필드 | `snake_case` | `find_user`, `order_id` |
-| 상수, 정적 변수 | `SCREAMING_SNAKE_CASE` | `MAX_RETRY_COUNT` |
-| 라이프타임 | `'lowercase` | `'a`, `'static` |
-| 제네릭 타입 파라미터 | 단일 대문자 또는 `UpperCamelCase` | `T`, `E`, `Item` |
-| 모듈 | `snake_case` | `order_service`, `infra` |
-
-### 축약어 최소화
-
-`usr`, `cfg`, `cnt`, `idx` 대신 `user`, `config`, `count`, `index`. 타이핑 비용은 작고, 읽기 비용은 크다.
-
-### 구현이 아닌 의도를 드러내는 이름
+좋은 예:
 
 ```rust
-// ❌ 구현 방식이 이름에 드러남
-fn get_user_from_db(id: UserId) -> Option<User> { todo!() }
-fn loop_and_sum_prices(items: &[Item]) -> Money { todo!() }
-
-// ✅ 의도가 이름에 드러남
-fn find_user(id: UserId) -> Option<User> { todo!() }
-fn calculate_order_total(items: &[Item]) -> Money { todo!() }
+error!("error authorizing user: {:?}", err);
 ```
 
-### 동사 일관성
+단순 println!은 production observability에 적합하지 않다.
 
-같은 개념에 `fetch`, `get`, `retrieve`, `load`를 혼용하지 않는다.
+## 11.2 Log with Context
 
-| 의미 | 권장 동사 |
-|------|-----------|
-| 저장소에서 단일 조회 | `find_` (없으면 `None` / `Err`) |
-| 저장소에서 목록 조회 | `list_` |
-| 계산 결과 반환 | `calculate_` |
-| 상태 전환 요청 | 도메인 동사 (`confirm`, `cancel`, `ship`) |
-| 도메인 불변식 검증 | `is_`, `has_`, `can_` |
+로그에는:
+
+* request id
+* user id
+* correlation id
+* operation
+
+같은 context가 포함되어야 한다.
+
+## 11.3 Error Visibility
+
+에러를 삼키지 않는다.
+
+나쁜 예:
+
+```rust
+.ok();
+```
+
+이 패턴은 debugging을 어렵게 만든다. 오류를 intentional하게 무시하는 경우만 사용한다.
+
+## 요약 체크리스트
+
+* structured logging을 사용하는가?
+* 로그에 context가 포함되는가?
+* println! 대신 tracing을 사용하는가?
+* 에러를 삼키지 않는가?
+* 운영 환경 debugging이 가능한가?
 
 ---
 
-## 경계 조건은 도메인의 일부다
+# 12. Readability First
 
-"재고 없음", "미인증 사용자", "결제 실패" — 이것들은 예외가 아니라 도메인이 정상적으로 다뤄야 할 유효한 상태다.
+좋은 코드는 clever한 코드가 아니라 읽기 쉬운 코드다. Rust에서는 특히 type complexity와 lifetime complexity가 readability를 해치기 쉽다.
 
-### `Option<T>`와 `Result<T, E>`로 경계 조건을 명시적으로 표현
+## 12.1 Prefer Explicitness
 
-```rust
-// ❌ null 반환으로 호출자에게 null 체크 부담 전가 (Rust에서는 raw pointer 또는 unwrap 강요)
-fn find_order(id: OrderId) -> *const Order { todo!() }
-
-// ✅ Option/Result로 "없음"과 "실패"를 타입에서 강제
-fn find_order(id: OrderId) -> Option<Order> { todo!() }
-fn create_order(cmd: CreateOrderCommand) -> Result<Order, DomainError> { todo!() }
-```
-
-### Invalid State를 타입 수준에서 제거
+좋은 예:
 
 ```rust
-// ❌ 상호 배타적 Option 필드들 — 유효하지 않은 상태 조합이 가능
-struct Order {
-    status: OrderStatus,
-    tracking_number: Option<String>,   // shipped일 때만 의미 있음
-    paid_at: Option<DateTime<Utc>>,    // paid일 때만 의미 있음
-}
-
-// ✅ 상태별로 유효한 데이터만 포함하도록 enum에 데이터 부착
-enum OrderStatus {
-    Pending,
-    Paid { paid_at: DateTime<Utc> },
-    Shipped {
-        paid_at: DateTime<Utc>,
-        tracking_number: TrackingNumber,
-    },
-    Cancelled { reason: CancellationReason },
+match stored_todo {
+    Some(st) => Ok(Some(st.try_into()?)),
+    None => Ok(None),
 }
 ```
 
-### 컬렉션은 `None` 대신 빈 컬렉션을 반환한다
+짧은 코드보다 명확한 코드가 우선이다.
+
+## 12.2 Small Scope
+
+변수 scope는 가능한 좁게 유지한다. 이는 ownership/lifetime 문제를 줄인다.
+
+## 12.3 Naming Matters
+
+좋은 이름은 설명 주석보다 강력하다.
+
+좋은 예:
 
 ```rust
-// ❌ None 반환 — 호출자가 항상 처리를 강요받음
-fn find_active_users(&self) -> Option<Vec<User>> {
-    if self.users.is_empty() { return None; }
-    Some(self.users.iter().filter(|u| u.is_active()).cloned().collect())
-}
-
-// ✅ 빈 Vec 반환 — 호출자가 안전하게 순회 (for 루프, map, filter 등)
-fn find_active_users(&self) -> Vec<User> {
-    self.users.iter().filter(|u| u.is_active()).cloned().collect()
-}
+authorize_current_user
 ```
 
-### `None`과 빈 값은 분명히 구분한다
+나쁜 예:
 
 ```rust
-struct Product {
-    stock_count: Option<u32>, // None=아직 미조회, Some(0)=재고 0개
-}
-
-// ❌ None과 0을 같은 의미로 취급 — 두 상태의 의미 소실
-if product.stock_count.unwrap_or(0) == 0 {
-    fetch_inventory().await?;
-}
-
-// ✅ 두 상태를 명시적으로 구분
-match product.stock_count {
-    None => fetch_inventory().await?,
-    Some(0) => notify_out_of_stock().await?,
-    Some(n) => reserve(n).await?,
-}
+handle_auth
+process_user
 ```
 
-### `unwrap()`과 `expect()`는 라이브러리·핸들러에서 절대 금지
+handle/process/do 같은 이름은 의미가 약하다.
 
-```rust
-// ❌ 핸들러에서 panic 유발 — 서버 crash 또는 DoS로 이어질 수 있음
-async fn handler(state: State<AppState>) -> Json<User> {
-    let user = state.repo.find_user(UserId(1)).await.unwrap(); // panic!
-    Json(user)
-}
+## 요약 체크리스트
 
-// ✅ ? 연산자로 에러를 호출 스택 위로 전파
-async fn handler(
-    State(state): State<AppState>,
-) -> Result<Json<User>, AppError> {
-    let user = state.repo.find_user(UserId(1)).await?;
-    Ok(Json(user))
-}
-```
-
-`expect()`는 컴파일 타임에 유효성이 보장되는 리터럴에만 허용하며, 이유를 주석으로 명시한다:
-
-```rust
-// 허용: 컴파일 타임 리터럴은 항상 유효
-static RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\d{4}-\d{2}-\d{2}$")
-        .expect("날짜 정규식 리터럴 — 컴파일 타임에 유효성 보장")
-});
-```
-
-### `match`는 완전성을 유지한다
-
-```rust
-// ❌ wildcard로 새 variant를 조용히 무시 — 추가 시 컴파일은 되지만 버그
-match status {
-    OrderStatus::Pending => enable_edit(),
-    OrderStatus::Paid { .. } => show_receipt(),
-    _ => {} // Shipped, Cancelled 무시
-}
-
-// ✅ 모든 variant를 명시 — 새 variant 추가 시 컴파일 오류로 알려줌
-match status {
-    OrderStatus::Pending => enable_edit(),
-    OrderStatus::Paid { .. } => show_receipt(),
-    OrderStatus::Shipped { tracking_number, .. } => show_tracking(tracking_number),
-    OrderStatus::Cancelled { reason } => show_cancellation(reason),
-}
-```
-
-### 에러를 제어 흐름으로 사용하지 않는다
-
-```rust
-// ❌ 정상 분기를 에러로 표현
-fn find_or_guest(user_id: UserId) -> User {
-    match find_user(user_id) {
-        Ok(user) => user,
-        Err(_) => create_guest_user(), // 에러가 아닌 정상 분기
-    }
-}
-
-// ✅ 조건문 또는 Option 조합자로 정상 흐름 표현
-async fn find_or_guest(&self, user_id: UserId) -> Result<User, AppError> {
-    if let Some(user) = self.repo.find_by_id(user_id).await? {
-        return Ok(user);
-    }
-    Ok(self.create_guest_user())
-}
-```
+* 짧음보다 명확함을 우선하는가?
+* 변수 scope가 작은가?
+* 함수명이 intention을 드러내는가?
+* generic naming을 피하는가?
+* type complexity를 관리하고 있는가?
 
 ---
 
-## 성능은 측정이 먼저다
+# 13. Testing Philosophy
 
-> "Premature optimization is the root of all evil." — Donald Knuth
+테스트는 implementation verification이 아니라 business behavior verification이다.
 
-### 올바른 순서
+## 13.1 Test Business Rule
 
-1. 올바르게 동작하게 만든다
-2. `cargo bench` / `perf` / `flamegraph`로 실제 병목을 측정한다
-3. 측정된 병목만 선택적으로 최적화한다
+좋은 테스트:
 
-### 실무에서 지키는 원칙들
-
-**`clone()`은 소유권 이전이 실제로 필요한 경우에만**:
-
-```rust
-// ❌ 불필요한 clone — 참조로 충분
-fn greet(name: String) -> String {
-    format!("Hello, {}", name.clone())
-}
-
-// ✅ &str / &[T] 우선
-fn greet(name: &str) -> String {
-    format!("Hello, {}", name)
-}
+```text
+"완료된 Todo는 다시 완료 처리할 수 없다"
 ```
 
-**N+1 문제는 가장 흔하고 위험한 패턴**:
+나쁜 테스트:
 
-```rust
-// ❌ 반복문 내 DB 조회 — N번 쿼리
-for order in &orders {
-    let items = repo.find_items_by_order(order.id).await?;
-    process(order, &items);
-}
-
-// ✅ 배치 조회
-let ids: Vec<OrderId> = orders.iter().map(|o| o.id).collect();
-let items_map = repo.find_items_by_orders(&ids).await?;
-for order in &orders {
-    let items = items_map.get(&order.id).map(Vec::as_slice).unwrap_or(&[]);
-    process(order, items);
-}
+```text
+"repository.save()가 호출되었다"
 ```
 
-**async 컨텍스트에서는 `tokio::sync::Mutex` / `RwLock` 사용**:
+mock interaction보다 business outcome이 중요하다.
+
+## 13.2 Prefer Dependency Injection
+
+DI 구조는 테스트 가능성을 높인다.
 
 ```rust
-// ❌ std::sync::Mutex — async 컨텍스트에서 deadlock 위험
-struct AppState {
-    cache: std::sync::Mutex<HashMap<String, String>>,
-}
-
-// ✅ tokio의 비동기 동기화 프리미티브 사용
-struct AppState {
-    cache: tokio::sync::RwLock<HashMap<String, String>>,
-}
+TodoUseCase<R: RepositoriesModuleExt>
 ```
 
-**리소스는 RAII로 자동 해제**:
+mock repository를 쉽게 교체할 수 있다.
 
-Rust의 `Drop` 트레이트가 스코프 종료 시 자동으로 리소스를 정리한다. 수동 정리 코드는 구현 버그의 원인이다.
+## 13.3 Test at Proper Layer
 
-**알고리즘 복잡도는 의식적으로 선택**:
+| Layer      | 테스트 포인트       |
+| ---------- | ------------- |
+| domain     | business rule |
+| usecase    | workflow      |
+| infra      | integration   |
+| controller | contract      |
 
-O(n²) 이상의 복잡도가 들어갈 때는 반드시 명확한 이유가 있어야 한다. 특히 대규모 데이터를 다룰 때 `Vec<T>`를 반복 검색하는 대신 `HashMap<K, V>`을 활용하는 것을 검토한다.
+모든 테스트를 e2e로 만들지 않는다.
+
+## 요약 체크리스트
+
+* business behavior를 테스트하는가?
+* implementation detail 테스트를 줄였는가?
+* DI 구조가 테스트 가능성을 높이는가?
+* 레이어별 테스트 목적이 명확한가?
+* mock interaction에 과도하게 의존하지 않는가?
 
 ---
 
-## Rust 고유 관례
+# 14. Documentation & API Schema
 
-### 에러 타입 설계 — 레이어별 분리
+문서는 나중 작업이 아니라 설계 일부다. utoipa 기반 OpenAPI 문서화를 사용한다.
 
-```rust
-// ❌ 모든 에러를 하나의 enum으로 — 레이어 경계가 사라짐
-enum AppError {
-    Database(sqlx::Error),
-    NotFound,
-    InvalidDiscountRate(f64),
-    Unauthorized,
-}
+## 14.1 Schema as Contract
 
-// ✅ 레이어별 에러 타입 분리 (thiserror 활용)
-// domain/error.rs
-#[derive(Debug, thiserror::Error)]
-pub enum DomainError {
-    #[error("유효하지 않은 할인율: {0}")]
-    InvalidDiscountRate(f64),
-    #[error("잘못된 상태 전환")]
-    InvalidStatusTransition,
-}
-
-// controller/error.rs
-#[derive(Debug, thiserror::Error)]
-pub enum AppError {
-    #[error("데이터베이스 오류")]
-    Database(#[from] sqlx::Error),
-    #[error("도메인 오류: {0}")]
-    Domain(#[from] DomainError),
-    #[error("찾을 수 없음")]
-    NotFound,
-}
-```
-
-### `?` 연산자를 최대한 활용한다
+좋은 예:
 
 ```rust
-// ❌ 장황한 match — 노이즈만 증가
-fn load_config(path: &str) -> Result<Config, ConfigError> {
-    let content = match std::fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(e) => return Err(ConfigError::Io(e)),
-    };
-    match serde_json::from_str(&content) {
-        Ok(cfg) => Ok(cfg),
-        Err(e) => Err(ConfigError::Parse(e)),
-    }
-}
-
-// ✅ ? 연산자 체이닝
-fn load_config(path: &str) -> Result<Config, ConfigError> {
-    let content = std::fs::read_to_string(path)?;
-    Ok(serde_json::from_str(&content)?)
-}
+#[derive(utoipa::OpenApi)]
 ```
 
-### `unsafe` 블록은 최소화하고 반드시 이유를 명시
+API schema를 코드와 함께 유지한다.
+
+## 14.2 Documentation Close to Code
+
+좋은 예:
 
 ```rust
-// ❌ 이유 없는 unsafe
-unsafe {
-    std::ptr::copy_nonoverlapping(src, dst, len);
-}
-
-// ✅ SAFETY 주석으로 불변식 증명
-// SAFETY: src와 dst는 각각 len 바이트의 유효한 메모리를 가리키며,
-//         호출자가 두 범위가 겹치지 않음을 보장했다.
-unsafe {
-    std::ptr::copy_nonoverlapping(src, dst, len);
-}
+#[utoipa::path(
+    get,
+    path = "/v1/todos/{id}",
+)]
 ```
 
-### 공개 API에는 `///` 문서 주석 필수
+문서가 코드 근처에 있어야 drift가 줄어든다.
+
+## 14.3 Self-Describing API
+
+명확한 schema/model naming을 사용한다.
 
 ```rust
-/// 주문에 할인율을 적용한다.
-///
-/// # Errors
-/// - `DomainError::InvalidDiscountRate`: `rate`가 `0.0..=MAX_DISCOUNT_RATE` 범위를 벗어난 경우
-pub fn apply_discount(&mut self, rate: f64) -> Result<(), DomainError> { todo!() }
+JsonCreateTodo
+JsonUpdateTodoContents
 ```
 
-### 파라미터에서 소유가 아닌 참조를 우선한다
+API는 문서 없이도 어느 정도 읽혀야 한다.
 
-```rust
-// ❌ 소유권을 가져가면 호출자가 clone을 강요받음
-fn validate(email: String) -> bool { todo!() }
+## 요약 체크리스트
 
-// ✅ &str, &[T]로 참조를 받아 호출자의 유연성 보장
-fn validate(email: &str) -> bool { todo!() }
-fn process(items: &[Item]) -> Money { todo!() }
-```
+* API schema가 코드와 함께 관리되는가?
+* 문서가 코드 근처에 존재하는가?
+* OpenAPI contract가 유지되는가?
+* naming이 self-describing한가?
+* 문서 drift를 줄이고 있는가?
 
 ---
 
-## 안티 패턴 요약
+# 15. AI Coding Style Alignment
 
-| 안티 패턴 | Rust에서의 증상 | 해결 방향 |
-|---------|----------------|---------|
-| 성급한 추상화 | 사용처 없는 트레이트·제네릭 범람 | 3회 반복 후 추상화 |
-| 빈약한 도메인 모델 | `impl` 없는 struct, 서비스에 로직 집중 | 도메인 객체에 행동 부여 |
-| 깊은 중첩 구조 | 4단계 이상 if/match 중첩 | 조기 반환, `?` 연산자 |
-| 암묵적 경계 처리 | `unwrap()` / `expect()` 남용 | `Option`/`Result` + `?` 전파 |
-| 불필요한 clone() | `clone()` 과다 사용 | `&str`, `&[T]`, `Arc<T>` 활용 |
-| Invalid State 허용 | struct에 상호 배타적 Option 필드 | enum에 데이터 부착 |
-| 원시 타입 도메인 ID | `i64`로 UserId/OrderId 혼용 | Newtype 패턴 |
-| N+1 쿼리 | 반복문 내 DB 조회 | 배치 조회, JOIN 활용 |
-| std::Mutex in async | tokio 없는 blocking Mutex | `tokio::sync::Mutex` / `RwLock` |
-| 에러를 제어 흐름으로 | `Err`로 정상 분기 표현 | 조건문, `unwrap_or_else` |
-| wildcard match 남용 | `_ => {}` 로 새 variant 무시 | 모든 variant 명시적 처리 |
-| 죽은 코드 방치 | `#[allow(dead_code)]` 남용 | 즉시 삭제, git이 이력 보관 |
-| 매직 넘버 | 의미 불명의 리터럴 직접 등장 | 이름 있는 상수로 대체 |
-| 스타일 혼재 | 한 파일에 두 가지 관례 공존 | `rustfmt` CI 강제 |
-| String 파라미터 | 소유권 강요로 불필요한 clone | `&str` / `&[T]` 우선 |
+이 프로젝트는 AI-assisted coding 시대에도 유지 가능한 구조를 목표로 한다. AI가 코드를 생성하더라도 architecture consistency가 유지되어야 한다.
+
+## 15.1 Enforce Structure over Prompting
+
+"좋은 코드를 써줘"보다:
+
+* layer boundary
+* trait abstraction
+* DTO separation
+* dependency direction
+
+같은 구조적 제약이 더 중요하다.
+
+## 15.2 Make Invalid Architecture Hard
+
+Rust의 강점은 compile-time restriction이다. workspace dependency, trait boundary, ownership system을 활용해 잘못된 구조를 어렵게 만든다.
+
+## 15.3 Readability for Humans and AI
+
+AI도 결국 기존 코드 패턴을 학습한다.
+
+따라서:
+
+* naming consistency
+* folder consistency
+* explicit boundary
+* predictable patterns
+
+이 중요하다. 일관성이 높은 프로젝트일수록 AI assistance 품질도 좋아진다. ([arxiv.org](https://arxiv.org/abs/2403.14986))
+
+## 요약 체크리스트
+
+* architecture consistency가 유지되는가?
+* invalid architecture를 어렵게 만들었는가?
+* AI가 학습하기 쉬운 패턴인가?
+* naming/folder structure가 일관적인가?
+* 구조적 제약이 존재하는가?
 
 ---
+
+# Final Principles
+
+axum-rusty 스타일의 핵심은 다음과 같다.
+
+1. Framework보다 Domain이 우선이다.
+2. Runtime 규칙보다 Compile-time 제약을 선호한다.
+3. 구현보다 의존 구조를 더 중요하게 본다.
+4. Smart code보다 Readable code를 선호한다.
+5. 암묵성보다 명시성을 선호한다.
+6. DB 중심이 아니라 Business 중심으로 모델링한다.
+7. 타입 시스템을 적극 활용해 invalid state를 제거한다.
+8. 테스트 가능성은 설계 품질의 결과다.
+9. AI 시대일수록 구조 일관성이 더 중요하다.
+10. 유지보수 비용을 줄이는 것이 최우선 목표다.
+
+이 문서는 단순 코드 스타일 규칙집이 아니라, 프로젝트 전체의 architectural thinking을 공유하기 위한 기준 문서다.
 
 ## 참고 문서
 
-- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
-- [Rust RFC 430 — Naming conventions](https://github.com/rust-lang/rfcs/blob/master/text/0430-finalizing-naming-conventions.md)
 - [언어에 의존하지 않는 도메인 중심 코딩 원칙과 실천법](https://www.mimul.com/blog/ai-coding-style/)
 - `.claude/rules/rust-security-style.md` — 보안 원칙
 - `.claude/rules/rust-test-style.md` — 테스트 원칙
