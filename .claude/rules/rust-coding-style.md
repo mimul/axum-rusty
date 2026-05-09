@@ -1,5 +1,5 @@
 ---
-name: rust-coding-style
+name: Axum-Rusty Style Guide & Coding Standards
 description: Rust 도메인 중심 코딩 원칙. 소유권·네이밍·설계·경계 조건·성능 등 Rust 고유 관례를 포함한 코딩 스타일 가이드. /refactor-rust·/code-review-rust 스킬의 1차 판단 기준.
 ---
 
@@ -927,7 +927,7 @@ AI도 결국 기존 코드 패턴을 학습한다.
 
 # Final Principles
 
-axum-rusty 스타일의 핵심은 다음과 같다.
+Axum-Rusty 스타일의 핵심은 다음과 같다.
 
 1. Framework보다 Domain이 우선이다.
 2. Runtime 규칙보다 Compile-time 제약을 선호한다.
