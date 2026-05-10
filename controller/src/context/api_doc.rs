@@ -26,7 +26,8 @@ pub struct ApiDoc;
 pub struct SecurityAddon;
 impl Modify for SecurityAddon {
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        openapi.components.as_mut().unwrap().add_security_scheme(
+        // utoipa derive macro가 components를 항상 Some으로 설정함
+        openapi.components.as_mut().expect("utoipa always sets components").add_security_scheme(
             "Authorization",
             SecurityScheme::Http(
                 HttpBuilder::new()
