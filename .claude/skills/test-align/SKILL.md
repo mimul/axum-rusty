@@ -9,9 +9,6 @@ description: /test-align 커맨드로 실행되는 Rust 테스트 작성 스킬.
 
 **테스트 철학 권위 문서**: `.claude/rules/test-style.md`를 최우선 기준으로 사용한다.
 
-> ※ AGENTS.md는 범용 규칙이다. 충돌 시 `.claude/rules/test-style.md`를 따른다.
-> 예: AGENTS.md는 DB Mock을 허용하지만, 이 프로젝트는 testcontainers 실제 DB만 허용한다.
-
 항상 아래 우선순위를 따른다.
 
 1. 테스트 안정성
