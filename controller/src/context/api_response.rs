@@ -25,7 +25,7 @@ impl<Data> ApiResponse<Data> {
 }
 
 pub(crate) fn internal_error(err: impl std::fmt::Debug) -> AppError {
-    error!("internal error: {err:?}");
+    error!(error = ?err, "internal error");
     AppError::Error("서버 오류가 발생했습니다".to_string())
 }
 
@@ -50,26 +50,26 @@ impl IntoResponse for AppError {
                             .collect::<Vec<_>>()
                     })
                     .collect();
-                error!("validation failed: {}", messages.join(", "));
+                error!(messages = %messages.join(", "), "validation failed");
                 (StatusCode::BAD_REQUEST, messages.join(" or "))
             }
             AppError::JsonRejection(rejection) => {
-                error!("JSON rejection: {rejection}");
+                error!(error = %rejection, "JSON rejection");
                 (StatusCode::BAD_REQUEST, rejection.to_string())
             }
             AppError::ApiPathRejection(rejection) => {
-                error!("path rejection: {rejection}");
+                error!(error = %rejection, "path rejection");
                 (StatusCode::BAD_REQUEST, rejection.to_string())
             }
             AppError::UnknownApiVerRejection(version) => {
-                error!("unknown API version: {version}");
+                error!(version = %version, "unknown API version");
                 (
                     StatusCode::BAD_REQUEST,
                     format!("Unknown api version({version})."),
                 )
             }
             AppError::Error(error) => {
-                error!("application error: {error}");
+                error!(error = %error, "application error");
                 (StatusCode::OK, format!("error({error})."))
             }
         };
