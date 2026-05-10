@@ -242,13 +242,17 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: main 브랜치 벤치마크 (기준선)
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          git checkout ${{ github.base_ref }}
+          git checkout "$BASE_REF"
           cargo bench --bench '*' -- --save-baseline main 2>&1 | tee bench-main.txt
 
       - name: PR 브랜치 벤치마크 (비교)
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          git checkout ${{ github.head_ref }}
+          git checkout "$HEAD_REF"
           cargo bench --bench '*' -- --baseline main 2>&1 | tee bench-pr.txt
 
       - name: 벤치마크 결과 PR 코멘트

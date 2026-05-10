@@ -5,7 +5,8 @@ use crate::context::validate::ValidatedRequest;
 use crate::model::user::{JsonCreateUser, JsonLoginUser, JsonUser, TokenClaims, UserQuery};
 use crate::module::usecase_module::AppState;
 use axum::extract::{Path, Query, State};
-use axum::http::{header, Response, StatusCode};
+use axum::http::{header, HeaderValue, StatusCode};
+use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::{Duration, Utc};
@@ -91,9 +92,12 @@ pub async fn get_user(
     Extension(current_user): Extension<UserView>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
     info!(
-        "get_user: request param id={}, current_user={:?}",
-        id, current_user
+        "get_user: request param id={}, current_user_id={}",
+        id, current_user.id
     );
+    if current_user.id != id {
+        return Err(AppError::Forbidden("forbidden".to_string()));
+    }
     let uc: Arc<dyn IUserUseCase> = state.module.resolve();
     let resp = uc.get_user(id).await;
     match resp {
@@ -131,13 +135,12 @@ pub async fn get_user_by_username(
     State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<UserView>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!(
-        "get_user_by_username: request param={:?}, current_user={:?}",
-        query, current_user
-    );
+    info!("get_user_by_username: current_user_id={}", current_user.id);
     if query.username.is_empty() {
-        info!("get_user_by_username: username is empty. id={:?}", query);
         return Err(AppError::Error("username is empty".to_string()));
+    }
+    if current_user.username != query.username {
+        return Err(AppError::Forbidden("forbidden".to_string()));
     }
     let uc: Arc<dyn IUserUseCase> = state.module.resolve();
     let user_view = uc
@@ -180,37 +183,37 @@ pub async fn login_user(
     _: ApiVersion,
     State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonLoginUser>,
-) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
+) -> Result<Response, AppError> {
     info!("login_user: username={:?}", source.username);
     let uc: Arc<dyn IUserUseCase> = state.module.resolve();
     let user_view = uc.login_user(source.try_into()?).await;
     match user_view {
         Ok(uv) => {
-            info!("login_user: response user `{:?}`.", uv);
+            info!("login_user: response user id={}", uv.id);
             let token = generate_jwt_token(
                 &uv.id,
                 &uv.username,
                 &state.config.jwt_secret,
                 state.config.jwt_duration,
             )?;
-            let cookie = Cookie::build("token", token.to_owned())
+            let cookie = Cookie::build("access_token", token)
                 .path("/")
-                .max_age(time::Duration::hours(state.config.jwt_max_age.to_owned()))
-                .same_site(SameSite::Lax)
+                .max_age(time::Duration::hours(state.config.jwt_max_age))
+                .same_site(SameSite::Strict)
                 .http_only(true)
+                .secure(true)
                 .finish();
-            let mut response = Response::new(json!({"status": "success"}).to_string());
-            response.headers_mut().insert(
-                header::SET_COOKIE,
-                cookie
-                    .to_string()
-                    .parse()
-                    .map_err(|e| AppError::Error(format!("cookie header parse failed: {e}")))?,
-            );
+            let cookie_header = cookie
+                .to_string()
+                .parse::<HeaderValue>()
+                .map_err(|_| AppError::Error("서버 오류가 발생했습니다".to_string()))?;
             let json_user: JsonUser = uv.into();
-            let response =
-                ApiResponse::success("success.", json!({ "userView": json_user, "token": token }));
-            Ok((StatusCode::OK, Json(response)))
+            let body = ApiResponse::success("success.", json!({ "userView": json_user }));
+            let mut response = (StatusCode::OK, Json(body)).into_response();
+            response
+                .headers_mut()
+                .insert(header::SET_COOKIE, cookie_header);
+            Ok(response)
         }
         Err(err) => Err(internal_error(err)),
     }

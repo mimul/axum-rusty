@@ -72,8 +72,11 @@ jobs:
       - name: 변경 파일 분석 및 분류
         id: door
         shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          BASE="${{ github.base_ref }}"
+          BASE="$BASE_REF"
           CHANGED=$(git diff --name-only "origin/${BASE}...HEAD" 2>/dev/null || echo "")
           echo "::group::변경 파일"
           echo "$CHANGED"
@@ -137,7 +140,7 @@ jobs:
           done <<< "$CHANGED"
 
           # 브랜치 네이밍 힌트: 명시적 Two-Way Door 브랜치
-          BRANCH="${{ github.head_ref }}"
+          BRANCH="$HEAD_REF"
           if [[ "$BRANCH" =~ ^(fix/cr-|feature/refactor-) ]] && [[ "$ONE_WAY" == "false" ]]; then
             echo "type=two-way" >> "$GITHUB_OUTPUT"
             echo "reason=리팩토링/CR 수정 브랜치 (${BRANCH})" >> "$GITHUB_OUTPUT"

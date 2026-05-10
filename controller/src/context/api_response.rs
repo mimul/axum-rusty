@@ -32,10 +32,13 @@ pub(crate) fn internal_error(err: impl std::fmt::Debug) -> AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status_code, error_message) = match self {
-            AppError::InvalidJwt(token) => {
-                let err = format!("Missing or expired jwt({}).", token);
-                error!("{}", err);
-                (StatusCode::BAD_REQUEST, err)
+            AppError::InvalidJwt(reason) => {
+                error!("JWT 인증 실패: {}", reason);
+                (StatusCode::UNAUTHORIZED, "인증이 필요합니다".to_string())
+            }
+            AppError::Forbidden(reason) => {
+                error!("접근 거부: {}", reason);
+                (StatusCode::FORBIDDEN, "접근이 거부되었습니다".to_string())
             }
             AppError::Validation(validation_errors) => {
                 error!("{:?}", validation_errors);
@@ -96,10 +99,17 @@ mod tests {
     use axum::response::IntoResponse;
 
     #[test]
-    fn app_error_invalid_jwt_returns_bad_request() {
+    fn app_error_invalid_jwt_returns_unauthorized() {
         let err = AppError::InvalidJwt("expired-token".to_string());
         let response = err.into_response();
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn app_error_forbidden_returns_forbidden_status() {
+        let err = AppError::Forbidden("no permission".to_string());
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 
     #[test]

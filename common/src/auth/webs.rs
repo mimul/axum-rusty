@@ -9,7 +9,7 @@ pub fn create_cookie_headers(key: &str, value: &str) -> Result<header::HeaderMap
     let cookie = CookieBuilder::new(key, value)
         .path("/")
         .max_age(Duration::seconds(COOKIE_MAX_AGE_SECS))
-        //.secure(true) // true: indicates that only https requests will carry
+        .secure(true)
         .http_only(true)
         .same_site(SameSite::Strict)
         .build();
@@ -141,6 +141,7 @@ mod tests {
         let val = headers.get(header::SET_COOKIE).unwrap().to_str().unwrap();
         assert!(val.contains("access_token=mytoken"));
         assert!(val.contains("HttpOnly"));
+        assert!(val.contains("Secure"));
         assert!(val.contains("SameSite=Strict"));
     }
 

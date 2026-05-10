@@ -13,10 +13,13 @@ COPY ./docker-app.env ./.env
 
 FROM --platform=linux/amd64 rust:1.82
 
-RUN apt-get update && apt-get install -y pkg-config libssl-dev build-essential
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
-    build-essential
+    build-essential \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 #RUN rustup install nightly && rustup default nightly
 RUN cargo install sqlx-cli --version 0.7.4 --locked
+
+RUN useradd -m -s /bin/bash appuser
+USER appuser
