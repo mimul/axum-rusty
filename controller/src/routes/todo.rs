@@ -10,7 +10,6 @@ use crate::module::usecase_module::AppState;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
-use log::{error, info};
 use serde_json::{json, Value};
 use shaku::HasComponent;
 use std::sync::Arc;
@@ -33,19 +32,19 @@ pub async fn get_todo(
     Path((_v, id)): Path<(ApiVersion, String)>,
     State(state): State<Arc<AppState>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("get_todo: id={}", id);
+    log::info!("get_todo: id={}", id);
     let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
     let resp = uc.get_todo(id).await;
     match resp {
         Ok(tv) => tv
             .map(|tv| {
-                info!("found todo `{}`.", tv.id);
+                log::info!("get_todo: found todo_id={}", tv.id);
                 let json: JsonTodo = tv.into();
                 let response = ApiResponse::success("success", json!({ "todoView": json }));
                 (StatusCode::OK, Json(response))
             })
             .ok_or_else(|| {
-                error!("todo is not found.");
+                log::error!("get_todo: todo not found");
                 AppError::Error("data not found".to_string())
             }),
         Err(err) => Err(internal_error(err)),
@@ -70,9 +69,8 @@ pub async fn find_todo(
     Query(query): Query<TodoQuery>,
     State(state): State<Arc<AppState>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("find_todo: param={:?}", query);
+    log::info!("find_todo: status={:?}", query.status);
     if query.status.is_none() {
-        info!("status is none. id={:?}", query);
         return Err(AppError::Error("status is none".to_string()));
     }
     let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
@@ -109,11 +107,10 @@ pub async fn create_todo(
     State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonCreateTodo>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("create_todo: {:?}", source);
     let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
     let resp = uc.create_todo(source.try_into()?).await;
     resp.map(|tv| {
-        info!("created todo: {}", tv.id);
+        log::info!("create_todo: todo_id={}", tv.id);
         let json: JsonTodo = tv.into();
         let response = ApiResponse::success("success", json!({ "todoView": json }));
         (StatusCode::OK, Json(response))
@@ -143,13 +140,12 @@ pub async fn update_todo(
     State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonUpdateTodoContents>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("update_todo: {:?}", source);
     match source.validate(id) {
         Ok(todo) => {
             let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
             let resp = uc.update_todo(todo).await;
             resp.map(|tv| {
-                info!("updated todo {}", tv.id);
+                log::info!("update_todo: todo_id={}", tv.id);
                 let json: JsonTodo = tv.into();
                 let response = ApiResponse::success("success", json!({ "todoView": json }));
                 (StatusCode::OK, Json(response))
@@ -188,11 +184,10 @@ pub async fn upsert_todo(
     State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonUpsertTodoContents>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("upsert_todo: {:?}", source);
     let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
     let resp = uc.upsert_todo(source.try_to_view(id)?).await;
     resp.map(|tv| {
-        info!("created or updated todo {}", tv.id);
+        log::info!("upsert_todo: todo_id={}", tv.id);
         let json: JsonTodo = tv.into();
         let response = ApiResponse::success("success", json!({ "todoView": json }));
         (StatusCode::OK, Json(response))
@@ -217,19 +212,19 @@ pub async fn delete_todo(
     Path((_v, id)): Path<(ApiVersion, String)>,
     State(state): State<Arc<AppState>>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("delete_todo: id={}", id);
+    log::info!("delete_todo: id={}", id);
     let uc: Arc<dyn ITodoUseCase> = state.module.resolve();
     let resp = uc.delete_todo(id).await;
     match resp {
         Ok(tv) => tv
             .map(|tv| {
-                info!("Deleted todo `{}`.", tv.id);
+                log::info!("delete_todo: todo_id={}", tv.id);
                 let json: JsonTodo = tv.into();
                 let response = ApiResponse::success("success", json!({ "todoView": json }));
                 (StatusCode::OK, Json(response))
             })
             .ok_or_else(|| {
-                error!("todo is not found.");
+                log::error!("delete_todo: todo not found");
                 AppError::Error("data not found".to_string())
             }),
         Err(err) => Err(internal_error(err)),
