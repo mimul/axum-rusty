@@ -5,7 +5,7 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 
 # Claude용 리팩토링 가이드
 
-## 1. 리팩토링 원칙 (Refactoring Principles)
+# 1. 리팩토링 원칙 (Refactoring Principles)
 
 ### 1.1 Behavior Preserving
 - 리팩토링은 **동작 변경 없이 구조를 개선**하는 활동이다.
@@ -46,7 +46,7 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 
 ### 1.9 Refactor Continuously
 - 리팩토링은 별도 이벤트가 아니라 지속적 활동이다.
-- Boy Scout Rule: "코드를 발견했을 때보다 더 깨끗하게 남긴다.""
+- Boy Scout Rule: "코드를 발견했을 때보다 더 깨끗하게 남긴다."
 
 ---
 
@@ -93,7 +93,7 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 부족하면 먼저 테스트를 작성한다.
 
 특히:
-- 현재 동작 캡처(Characterization Test)
+- 현재 동작 캡처 (Characterization Test)
 - 회귀 방지 테스트
 - Edge Case 테스트
 
@@ -101,36 +101,46 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 
 ### 2.1.4 Code Smell 분석
 
-## Bloaters
+**Bloaters**
 - Long Method
-- Large Class
+- Large Struct / God Impl Block
 - Long Parameter List
 - Primitive Obsession
 - Data Clumps
 
-## OO Abusers
-- Switch Statement 남용
+**OO Abusers**
+- match 과다 분기
 - Temporary Field
-- Refused Bequest
-- Alternative Classes with Different Interfaces
+- Alternative Structs with Different Interfaces
 
-## Change Preventers
+**Change Preventers**
 - Divergent Change
 - Shotgun Surgery
 - Parallel Inheritance Hierarchies
 
-## Dispensables
+**Dispensables**
 - Duplicate Code
 - Dead Code
-- Lazy Class
+- Lazy Module
 - Speculative Generality
 - 과도한 Comment
 
-## Couplers
+**Couplers**
 - Feature Envy
 - Inappropriate Intimacy
 - Message Chain
 - Middle Man
+
+**Rust 특화 Code Smell**
+- `unwrap()` / `expect()` 남용 — recoverable error에서 panic 가능성
+- format string 로깅 — `error!("msg: {:?}", err)` 형태로 집계 도구에서 필드 파싱 불가
+- String 식별자 — `id: String` 대신 `Id<T>` Newtype 필요
+- String 상태값 — `status: String` 대신 `enum` 필요
+- 레이어 간 에러 미변환 — `sqlx::Error`가 usecase 이상으로 노출
+- framework 타입이 usecase에 직접 사용 — `Json<T>`, `axum::Extension` 등
+- `pub` 과잉 노출 — 외부 공개가 불필요한 항목에 `pub` 사용
+- `String` 파라미터 — `&str` / `&[T]` 로 대체 가능한 경우
+- 금지 접두사 함수명 — `handle_`, `process_`, `run_`, `do_` 로 시작하는 함수
 
 ---
 
@@ -143,11 +153,19 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 | Long Method | Extract Method |
 | Primitive Obsession | Replace Primitive with Object |
 | Duplicate Code | Extract Function / Template Method |
-| Large Class | Extract Class |
-| Switch 남용 | Strategy / Polymorphism |
+| Large Struct / God Impl | Extract Struct / Trait 분리 |
+| match 과다 분기 | Strategy / Polymorphism (trait 활용) |
 | Shotgun Surgery | Move Method / Move Field |
 | Message Chain | Hide Delegate |
-| Long Parameter | Parameter Object |
+| Long Parameter | Parameter Object / Command Object |
+| `unwrap()` 남용 | `map_err` + `?` + 레이어별 에러 타입 |
+| String 식별자 | `Id<T>` Newtype 도입 |
+| String 상태값 | `enum StatusName { ... }` 도입 |
+| 레이어 에러 노출 | `impl From<LowerError> for UpperError` |
+| format string 로깅 | `tracing` 필드 기반 구조화 로깅 |
+| framework coupled usecase | Command Object 추출 |
+| `String` 파라미터 | `&str` / `&[T]` 로 교체 |
+| `pub` 과잉 노출 | `pub(crate)` / `pub(super)` 로 축소 |
 
 ---
 
@@ -168,8 +186,7 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 
 ### 2.2.1 작은 단위로 진행
 
-- 절대 금지 : 대규모 변경을 한 번에 수행하지 않고, 기능 추가와 리팩토링을 같이 작업하는 것을 금지한다.
-- 권장 사항 : 작업 단위를 작은 단위로 쪼개고, 작업 단위로 브랜치는 "feature/refactor-작업단위" 함축적 의미로 만들고 아래 사항들을 리팩토링을 진행하고 테스트하고, 커밋을 반복 수행한다.
+작업 단위를 작게 쪼개고, 브랜치는 `feature/refactor-{작업단위}` 형태로 만든다. 각 단위마다 리팩토링 → 테스트 → 커밋을 반복한다.
 
 ---
 
@@ -182,9 +199,25 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 - 도메인 용어 사용
 - Boolean Flag 제거
 
+**금지 접두사** — 의미가 약해 역할을 드러내지 못한다:
+
+```rust
+// 나쁜 예
+handle_auth()
+process_order()
+run_job()
+do_cleanup()
+
+// 좋은 예: <동사>_<대상> 형태로 의도를 명시
+validate_access_token()
+complete_order()
+execute_batch_export()
+remove_expired_sessions()
+```
+
 예:
-- `data` → `orderItems`
-- `flag` → `isExpired`
+- `data` → `order_items`
+- `flag` → `is_expired`
 
 ---
 
@@ -203,17 +236,19 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 
 ---
 
-### 2.2.4 클래스 리팩토링
+### 2.2.4 Struct / Impl / Trait 리팩토링
 
 체크:
-- 클래스 책임이 여러 개인가?
-- 데이터와 행동이 분리되어 있는가?
-- 도메인 규칙이 서비스에 흩어져 있는가?
+- 하나의 impl block이 여러 책임을 지는가?
+- struct 필드와 impl 로직이 응집되어 있는가?
+- 도메인 규칙이 usecase에 흩어져 있는가?
+- trait 경계가 명확한가?
 
 개선:
-- 응집도 증가
-- 캡슐화 강화
-- 도메인 로직 이동
+- 책임별 struct 분리
+- 도메인 로직을 domain layer로 이동
+- trait 추출로 의존성 역전
+- composition 우선 (Rust는 상속이 없다)
 
 ---
 
@@ -222,11 +257,11 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 다음을 우선 제거한다.
 
 - 거대한 if/else
-- switch 분기
+- match 과다 분기
 - 상태 기반 분기
 
 대체:
-- Polymorphism
+- Polymorphism (trait 활용)
 - Strategy Pattern
 - State Pattern
 - Lookup Table
@@ -244,11 +279,65 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 대체:
 - Value Object
 - Enum
-- Domain Type
+- Domain Type (`Id<T>` Newtype, `enum Status`)
 
 ---
 
-### 2.2.7 Dependency 정리
+### 2.2.7 에러 처리 리팩토링
+
+체크:
+- `unwrap()` / `expect()` 남용 여부
+- 의미 없는 에러 메시지 (`anyhow!("something wrong")`)
+- 레이어 간 에러 타입 누출 여부
+- `thiserror` (라이브러리) / `anyhow` (바이너리 main) 사용 맥락 혼용 여부
+
+개선:
+
+```rust
+// Before
+let val = risky_operation().unwrap();
+
+// After
+let val = risky_operation().map_err(AppError::Internal)?;
+```
+
+레이어별 에러 변환 경계 확립:
+
+```text
+infra:      sqlx::Error      → RepositoryError
+usecase:    RepositoryError  → UsecaseError
+controller: UsecaseError     → AppError (HTTP 응답용)
+```
+
+`expect()`는 진입 불가능한 상태임을 증명할 수 있을 때만 허용하며, 이유를 주석으로 명시한다.
+
+```rust
+// 컴파일 타임에 유효성이 보장된 리터럴이므로 항상 유효
+let re = Regex::new(r"^\d{4}-\d{2}-\d{2}$").expect("always valid literal");
+```
+
+---
+
+### 2.2.8 로깅 리팩토링
+
+체크:
+- format string 방식 로깅 사용 여부
+- context 정보 (request_id, user_id) 누락 여부
+- `.ok()` 남용으로 에러가 삼켜지는지 여부
+
+개선:
+
+```rust
+// Before (code smell)
+error!("authorization failed: {:?}", err);
+
+// After: tracing 필드 기반 구조화 로깅
+error!(error = ?err, user_id = %user.id, "authorization failed");
+```
+
+---
+
+### 2.2.9 Dependency 정리
 
 체크:
 - 순환 참조
@@ -257,32 +346,62 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 - 전역 상태 사용
 
 개선:
-- Dependency Injection
-- Interface 분리
+- Dependency Injection (constructor injection 우선)
+- Trait Boundary 분리
 - Layer 명확화
 
 ---
 
-### 2.2.8 Dead Code 제거
+### 2.2.10 Dead Code 제거
 
 제거 대상:
-- 사용되지 않는 함수
-- 사용되지 않는 클래스
+- 사용되지 않는 함수 / struct / trait
 - obsolete feature flag
 - obsolete comment
 - commented-out code
 
 ---
 
-### 2.2.9 Comments 제거
+### 2.2.11 Comments 관리
 
-설명용 comment보다 이름 개선, 함수 분리, 구조 개선을 우선한다. “what” comment는 code smell 가능성이 높다.
+**제거 대상** — 코드 자체로 이해 가능한 것:
+- 내부 구현 "what" 주석
+- 자명한 단계 설명 주석
+- commented-out code
+
+**유지 / 추가 대상** — 반드시 남겨야 할 것:
+- `pub fn` / `pub struct` / `pub trait` 의 `///` doc 주석 (필수)
+- `unsafe` 블록의 `// SAFETY:` 주석 (필수)
+- 비자명한 제약·불변식을 설명하는 주석 (숨겨진 이유, 외부 버그 우회 등)
+
+```rust
+// ✓ 유지: pub 항목 doc 주석
+/// 완료 처리. 이미 Done 상태이면 Err 반환.
+pub fn complete(&mut self) -> Result<(), DomainError> { ... }
+
+// ✗ 제거: 자명한 구현 주석
+// status를 Done으로 설정
+self.status = TodoStatus::Done;
+```
 
 ---
 
 ## 2.3 Verification & Cleanup
 
-### 2.3.1 전체 테스트 실행
+### 2.3.1 Linter & Formatter 실행
+
+아래를 순서대로 실행하고 결과를 개선한다.
+
+```bash
+cargo clippy -- -D warnings          # 경고를 오류로 처리
+cargo clippy --fix --allow-dirty     # 자동 수정 가능한 항목 수정
+cargo fmt                            # 포맷 자동 적용
+cargo fmt --check                    # 포맷 위반 확인 (CI용)
+```
+
+---
+
+### 2.3.2 전체 테스트 실행
 
 반드시 수행:
 - Unit Test
@@ -294,9 +413,29 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 - 원인 분석
 - behavior change 여부 확인
 
+테스트 수행 후 `/test-review` 명령을 실행하고 피드백을 자동 수정한다.
+
+```bash
+cargo test --all
+cargo tarpaulin --out Html --output-dir coverage/   # 커버리지 확인
+```
+
 ---
 
-### 2.3.2 Static Analysis 수행
+### 2.3.3 Security Scan
+
+1. `/security-full-scan` 명령을 실행해 정적 분석을 진행하고 결과 피드백을 반영한다.
+2. `/security-scan` 명령으로 동적 분석을 진행한다. 서버가 구동되지 않은 경우 `cargo run`으로 서버를 실행한 뒤 `/security-scan`을 다시 실행한다.
+
+위 명령을 수행하기 위해서는 [claude-security-scan](https://github.com/mimul/claude-security-scan) 이 설치되어 있어야 한다. 설치가 안되어 있을 경우 인간에게 설치를 안내한다.
+
+```bash
+cargo audit                          # 의존성 보안 취약점 확인
+```
+
+---
+
+### 2.3.4 Static Analysis 수행
 
 확인:
 - unused code
@@ -307,74 +446,45 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 
 ---
 
-### 2.3.3 Architecture Review
+### 2.3.5 Architecture Review
 
 검증:
-- 계층 위반 여부
-- 의존 방향
-- 도메인 경계
-- Aggregate 경계
-- Transaction boundary
+- `controller → usecase → domain ← infra` 의존 방향 유지
+- domain이 axum / sqlx를 import하지 않는가?
+- usecase가 SQL을 직접 사용하지 않는가?
+- infra가 domain trait를 구현하는가?
+- Cargo workspace 경계가 잘못된 의존을 물리적으로 차단하는가?
+- 도메인 경계 / Aggregate 경계 유지
+- Transaction boundary 위치 (usecase가 소유하는가?)
+- validation 로직이 controller 경계에 있는가?
 
 ---
 
-### 2.3.4 Complexity Review
+### 2.3.6 Complexity Review
 
 측정:
 - Cyclomatic Complexity
 - Cognitive Complexity
 - Method Length
-- Class Size
+- Struct / Impl Size
 - Dependency Depth
 
 리팩토링 후 감소했는지 확인한다.
 
 ---
 
-### 2.3.5 Diff Review
+### 2.3.7 Diff Review
 
 확인:
 - 불필요한 formatting noise 제거
-- 기능 변경 섞이지 않았는가
-- rename-only commit 분리 가능한가
+- 기능 변경 섞이지 않았는가?
+- rename-only commit 분리 가능한가?
 
 ---
 
-# 3. Test Review / 피드백 반영
+# 3. 피드백 작성 가이드라인
 
-`/test-review` 명령을 실행히고 결과 피드백을 자동 수정한다.
-
----
-
-# 4. Security Scan / 피드백 반영
-
-1. `/security-full-scan` 명령을 실행해 정적분석을 진행하고 결과 피드백을 분석해 자동 수정한다.
-2. `/security-scan` 명령을 수행해 동적 분석을 진행하고 결과 피드백을 분석해 자동 수정한다. 정적 분석의 경우 서버가 구동되지 않았으면 `cargo run` 명령어를 실행해 서버를 실행한 다음 `/security-scan` 명령을 다시 실행해 이후 작업을 수행한다.
-
-위 명령을 수행하기 위해서는 [claude-security-scan](https://github.com/mimul/claude-security-scan) 이 설치되어 있어야 한다. 설치가 안되었을 경우 인간에게 설치를 안내한다.
-
----
-
-# 5. Linter & Formatter 실행
-아래사항을 실행하고 결과 피드백을 개선한다.
-
-```bash
-cargo clippy -- -D warnings          # 경고를 오류로 처리
-cargo clippy --fix --allow-dirty     # 자동 수정 가능한 항목 수정
-cargo fmt                            # 포맷 자동 적용
-cargo fmt --check                    # 포맷 위반 확인 (CI용)
-cargo test                           # 전체 테스트
-cargo tarpaulin --out Html --output-dir coverage/
-cargo bench                          # 전체 벤치마크
-cargo doc --no-deps --open           # 문서 생성 및 열기
-cargo audit                          # 보안 취약점 확인
-```
-
----
-
-# 6. 피드백 작성 가이드라인
-
-## 6.1 리백토링 피드백 분류
+## 3.1 리팩토링 피드백 분류
 
 리팩토링 결과는 아래 4가지 카테고리로 분류한다.
 
@@ -385,12 +495,11 @@ cargo audit                          # 보안 취약점 확인
 | 💡 Refactoring Suggestions | 선택적 개선 아이디어 및 리팩토링 기회 | 향후 개선 후보로 고려 |
 | 📝 Refactoring Tech Debt | 현재 수정 범위를 넘어서는 구조적 부채 | 별도 이슈로 추적 |
 
-
-## 6.2 리팩터링 피드백 분류 기준
+## 3.2 리팩터링 피드백 분류 기준
 
 **1. 🚫 Blocking Refactoring Issues**
 
-반드시 수정해야 하는 항목. 다음에 해당하면 Blocking으로 분류한다.
+반드시 수정해야 하는 항목:
 
 - behavior change 발생 가능성
 - public API compatibility 문제
@@ -408,10 +517,10 @@ cargo audit                          # 보안 취약점 확인
 
 **2. ⚠️ Recommended Refactoring Changes**
 
-강하게 권장되는 개선 사항. 다음에 해당하면 Recommended로 분류한다.
+강하게 권장되는 개선 사항:
 
 - long method 개선 가능
-- large class 분리 필요
+- large struct/impl 분리 필요
 - duplicate code 존재
 - dependency direction 개선 가능
 - testability 부족
@@ -425,7 +534,7 @@ cargo audit                          # 보안 취약점 확인
 
 **3. 💡 Refactoring Suggestions**
 
-선택적 개선 아이디어이다. 다음에 해당하면 Suggestion으로 분류한다.
+선택적 개선 아이디어:
 
 - future extensibility 개선 가능
 - reusable abstraction 가능
@@ -436,10 +545,9 @@ cargo audit                          # 보안 취약점 확인
 - builder/factory 적용 가능
 - async optimization 가능
 
-
 **4. 📝 Refactoring Tech Debt**
 
-현재 범위를 넘는 기술 부채이다. 즉시 수정하지 않지만 추적 필요하다. 다음에 해당하면 Tech Debt로 분류한다.
+현재 범위를 넘는 기술 부채:
 
 - legacy architecture limitation
 - monolith boundary 문제
@@ -452,33 +560,34 @@ cargo audit                          # 보안 취약점 확인
 - inconsistent domain modeling
 - duplicated business logic across modules
 
-
-**6.3 리팩토링 결과 피드백 가이드라인**
+## 3.3 리팩토링 결과 피드백 가이드라인
 
 리팩토링 결과 피드백은 코드 냄새 유형 + Before/After 비교 형식으로 작성한다:
 
-코드 위치: 파일명과 라인 번호를 명시 (예: src/domain/order/service.rs:42)
-냄새 유형: Code Smell 분석, Refactoring 전략 선택의 하위 단락의 유형을 표시
-문제 설명(Problem) : 왜 문제가 되는가, 어떤 위험이 있는가, 어떤 영향(API 영향, transaction 영향, oncurrency 영향, rollback risk, migration 필요 여부)이 있는지 구체적으로 기술
-개선 방향(Recommendation) : 가능하면 refactoring strategy, pattern, extraction 방향, dependency 개선 방향을 포함
-Before/After: 리팩토링 전후 코드 예시 제공
-우선순위: 각 항목의 우선순위(🚫/⚠️/💡/📝) 명시
+- 코드 위치: 파일명과 라인 번호를 명시 (예: `src/domain/order/service.rs:42`)
+- 냄새 유형: 2.1.4 Code Smell 분석의 유형을 표시
+- 문제 설명(Problem): 왜 문제가 되는가, 어떤 위험이 있는가, 어떤 영향(API 영향, transaction 영향, concurrency 영향, rollback risk, migration 필요 여부)이 있는지 구체적으로 기술
+- 개선 방향(Recommendation): refactoring strategy, pattern, extraction 방향, dependency 개선 방향을 포함
+- Before/After: 리팩토링 전후 코드 예시 제공
+- 우선순위: 각 항목의 우선순위 (🚫/⚠️/💡/📝) 명시
 
 ---
 
-# 7. PR 준비 및 제출
+# 4. PR 준비 및 제출
 
-## 7.1 PR 제목 규칙
+## 4.1 PR 제목 규칙
 
+```
 refactor([모듈명]): [핵심 변경 내용 한 줄 요약]
+```
 
-## 7.2 PR 본문
+## 4.2 PR 본문
 
 주요 변경 사항 단락에 리팩토링 결과 피드백의 내용 전체를 간략한 버전으로 정리해서 기술한다.
 
-검증 내용에 테스트 결과 security scan 결과를 기술한다.
+검증 내용에 테스트 결과와 security scan 결과를 기술한다.
 
-## 7.3 최종 완료 조건
+## 4.3 최종 완료 조건
 
 다음을 만족해야 완료로 간주한다.
 
@@ -493,12 +602,12 @@ refactor([모듈명]): [핵심 변경 내용 한 줄 요약]
 
 ---
 
-# 8. Claude Skill Command Style
+# 5. Claude Skill Command Style
 
 권장 명령은 아래 수준으로 단순하게 유지한다.
 
 ```bash
-/refactoring [scope]
+/refactor [scope]
 ```
 
 필요 시에만 아래 옵션을 추가한다.
@@ -513,11 +622,11 @@ refactor([모듈명]): [핵심 변경 내용 한 줄 요약]
 예:
 
 ```bash
-/refactoring
-/refactoring payments
-/refactoring ./src/domain/order
-/refactoring payments --goal maintainability
-/refactoring legacy --dry-run
+/refactor
+/refactor payments
+/refactor ./src/domain/order
+/refactor payments --goal maintainability
+/refactor legacy --dry-run
 ```
 
 ## Scope 해석 규칙
@@ -534,15 +643,15 @@ Claude는 scope를 기반으로 영향 범위와 의존성을 분석한다.
 ## Goal 해석 규칙
 
 ### readability
-- naming 개선 우선
+- naming 개선 우선 (금지 접두사 제거, `<동사>_<대상>` 형태 적용)
 - extract method 우선
-- 불필요한 comment 제거
+- 불필요한 comment 제거 (단, `///` doc 주석과 `// SAFETY:` 주석은 보호)
 - 함수 depth 감소
 
 ### maintainability
 - dependency reduction 우선
 - duplication 제거
-- large class 분리
+- large struct/impl 분리
 - 응집도 향상
 
 ### testability
@@ -552,13 +661,13 @@ Claude는 scope를 기반으로 영향 범위와 의존성을 분석한다.
 - characterization test 추가
 
 ### domain-model
-- primitive obsession 제거
+- primitive obsession 제거 (`Id<T>` Newtype, Enum 도입)
 - domain object 강화
 - business rule 응집
 - domain terminology 우선
 
 ### complexity
-- conditional logic 단순화
+- conditional logic 단순화 (match 과다 분기 정리)
 - nested structure 감소
 - cognitive complexity 감소
 - dead code 제거
@@ -566,7 +675,6 @@ Claude는 scope를 기반으로 영향 범위와 의존성을 분석한다.
 ## Level 해석 규칙
 
 ### safe
-safe level에서는:
 - behavior preserving을 최우선으로 한다
 - public API 변경을 피한다
 - architecture rewrite를 지양한다
@@ -575,17 +683,15 @@ safe level에서는:
 - 각 단계마다 테스트를 수행한다
 
 ### moderate
-moderate level에서는:
 - 일반적인 구조 개선을 허용한다
-- 클래스 분리와 dependency cleanup을 허용한다
+- struct 분리와 dependency cleanup을 허용한다
 - 내부 API 개선을 허용한다
 - maintainability 향상을 우선한다
 
 ### aggressive
-aggressive level에서는:
 - architecture 개선을 허용한다
 - domain restructuring을 허용한다
-- large-scale class split을 허용한다
+- large-scale struct split을 허용한다
 - legacy abstraction 제거를 허용한다
 - 다만 behavior verification은 반드시 유지한다
 
@@ -621,21 +727,19 @@ aggressive level에서는:
 
 옵션이 없더라도 Claude는 본 가이드의:
 
-- Refactoring Principles
-- Preparation 절차
-- Execute Refactoring 절차
-- Verification & Cleanup 절차
-- Linter / Formatter 정책
-- Test Review 정책
-- Security Scan 정책
-- PR 준비 정책
+- Refactoring Principles (섹션 1)
+- Preparation 절차 (섹션 2.1)
+- Execute Refactoring 절차 (섹션 2.2)
+- Verification & Cleanup 절차 (섹션 2.3)
+- 피드백 작성 가이드라인 (섹션 3)
+- PR 준비 정책 (섹션 4)
 
 을 자동으로 적용한다.
 
 즉:
 
 ```bash
-/refactoring payments
+/refactor payments
 ```
 
 만 수행해도 Claude는:
@@ -650,24 +754,3 @@ aggressive level에서는:
 - PR 전략 생성
 
 을 본 가이드 기준으로 수행한다.
-
-## 중요 정책
-
-리팩토링은 항상:
-
-- 작은 단계로 수행한다
-- 기능 추가와 섞지 않는다
-- rollback 가능한 상태를 유지한다
-- 테스트 없이 대규모 변경하지 않는다
-- transaction boundary 변경 시 동시성 영향을 검토한다
-- validation / auth logic 누락 여부를 반드시 검증한다
-
-리팩토링의 목표는 단순 코드 이동이 아니라:
-
-- 가독성 향상
-- 유지보수성 향상
-- 도메인 표현력 향상
-- 변경 용이성 향상
-- 안정성 향상
-
-이다.
