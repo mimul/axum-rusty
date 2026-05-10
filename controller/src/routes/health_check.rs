@@ -25,7 +25,7 @@ pub async fn hc_postgres(
             StatusCode::NO_CONTENT
         })
         .map_err(|err| {
-            error!("{:?}", err);
+            error!("postgres health check failed: {err:?}");
             StatusCode::SERVICE_UNAVAILABLE
         })
 }

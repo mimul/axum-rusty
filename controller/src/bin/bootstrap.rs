@@ -11,7 +11,7 @@ async fn main() -> anyhow::Result<()> {
     log4rs::init_file("common/src/config/log4rs.yaml", Default::default())?;
     dotenv().ok();
     let config = ApplicationConfig::try_init()?;
-    info!("main: config={:?}", config);
+    info!("main: debug={}, allowed_origin={}", config.debug, config.allowed_origin);
 
     let pool = create_pool(&config).await?;
     let module = Arc::new(
