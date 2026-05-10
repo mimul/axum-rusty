@@ -20,6 +20,6 @@ async fn main() -> anyhow::Result<()> {
             .build(),
     );
     let app_state = AppState::new(module, config);
-    startup(Arc::new(app_state)).await;
+    startup(Arc::new(app_state)).await?;
     Ok(())
 }

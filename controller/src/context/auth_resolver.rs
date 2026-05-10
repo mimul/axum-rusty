@@ -6,7 +6,7 @@ use axum::extract::{Request, State};
 use axum::{middleware::Next, response::IntoResponse};
 use common::auth::webs::{get_auth_header, get_cookie_from_headers};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
-use log::{error, info};
+use log::error;
 use shaku::HasComponent;
 use std::sync::Arc;
 use usecase::model::user::UserView;
@@ -20,8 +20,6 @@ pub async fn auth(
     let access_token = get_cookie_from_headers("access_token", req.headers())
         .or_else(|| get_auth_header(req.headers()).map(|s| s.to_string()))
         .ok_or_else(|| InvalidJwt("auth_header not found".to_string()))?;
-    info!("auth: access_token={:?}", access_token);
-    log::logger().flush();
 
     let current_user = authorize_current_user(access_token, &state)
         .await

@@ -60,7 +60,7 @@ pub async fn create_user(
     State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonCreateUser>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("create_user request param={:?}", source);
+    info!("create_user: username={:?}", source.username);
     let uc: Arc<dyn IUserUseCase> = state.module.resolve();
     let resp = uc.create_user(source.try_into()?).await;
     resp.map(|tv| {
@@ -181,7 +181,7 @@ pub async fn login_user(
     State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonLoginUser>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    info!("login_user: request param={:?}", source);
+    info!("login_user: username={:?}", source.username);
     let uc: Arc<dyn IUserUseCase> = state.module.resolve();
     let user_view = uc.login_user(source.try_into()?).await;
     match user_view {
