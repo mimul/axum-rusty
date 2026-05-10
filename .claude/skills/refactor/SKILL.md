@@ -5,6 +5,8 @@ description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬
 
 # Claude용 리팩토링 가이드
 
+본 문서는 Axum Rusty 프로젝트의 코딩 철학과 표준을 반영한 리팩토링 가이드를 제공한다.
+
 # 1. 리팩토링 원칙 (Refactoring Principles)
 
 ### 1.1 Behavior Preserving
