@@ -779,7 +779,7 @@ cargo fmt --check                    # 포맷 위반 확인 (CI용)
 - 원인 분석
 - behavior change 여부 확인
 
-테스트 수행 후 `/test-review` 명령을 실행하고 피드백을 자동 수정한다.
+테스트 수행 후 `/test-align` 명령을 실행하고 피드백을 자동 수정한다.
 
 ```bash
 cargo test --all
