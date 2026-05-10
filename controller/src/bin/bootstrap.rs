@@ -3,15 +3,20 @@ use controller::module::usecase_module::{AppModule, AppState};
 use controller::startup::startup;
 use dotenvy::dotenv;
 use infra::db::{create_pool, Db, DbParameters};
-use log::info;
 use std::sync::Arc;
+use tracing::info;
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    log4rs::init_file("common/src/config/log4rs.yaml", Default::default())?;
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
+        )
+        .init();
     dotenv().ok();
     let config = ApplicationConfig::try_init()?;
-    info!("main: debug={}, allowed_origin={}", config.debug, config.allowed_origin);
+    info!(debug = %config.debug, allowed_origin = %config.allowed_origin, "server starting");
 
     let pool = create_pool(&config).await?;
     let module = Arc::new(

@@ -11,10 +11,10 @@ use axum::{Extension, Json};
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, EncodingKey, Header};
-use log::error;
 use serde_json::{json, Value};
 use shaku::HasComponent;
 use std::sync::Arc;
+use tracing::{error, info};
 use usecase::model::user::UserView;
 use usecase::usecase::user::IUserUseCase;
 
@@ -37,7 +37,7 @@ fn generate_jwt_token(
         &EncodingKey::from_secret(jwt_secret.as_ref()),
     )
     .map_err(|e| {
-        error!("JWT encoding failed: {e}");
+        error!(error = ?e, "JWT encoding failed");
         AppError::Error("서버 오류가 발생했습니다".to_string())
     })
 }
@@ -60,11 +60,11 @@ pub async fn create_user(
     State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonCreateUser>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    log::info!("create_user: username={:?}", source.username);
+    info!(username = ?source.username, "create_user");
     let uc: Arc<dyn IUserUseCase> = state.module.resolve();
     let resp = uc.create_user(source.try_into()?).await;
     resp.map(|tv| {
-        log::info!("create_user: user_id={}", tv.id);
+        info!(user_id = %tv.id, "create_user: succeeded");
         let json: JsonUser = tv.into();
         let response = ApiResponse::success("success", json!({ "userView": json }));
         (StatusCode::OK, Json(response))
@@ -90,7 +90,7 @@ pub async fn get_user(
     State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<UserView>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    log::info!("get_user: id={}, current_user_id={}", id, current_user.id);
+    info!(user_id = %id, current_user_id = %current_user.id, "get_user");
     if current_user.id != id {
         return Err(AppError::Forbidden("forbidden".to_string()));
     }
@@ -99,7 +99,7 @@ pub async fn get_user(
     match resp {
         Ok(uv) => uv
             .map(|uv| {
-                log::info!("get_user: found user_id={}", uv.id);
+                info!(user_id = %uv.id, "get_user: found");
                 let json: JsonUser = uv.into();
                 let response = ApiResponse::success("success", json!({ "userView": json }));
                 (StatusCode::OK, Json(response))
@@ -131,7 +131,7 @@ pub async fn get_user_by_username(
     State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<UserView>,
 ) -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {
-    log::info!("get_user_by_username: current_user_id={}", current_user.id);
+    info!(current_user_id = %current_user.id, "get_user_by_username");
     if query.username.is_empty() {
         return Err(AppError::Error("username is empty".to_string()));
     }
@@ -146,7 +146,7 @@ pub async fn get_user_by_username(
 
     match user_view {
         Some(uv) => {
-            log::info!("get_user_by_username: found user_id={}", uv.id);
+            info!(user_id = %uv.id, "get_user_by_username: found");
             let json: JsonUser = uv.into();
             let response = ApiResponse::success("success", json!({ "userView": json }));
             Ok((StatusCode::OK, Json(response)))
@@ -180,12 +180,12 @@ pub async fn login_user(
     State(state): State<Arc<AppState>>,
     ValidatedRequest(source): ValidatedRequest<JsonLoginUser>,
 ) -> Result<Response, AppError> {
-    log::info!("login_user: username={:?}", source.username);
+    info!(username = ?source.username, "login_user");
     let uc: Arc<dyn IUserUseCase> = state.module.resolve();
     let user_view = uc.login_user(source.try_into()?).await;
     match user_view {
         Ok(uv) => {
-            log::info!("login_user: user_id={}", uv.id);
+            info!(user_id = %uv.id, "login_user: succeeded");
             let token = generate_jwt_token(
                 &uv.id,
                 &uv.username,

@@ -3,7 +3,7 @@ use crate::module::usecase_module::AppState;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use log::{debug, error};
+use tracing::{debug, error};
 use shaku::HasComponent;
 use std::sync::Arc;
 use usecase::usecase::health_check::IHealthCheckUseCase;

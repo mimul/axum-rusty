@@ -2,7 +2,7 @@ use crate::context::errors::AppError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use log::error;
+use tracing::error;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 

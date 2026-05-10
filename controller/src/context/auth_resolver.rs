@@ -6,7 +6,7 @@ use axum::extract::{Request, State};
 use axum::{middleware::Next, response::IntoResponse};
 use common::auth::webs::{get_auth_header, get_cookie_from_headers};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
-use log::error;
+use tracing::error;
 use shaku::HasComponent;
 use std::sync::Arc;
 use usecase::model::user::UserView;

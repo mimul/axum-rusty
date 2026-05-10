@@ -2,7 +2,7 @@ use http::{header, HeaderMap, HeaderValue};
 
 /// 인증 쿠키 유효 시간 (초)
 const COOKIE_MAX_AGE_SECS: i64 = 60;
-use log::error;
+use tracing::error;
 use tower_cookies::cookie::{time::Duration, CookieBuilder, SameSite};
 
 pub fn create_cookie_headers(key: &str, value: &str) -> Result<header::HeaderMap, String> {

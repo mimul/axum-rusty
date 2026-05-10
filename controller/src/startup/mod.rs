@@ -16,7 +16,7 @@ use http::header::{
     ACCESS_CONTROL_REQUEST_METHOD, AUTHORIZATION, CONTENT_TYPE, ORIGIN,
 };
 use http::{HeaderValue, Method, StatusCode};
-use log::info;
+use tracing::info;
 use serde_json::Value;
 use std::env;
 use std::net::{IpAddr, SocketAddr};
