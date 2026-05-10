@@ -11,7 +11,7 @@ async-trait = "0.1.80"
 shaku = "0.6"
 bcrypt = "0.15.1"
 chrono = "0.4.38"
-log = "0.4.22"
+tracing = "0.1"
 sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "migrate"] }
 tokio = { version = "1", features = ["rt"] }
 

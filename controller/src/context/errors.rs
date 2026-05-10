@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum AppError {
     #[error("{0}")]
     InvalidJwt(String),
+    #[error("{0}")]
+    Forbidden(String),
     #[error(transparent)]
     Validation(#[from] validator::ValidationErrors),
     #[error(transparent)]

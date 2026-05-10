@@ -52,10 +52,16 @@ async fn create_user_and_login(app: &axum::Router, email: &str) -> String {
         .body(Body::from(login_body.to_string()))
         .unwrap();
     let resp = app.clone().oneshot(req).await.unwrap();
-    let json = body_json(resp.into_body()).await;
-    json["data"]["token"]
-        .as_str()
-        .expect("token not found in login response")
+    let set_cookie = resp
+        .headers()
+        .get(header::SET_COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .expect("Set-Cookie header not found in login response");
+    set_cookie
+        .split(';')
+        .next()
+        .and_then(|part| part.strip_prefix("access_token="))
+        .expect("access_token not found in Set-Cookie header")
         .to_string()
 }
 
@@ -262,9 +268,17 @@ async fn login_with_valid_credentials_returns_token() {
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
-    let json = body_json(resp.into_body()).await;
-    assert_eq!(json["result"], true);
-    assert!(json["data"]["token"].is_string());
+    let set_cookie = resp
+        .headers()
+        .get(header::SET_COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .expect("Set-Cookie header must be present on login");
+    assert!(
+        set_cookie.contains("access_token="),
+        "Set-Cookie must contain access_token, got: {set_cookie}"
+    );
+    assert!(set_cookie.contains("HttpOnly"), "cookie must be HttpOnly");
+    assert!(set_cookie.contains("Secure"), "cookie must be Secure");
 }
 
 // AppError::Error → 200 OK (result: false)
@@ -303,10 +317,10 @@ async fn login_with_wrong_password_returns_error_result() {
 }
 
 // ─── auth middleware ──────────────────────────────────────────────────────────
-// AppError::InvalidJwt → 400
+// AppError::InvalidJwt → 401
 
 #[tokio::test]
-async fn protected_route_without_token_returns_bad_request() {
+async fn protected_route_without_token_returns_unauthorized() {
     let app = common::build_test_app().await;
     let req = Request::builder()
         .method(Method::GET)
@@ -314,13 +328,13 @@ async fn protected_route_without_token_returns_bad_request() {
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let json = body_json(resp.into_body()).await;
     assert_eq!(json["result"], false);
 }
 
 #[tokio::test]
-async fn protected_route_with_invalid_token_returns_bad_request() {
+async fn protected_route_with_invalid_token_returns_unauthorized() {
     let app = common::build_test_app().await;
     let req = Request::builder()
         .method(Method::GET)
@@ -329,7 +343,7 @@ async fn protected_route_with_invalid_token_returns_bad_request() {
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let json = body_json(resp.into_body()).await;
     assert_eq!(json["result"], false);
 }
@@ -654,24 +668,22 @@ async fn delete_todo_with_nonexistent_id_returns_error_result() {
     assert_eq!(json["result"], false);
 }
 
-// ─── get_user: 존재하지 않는 ID → 200 result:false ───────────────────────────
+// ─── get_user: 다른 사용자 ID → 403 Forbidden ────────────────────────────────
 
 #[tokio::test]
-async fn get_user_with_nonexistent_id_returns_error_result() {
+async fn get_user_with_different_user_id_returns_forbidden() {
     let app = common::build_test_app().await;
     let email = unique_email();
     let token = create_user_and_login(&app, &email).await;
-    let fake_id = "00000000000000000000000001";
+    let other_id = "00000000000000000000000001";
     let req = Request::builder()
         .method(Method::GET)
-        .uri(format!("/v1/user/{fake_id}"))
+        .uri(format!("/v1/user/{other_id}"))
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-    let json = body_json(resp.into_body()).await;
-    assert_eq!(json["result"], false);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
 // ─── create_user: 중복 username → 200 result:false ───────────────────────────
@@ -735,8 +747,17 @@ async fn protected_route_with_cookie_token_returns_ok() {
         .body(Body::from(login.to_string()))
         .unwrap();
     let resp = app.clone().oneshot(req).await.unwrap();
-    let json = body_json(resp.into_body()).await;
-    let token = json["data"]["token"].as_str().unwrap().to_string();
+    let set_cookie = resp
+        .headers()
+        .get(header::SET_COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .expect("Set-Cookie header must be present on login");
+    let token = set_cookie
+        .split(';')
+        .next()
+        .and_then(|part| part.strip_prefix("access_token="))
+        .expect("access_token not found in Set-Cookie")
+        .to_string();
 
     let req = Request::builder()
         .method(Method::GET)

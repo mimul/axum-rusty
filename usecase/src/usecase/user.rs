@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use domain::model::user::User;
 use infra::db::IDatabasePool;
 use infra::repository::user::IUserRepository;
-use log::{error, info};
+use tracing::{error, info};
 use shaku::Component;
 use std::sync::Arc;
 
@@ -69,10 +69,7 @@ impl IUserUseCase for UserUseCase {
             .await?
             .is_some()
         {
-            error!(
-                "create_user failed: username already exists ({})",
-                source.username
-            );
+            error!("create_user: username already exists");
             return Err(anyhow!("이미 사용 중인 사용자명입니다"));
         }
 
@@ -89,10 +86,7 @@ impl IUserUseCase for UserUseCase {
             .get_user_by_username(&source.username)
             .await?
             .ok_or_else(|| {
-                error!(
-                    "login failed: username not registered ({})",
-                    source.username
-                );
+                error!("login: username not registered");
                 anyhow!("잘못된 사용자명 또는 비밀번호입니다")
             })?;
 
@@ -104,10 +98,10 @@ impl IUserUseCase for UserUseCase {
                 .await
                 .map_err(|_| anyhow!("인증 처리 중 오류가 발생했습니다"))??;
         if login_result {
-            info!("login succeeded!");
+            info!("login: succeeded");
             Ok(user.into())
         } else {
-            error!("login failed: bad password for existing user");
+            error!("login: bad password");
             Err(anyhow!("잘못된 사용자명 또는 비밀번호입니다"))
         }
     }

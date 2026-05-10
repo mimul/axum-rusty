@@ -26,19 +26,14 @@ pub struct ApiDoc;
 pub struct SecurityAddon;
 impl Modify for SecurityAddon {
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        // ApiDoc 에 components(schemas(...))가 선언되어 있으므로 components는 항상 Some
-        openapi
-            .components
-            .as_mut()
-            .expect("ApiDoc must have components")
-            .add_security_scheme(
-                "Authorization",
-                SecurityScheme::Http(
-                    HttpBuilder::new()
-                        .scheme(HttpAuthScheme::Bearer)
-                        .bearer_format("JWT")
-                        .build(),
-                ),
-            );
-    }
+        // utoipa derive macro가 components를 항상 Some으로 설정함
+        openapi.components.as_mut().expect("utoipa always sets components").add_security_scheme(
+            "Authorization",
+            SecurityScheme::Http(
+                HttpBuilder::new()
+                    .scheme(HttpAuthScheme::Bearer)
+                    .bearer_format("JWT")
+                    .build(),
+            ),
+        );
 }

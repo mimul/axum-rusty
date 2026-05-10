@@ -11,9 +11,9 @@ static DIGIT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d").expect("always 
 static SPECIAL_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"[^\da-zA-Z]").expect("always valid literal"));
 static LENGTH_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r".{8,}").expect("always valid literal"));
-fn validate_password(value: &str) -> Result<(), ValidationError> {
     // fancy_regex::Regex::is_match returns Result; these patterns cannot produce backtrack errors
+    Lazy::new(|| Regex::new(r".{7,}").expect("always valid literal"));
+fn validate_password(value: &str) -> Result<(), ValidationError> {
     if DIGIT_REGEX.is_match(value).unwrap_or(false)
         && SPECIAL_REGEX.is_match(value).unwrap_or(false)
         && LENGTH_REGEX.is_match(value).unwrap_or(false)

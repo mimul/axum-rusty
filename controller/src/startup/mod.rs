@@ -16,7 +16,7 @@ use http::header::{
     ACCESS_CONTROL_REQUEST_METHOD, AUTHORIZATION, CONTENT_TYPE, ORIGIN,
 };
 use http::{HeaderValue, Method, StatusCode};
-use log::info;
+use tracing::info;
 use serde_json::Value;
 use std::env;
 use std::net::{IpAddr, SocketAddr};
@@ -68,7 +68,13 @@ pub fn build_router(app_state: Arc<AppState>) -> anyhow::Result<Router> {
             CONTENT_TYPE,
             ACCESS_CONTROL_ALLOW_HEADERS,
         ])
-        .allow_origin(allowed_origin);
+        .allow_origin(
+            app_state
+                .config
+                .allowed_origin
+                .parse::<HeaderValue>()
+                .expect("allowed_origin must be a valid HTTP header value — check configuration"),
+        );
     let mut openapi = OpenApiBuilder::default()
         .info(Info::new("axum-rusty API", "1.0.0"))
         .build();

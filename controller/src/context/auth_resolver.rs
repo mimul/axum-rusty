@@ -6,9 +6,9 @@ use axum::extract::{Request, State};
 use axum::{middleware::Next, response::IntoResponse};
 use common::auth::webs::{get_auth_header, get_cookie_from_headers};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
-use log::error;
 use shaku::HasComponent;
 use std::sync::Arc;
+use tracing::error;
 use usecase::model::user::UserView;
 use usecase::usecase::user::IUserUseCase;
 
@@ -24,7 +24,7 @@ pub async fn auth(
     let current_user = authorize_current_user(access_token, &state)
         .await
         .map_err(|err| {
-            error!("error authorizing user: {:?}", err);
+            error!(error = %err, "authorization failed");
             InvalidJwt(err.to_string())
         })?;
     req.extensions_mut().insert(current_user);
@@ -43,7 +43,7 @@ async fn authorize_current_user(
         &validation,
     )
     .map_err(|err| {
-        error!("Error decoding token: {:?}", err);
+        error!(error = %err, "JWT decoding failed");
         InvalidJwt(err.to_string())
     })?;
 
@@ -52,7 +52,7 @@ async fn authorize_current_user(
     uc.get_user(user_id)
         .await
         .map_err(|err| {
-            error!("Unexpected error: {:?}", err);
+            error!(error = %err, "get_user failed");
             InvalidJwt(err.to_string())
         })?
         .ok_or_else(|| InvalidJwt("user not found".to_string()))

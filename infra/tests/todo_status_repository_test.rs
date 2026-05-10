@@ -2,6 +2,7 @@ mod common;
 
 use common::db::setup_test_db;
 use common::module::build_test_module;
+use domain::model::todo::status::TodoStatusCode;
 use infra::repository::todo::status::ITodoStatusRepository;
 use shaku::HasComponent;
 use std::sync::Arc;
@@ -17,7 +18,7 @@ async fn get_by_code_with_valid_code_returns_status() {
 
     assert!(status.is_ok(), "valid code 'new' should return a status");
     let status = status.unwrap();
-    assert_eq!(status.code, "new");
+    assert_eq!(status.code, TodoStatusCode::New);
     assert_eq!(status.name, "신규");
 }
 

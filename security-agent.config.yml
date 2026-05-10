@@ -1,0 +1,22 @@
+target:
+  base_url: "http://localhost:8080"
+  auth:
+    type: bearer
+
+scope:
+  include:
+    - /v1/users
+    - /v1/todos
+    - /v1/health
+  exclude: []
+
+agents:
+  - owasp_top10
+  - auth_bypass
+  - injection
+
+report:
+  format: file
+  output_path: ./security-reports/security-scan-report.md
+
+severity_gate: high
