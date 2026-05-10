@@ -39,7 +39,7 @@ description: |
 
 본 문서는 Axum Rusty 프로젝트의 코딩 철학과 표준을 반영한 리팩토링 가이드를 제공한다.
 
-# 1. Claude Skill Command Style
+# 1. 커맨드 문법
 
 권장 명령은 아래 수준으로 단순하게 유지한다.
 
