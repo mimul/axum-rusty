@@ -793,7 +793,17 @@ cargo tarpaulin --out Html --output-dir coverage/   # 커버리지 확인
 1. `/security-full-scan` 명령을 실행해 정적 분석을 진행하고 결과 피드백을 반영한다.
 2. `/security-scan` 명령으로 동적 분석을 진행한다. 서버가 구동되지 않은 경우 `cargo run`으로 서버를 실행한 뒤 `/security-scan`을 다시 실행한다.
 
-위 명령을 수행하기 위해서는 [claude-security-scan](https://github.com/mimul/claude-security-scan) 이 설치되어 있어야 한다. 설치가 안되어 있을 경우 인간에게 설치를 안내한다.
+위 명령은 [claude-security-scan](https://github.com/mimul/claude-security-scan) 스킬로 제공된다.
+스킬은 `~/.claude/skills/security-full-scan/` 에 설치되어 있어야 한다.
+
+설치 확인 방법:
+```bash
+ls ~/.claude/skills/security-full-scan/SKILL.md 2>/dev/null && echo "설치됨" || echo "미설치 — https://github.com/mimul/claude-security-scan 참조"
+```
+
+**필수 설치 도구** (사전 설치 필요):
+- `semgrep` — `pip install semgrep` 또는 `brew install semgrep`
+- `trivy` — `brew install aquasecurity/trivy/trivy`
 
 ```bash
 cargo audit                          # 의존성 보안 취약점 확인
