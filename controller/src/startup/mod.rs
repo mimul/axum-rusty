@@ -67,7 +67,7 @@ pub fn build_router(app_state: Arc<AppState>) -> Router {
                 .config
                 .allowed_origin
                 .parse::<HeaderValue>()
-                .unwrap(),
+                .expect("allowed_origin must be a valid HTTP header value — check configuration"),
         );
     let mut openapi = OpenApiBuilder::default()
         .info(Info::new("axum-rusty API", "1.0.0"))
