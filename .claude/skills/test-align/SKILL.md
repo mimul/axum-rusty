@@ -1,6 +1,32 @@
 ---
 name: test-align
-description: /test-align 커맨드로 실행되는 Rust 테스트 작성 스킬.
+description: |
+  /test-align 커맨드로 실행되는 Rust 테스트 갭 분석 및 작성 자동화 스킬.
+  `.claude/rules/test-style.md`를 권위 문서로 삼아 Classicist TDD 철학(상태 검증 우선·행동 기반 검증)을 적용한다.
+
+  지원 옵션:
+    /test-align                       전체 코드베이스 갭 분석 → 계획 수립
+    /test-align [파일명 또는 모듈명]  특정 대상만 분석·작성
+    /test-align --type unit           단위 테스트만 작성 (src/ 내부 #[cfg(test)])
+    /test-align --type db             Repository DB 테스트만 작성 (infra/tests/)
+    /test-align --type integration    Usecase 통합 테스트만 작성 ({crate}/tests/)
+    /test-align --type api            HTTP API 테스트만 작성 (controller/tests/)
+    /test-align --type property       프로퍼티 기반 테스트만 작성
+
+  실행 흐름 (STEP 0 → 6):
+    STEP 0  feature/test-{module} 브랜치 자동 생성
+    STEP 1  코드 분석·커버리지 갭 탐지
+    STEP 2  test-style.md 로드 → §섹션 기반 갭 분류 (Blocking/Recommended/Suggestions/Tech Debt)
+    STEP 3  테스트 작성 계획 수립 → 👤 인간 승인
+    STEP 4  테스트 코드 제시 → 👤 인간 확인 후 파일 저장 + cargo test + 커밋 (항목별 반복)
+    STEP 5-0 커버리지 게이트 (cargo tarpaulin, 80% 미만이면 PR 차단)
+    STEP 5  완료 요약 출력
+    STEP 6  PR 초안 제시 → 👤 인간 승인 → push + gh pr create
+
+  핵심 제약:
+    - §17.1 Blocking 갭(Mock DB·assertion 없는 테스트·sleep 기반 flaky 등) 즉시 차단
+    - 커버리지 80% 미달 시 PR 생성 금지
+    - 인간 확인(👤) 전 파일 저장·push 절대 금지
 ---
 
 # /test-align
