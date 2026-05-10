@@ -142,5 +142,5 @@ pub async fn build_test_app() -> Router {
             .build(),
     );
     let state = Arc::new(AppState::new(module, config));
-    controller::startup::build_router(state)
+    controller::startup::build_router(state).expect("build_router must succeed in test setup")
 }

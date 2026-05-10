@@ -34,7 +34,13 @@ use utoipa_swagger_ui::SwaggerUi;
 ///
 /// 테스트에서 `tower::ServiceExt::oneshot`으로 직접 호출하거나
 /// `startup`에서 서버를 기동할 때 사용한다.
-pub fn build_router(app_state: Arc<AppState>) -> Router {
+pub fn build_router(app_state: Arc<AppState>) -> anyhow::Result<Router> {
+    let allowed_origin = app_state
+        .config
+        .allowed_origin
+        .parse::<HeaderValue>()
+        .map_err(|e| anyhow::anyhow!("ALLOWED_ORIGIN 파싱 실패: {e}"))?;
+
     let cors = CorsLayer::new()
         .allow_credentials(true)
         .allow_methods(vec![
@@ -62,13 +68,7 @@ pub fn build_router(app_state: Arc<AppState>) -> Router {
             CONTENT_TYPE,
             ACCESS_CONTROL_ALLOW_HEADERS,
         ])
-        .allow_origin(
-            app_state
-                .config
-                .allowed_origin
-                .parse::<HeaderValue>()
-                .unwrap(),
-        );
+        .allow_origin(allowed_origin);
     let mut openapi = OpenApiBuilder::default()
         .info(Info::new("axum-rusty API", "1.0.0"))
         .build();
@@ -98,7 +98,7 @@ pub fn build_router(app_state: Arc<AppState>) -> Router {
         .route("/:id", get(get_user))
         .route_layer(middleware::from_fn_with_state(app_state.clone(), auth));
 
-    Router::new()
+    Ok(Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/swagger.json", openapi))
         .nest("/:v/hc", hc_router)
         .nest("/:v/auth", auth_router)
@@ -119,11 +119,11 @@ pub fn build_router(app_state: Arc<AppState>) -> Router {
                 .timeout(Duration::from_secs(10))
                 .layer(TraceLayer::new_for_http())
                 .into_inner(),
-        )
+        ))
 }
 
-pub async fn startup(app_state: Arc<AppState>) {
-    let app = build_router(app_state);
+pub async fn startup(app_state: Arc<AppState>) -> anyhow::Result<()> {
+    let app = build_router(app_state)?;
 
     let addr = SocketAddr::from(init_addr());
     let listener: TcpListener = TcpListener::bind(&addr)
@@ -134,6 +134,7 @@ pub async fn startup(app_state: Arc<AppState>) {
     axum::serve(listener, app)
         .await
         .unwrap_or_else(|_| panic!("Server cannot launch."));
+    Ok(())
 }
 
 async fn fallback() -> Result<(StatusCode, Json<ApiResponse<Value>>), AppError> {

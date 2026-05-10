@@ -6,13 +6,17 @@ use usecase::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView}
 use utoipa::{IntoParams, ToSchema};
 use validator::{Validate, ValidationError};
 
-static DIGIT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d").unwrap());
-static SPECIAL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"[^\da-zA-Z]").unwrap());
-static LENGTH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r".{8,}").unwrap());
+// 컴파일 타임에 유효성이 보장된 리터럴이므로 항상 유효
+static DIGIT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d").expect("always valid literal"));
+static SPECIAL_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"[^\da-zA-Z]").expect("always valid literal"));
+static LENGTH_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r".{8,}").expect("always valid literal"));
 fn validate_password(value: &str) -> Result<(), ValidationError> {
-    if DIGIT_REGEX.is_match(value).unwrap()
-        && SPECIAL_REGEX.is_match(value).unwrap()
-        && LENGTH_REGEX.is_match(value).unwrap()
+    // fancy_regex::Regex::is_match returns Result; these patterns cannot produce backtrack errors
+    if DIGIT_REGEX.is_match(value).unwrap_or(false)
+        && SPECIAL_REGEX.is_match(value).unwrap_or(false)
+        && LENGTH_REGEX.is_match(value).unwrap_or(false)
     {
         Ok(())
     } else {

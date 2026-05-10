@@ -26,14 +26,19 @@ pub struct ApiDoc;
 pub struct SecurityAddon;
 impl Modify for SecurityAddon {
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        openapi.components.as_mut().unwrap().add_security_scheme(
-            "Authorization",
-            SecurityScheme::Http(
-                HttpBuilder::new()
-                    .scheme(HttpAuthScheme::Bearer)
-                    .bearer_format("JWT")
-                    .build(),
-            ),
-        );
+        // ApiDoc 에 components(schemas(...))가 선언되어 있으므로 components는 항상 Some
+        openapi
+            .components
+            .as_mut()
+            .expect("ApiDoc must have components")
+            .add_security_scheme(
+                "Authorization",
+                SecurityScheme::Http(
+                    HttpBuilder::new()
+                        .scheme(HttpAuthScheme::Bearer)
+                        .bearer_format("JWT")
+                        .build(),
+                ),
+            );
     }
 }
