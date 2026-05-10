@@ -91,7 +91,7 @@ migrations/   테이블, 기초 데이터, 인덱스
 ```
 main                              배포 기준 (직접 커밋 금지)
 ├── feature/{작업-내용}           신규 기능 개발
-├── feature/refactor-{module}     /refactor-rust 전용 (worktree 사용)
+├── feature/refactor-{module}     /refactor 전용
 └── fix/cr-{module}               /code-review-rust 수정 전용
 ```
 
@@ -168,14 +168,14 @@ type: feat | fix | refactor | test | docs | chore
 
 | 커맨드 | 용도 |
 |--------|------|
-| `/refactor-rust` | 운영 코드 리팩토링 (worktree 격리, Before/After 확인 후 적용) |
+| `/refactor` | 운영 코드 리팩토링 (Before/After 확인 후 적용) |
 | `/code-review-rust` | 로컬 변경 코드 품질 리뷰 (10개 카테고리) |
 | `/code-review-rust --pr [번호]` | GitHub PR 리뷰 (로컬 실행) |
 | `/code-review-feedback-rust` | PR에 리뷰 코멘트 직접 게시 |
 | `/address-review-rust` | 리뷰 지적 사항 대응 (대화 모드 / PR 번호 모드) |
 | `/reply-review-rust` | 리뷰 대응 완료 후 PR 코멘트에 회신 |
-| `/test-rust` | 테스트 작성 (단위: src/, 통합·DB·API: tests/) |
-| `/test-rust --type [unit\|db\|integration\|api]` | 특정 종류 테스트만 작성 |
+| `/test-align` | 테스트 작성 (단위: src/, 통합·DB·API: tests/) |
+| `/test-align --type [unit\|db\|integration\|api]` | 특정 종류 테스트만 작성 |
 | `/security-full-scan <대상 경로>` | 전체 소스 + 의존성 CVE + 시크릿 전수 보안 감사 |
 | `/security-scan <환경명(staging)>` | 스테이징 환경에 전개된 서버에 대해 런타임 환경의 보안 감사 |
 
