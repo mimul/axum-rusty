@@ -1,6 +1,38 @@
 ---
 name: refactor
-description: /refactor 커맨드로 실행되는 Rust 코드 리팩토링 스킬.
+description: |
+  /refactor 커맨드로 실행되는 Rust 코드 리팩토링 자동화 스킬.
+  `.claude/rules/coding-style.md` 19개 섹션을 권위 문서로 삼아 Behavior Preserving·Domain First·Small Safe Steps 원칙을 적용한다.
+
+  지원 옵션:
+    /refactor                           프로젝트 전체 리팩토링
+    /refactor [scope]                   모듈·디렉토리·파일·glob 패턴 단위 리팩토링
+    /refactor [scope] --goal <goal>     목표 지정 (readability|maintainability|testability|domain-model|complexity)
+    /refactor [scope] --level <level>   강도 지정 (safe|moderate|aggressive)
+    /refactor [scope] --with-tests      characterization·regression·edge case 테스트 함께 작성
+    /refactor [scope] --dry-run         실제 수정 없이 code smell·영향 범위·위험도 분석만 출력
+
+  실행 흐름 (3단계):
+    Preparation     목표 정의 → 변경 범위 식별 → 기존 테스트 확인 → Code Smell 분석(Rust 특화 포함)
+                    → 리팩토링 전략 선택 → 리스크 분석
+    Execute         coding-style.md §1~19 체크리스트 기반 일괄 점검 후 17개 항목 순차 수행
+                    (Naming·함수·Struct/Trait·조건문·데이터구조·에러처리·로깅·Dependency·
+                     Dead Code·Comments·pub 범위·DTO 경계·Usecase 책임·Async·Auth·문서화)
+                    브랜치: feature/refactor-{작업단위} / 각 항목마다 리팩토링→테스트→커밋 반복
+    Verification    cargo clippy·fmt → cargo test --all → /security-full-scan →
+                    아키텍처 리뷰(controller→usecase→domain←infra 방향) → complexity 측정 → diff 검토
+
+  피드백 분류:
+    🚫 Blocking     behavior change·transaction 손상·architecture 위반·security regression 등 즉시 수정 필수
+    ⚠️ Recommended  long method·duplicate code·testability 부족 등 강력 권장
+    💡 Suggestions  선택적 개선 아이디어 (extensibility·performance·domain refinement 등)
+    📝 Tech Debt    현재 범위 초과 구조적 부채 → 별도 이슈로 추적
+
+  핵심 제약:
+    - 기능 추가와 리팩토링을 같은 커밋에 혼합 금지
+    - behavior change 발생 시 즉시 중단
+    - 테스트 미통과 상태로 커밋 금지
+    - aggressive 레벨에서도 behavior verification 반드시 유지
 ---
 
 # Claude용 리팩토링 가이드
