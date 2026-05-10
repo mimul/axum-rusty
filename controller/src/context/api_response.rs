@@ -25,56 +25,52 @@ impl<Data> ApiResponse<Data> {
 }
 
 pub(crate) fn internal_error(err: impl std::fmt::Debug) -> AppError {
-    error!("{:?}", err);
+    error!("internal error: {err:?}");
     AppError::Error("서버 오류가 발생했습니다".to_string())
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status_code, error_message) = match self {
-            AppError::InvalidJwt(token) => {
-                let err = format!("Missing or expired jwt({}).", token);
-                error!("{}", err);
-                (StatusCode::BAD_REQUEST, err)
+            AppError::InvalidJwt(_) => {
+                error!("invalid or missing JWT");
+                (StatusCode::UNAUTHORIZED, "인증이 필요합니다".to_string())
+            }
+            AppError::Forbidden(_) => {
+                error!("access forbidden");
+                (StatusCode::FORBIDDEN, "접근이 거부되었습니다".to_string())
             }
             AppError::Validation(validation_errors) => {
-                error!("{:?}", validation_errors);
-                let mut messages: Vec<String> = Vec::new();
-                let errors = validation_errors.field_errors();
-                for (_, v) in errors.into_iter() {
-                    for validation_error in v {
-                        if let Some(msg) = validation_error.clone().message {
-                            messages.push(msg.to_string());
-                        }
-                    }
-                }
-                error!("{:?}", messages);
-                (
-                    StatusCode::BAD_REQUEST,
-                    messages
-                        .iter()
-                        .map(|x| x.to_string())
-                        .collect::<Vec<_>>()
-                        .join(" or "),
-                )
+                let messages: Vec<String> = validation_errors
+                    .field_errors()
+                    .into_values()
+                    .flat_map(|v| {
+                        v.iter()
+                            .filter_map(|e| e.message.as_deref().map(str::to_string))
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+                error!("validation failed: {}", messages.join(", "));
+                (StatusCode::BAD_REQUEST, messages.join(" or "))
             }
             AppError::JsonRejection(rejection) => {
-                error!("{:?}", rejection);
+                error!("JSON rejection: {rejection}");
                 (StatusCode::BAD_REQUEST, rejection.to_string())
             }
             AppError::ApiPathRejection(rejection) => {
-                error!("{:?}", rejection);
+                error!("path rejection: {rejection}");
                 (StatusCode::BAD_REQUEST, rejection.to_string())
             }
             AppError::UnknownApiVerRejection(version) => {
-                let err = format!("Unknown api version({}).", version);
-                error!("{}", err);
-                (StatusCode::BAD_REQUEST, err)
+                error!("unknown API version: {version}");
+                (
+                    StatusCode::BAD_REQUEST,
+                    format!("Unknown api version({version})."),
+                )
             }
             AppError::Error(error) => {
-                let err = format!("error({}).", error);
-                error!("{}", err);
-                (StatusCode::OK, err)
+                error!("application error: {error}");
+                (StatusCode::OK, format!("error({error})."))
             }
         };
         let response: ApiResponse<String> = ApiResponse::<String> {
@@ -83,7 +79,6 @@ impl IntoResponse for AppError {
             data: None,
         };
 
-        //build up the response status code and the response content
         (status_code, Json(response)).into_response()
     }
 }
@@ -96,10 +91,17 @@ mod tests {
     use axum::response::IntoResponse;
 
     #[test]
-    fn app_error_invalid_jwt_returns_bad_request() {
+    fn app_error_invalid_jwt_returns_unauthorized() {
         let err = AppError::InvalidJwt("expired-token".to_string());
         let response = err.into_response();
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn app_error_forbidden_returns_forbidden_status() {
+        let err = AppError::Forbidden("forbidden".to_string());
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 
     #[test]
