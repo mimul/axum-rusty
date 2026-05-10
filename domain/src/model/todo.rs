@@ -73,11 +73,12 @@ impl UpsertTodo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::todo::status::TodoStatusCode;
     use crate::model::Id;
     use ulid::Ulid;
 
     fn make_status() -> TodoStatus {
-        TodoStatus::new(Id::new(Ulid::new()), "OPEN".to_string(), "Open".to_string())
+        TodoStatus::new(Id::new(Ulid::new()), TodoStatusCode::New, "신규".to_string())
     }
 
     #[test]

@@ -3,6 +3,7 @@ mod common;
 use common::db::setup_test_db;
 use common::fixtures::fixture_new_todo;
 use common::module::build_test_module;
+use domain::model::todo::status::TodoStatusCode;
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use domain::model::Id;
 use infra::repository::todo::status::ITodoStatusRepository;
@@ -109,7 +110,7 @@ async fn upsert_todo_inserts_new_record() {
     let result = repo.upsert_tx(&mut tx, upsert).await.unwrap();
 
     assert_eq!(result.title, "Upserted Title");
-    assert_eq!(result.status.code, "new");
+    assert_eq!(result.status.code, TodoStatusCode::New);
     tx.rollback().await.unwrap();
 }
 
@@ -148,7 +149,7 @@ async fn upsert_todo_updates_existing_record() {
 
     assert_eq!(result.id.value, first_id_value);
     assert_eq!(result.title, "Updated Title");
-    assert_eq!(result.status.code, "working");
+    assert_eq!(result.status.code, TodoStatusCode::Working);
     tx.rollback().await.unwrap();
 }
 

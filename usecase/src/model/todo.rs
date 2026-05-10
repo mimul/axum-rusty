@@ -96,7 +96,7 @@ pub struct SearchTodoCondition {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use domain::model::todo::status::TodoStatus;
+    use domain::model::todo::status::{TodoStatus, TodoStatusCode};
     use domain::model::todo::Todo;
     use domain::model::Id;
 
@@ -107,7 +107,7 @@ mod tests {
             id,
             title: "Test Todo".to_string(),
             description: "Some desc".to_string(),
-            status: TodoStatus::new(Id::gen(), "OPEN".to_string(), "Open".to_string()),
+            status: TodoStatus::new(Id::gen(), TodoStatusCode::New, "신규".to_string()),
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -121,7 +121,7 @@ mod tests {
         assert_eq!(view.id, id_str.to_string());
         assert_eq!(view.title, "Test Todo");
         assert_eq!(view.description, "Some desc");
-        assert_eq!(view.status.code, "OPEN");
+        assert_eq!(view.status.code, "new");
     }
 
     #[test]

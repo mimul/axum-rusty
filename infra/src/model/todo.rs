@@ -1,7 +1,7 @@
 pub mod status;
 
 use chrono::{DateTime, Utc};
-use domain::model::todo::status::TodoStatus;
+use domain::model::todo::status::{TodoStatus, TodoStatusCode};
 use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
 use sqlx::FromRow;
 
@@ -25,7 +25,7 @@ impl TryFrom<StoredTodo> for Todo {
             id: t.id.try_into()?,
             title: t.title,
             description: t.description,
-            status: TodoStatus::new(t.status_id.try_into()?, t.status_code, t.status_name),
+            status: TodoStatus::new(t.status_id.try_into()?, TodoStatusCode::try_from(t.status_code.as_str())?, t.status_name),
             created_at: t.created_at,
             updated_at: t.updated_at,
         })
@@ -91,12 +91,12 @@ impl From<UpsertTodo> for UpsertStoredTodo {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use domain::model::todo::status::TodoStatus;
+    use domain::model::todo::status::{TodoStatus, TodoStatusCode};
     use domain::model::todo::{NewTodo, Todo, UpdateTodo, UpsertTodo};
     use domain::model::Id;
 
     fn make_todo_status() -> TodoStatus {
-        TodoStatus::new(Id::gen(), "OPEN".to_string(), "Open".to_string())
+        TodoStatus::new(Id::gen(), TodoStatusCode::New, "신규".to_string())
     }
 
     #[test]
@@ -122,8 +122,8 @@ mod tests {
             title: "My Todo".to_string(),
             description: "Details".to_string(),
             status_id: status_ulid.to_string(),
-            status_code: "OPEN".to_string(),
-            status_name: "Open".to_string(),
+            status_code: "new".to_string(),
+            status_name: "신규".to_string(),
             created_at: now,
             updated_at: now,
         };
