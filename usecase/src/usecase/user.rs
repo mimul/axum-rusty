@@ -69,10 +69,7 @@ impl IUserUseCase for UserUseCase {
             .await?
             .is_some()
         {
-            error!(
-                "create_user failed: username already exists ({})",
-                source.username
-            );
+            error!("create_user failed: username already exists");
             return Err(anyhow!("이미 사용 중인 사용자명입니다"));
         }
 
@@ -89,10 +86,7 @@ impl IUserUseCase for UserUseCase {
             .get_user_by_username(&source.username)
             .await?
             .ok_or_else(|| {
-                error!(
-                    "login failed: username not registered ({})",
-                    source.username
-                );
+                error!("login failed: username not registered");
                 anyhow!("잘못된 사용자명 또는 비밀번호입니다")
             })?;
 
