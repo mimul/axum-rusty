@@ -39,8 +39,6 @@ description: >
 
 리뷰 시작 전 아래를 순서대로 확인한다. 하나라도 실패하면 사용자에게 보고하고 중단한다.
 
-모든 모드에서 main 브랜치에서는 중단한다 (CLAUDE.md: main 직접 커밋 금지).
-
 ```bash
 git fetch origin && git status && git log --oneline -5 && git log --oneline origin/main -5   # 최신 브랜치 확인
 cargo build                 # 빌드 통과 여부 확인
