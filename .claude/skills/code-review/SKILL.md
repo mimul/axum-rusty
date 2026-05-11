@@ -42,7 +42,7 @@ description: >
 모든 모드에서 main 브랜치에서는 중단한다 (CLAUDE.md: main 직접 커밋 금지).
 
 ```bash
-git branch --show-current   # main이면 중단
+git fetch origin && git status && git log --oneline -5 && git log --oneline origin/main -5   # 최신 브랜치 확인
 cargo build                 # 빌드 통과 여부 확인
 cargo test --all            # 리뷰 전 테스트 baseline 확보
 ```
