@@ -180,7 +180,7 @@ Claude는 scope를 기반으로 영향 범위와 의존성을 분석한다.
 리팩토링 시작 전 아래를 순서대로 확인한다. 하나라도 실패하면 사용자에게 보고하고 중단한다.
 
 ```bash
-git branch --show-current   # 현재 브랜치 확인 (main이면 중단 — CLAUDE.md: main 직접 커밋 금지)
+git fetch origin && git status && git log --oneline -5 && git log --oneline origin/main -5  # 최신 브랜치 확인
 cargo build                 # 빌드 통과 여부 확인
 cargo test --all            # 기존 테스트 baseline 확인
 ```
