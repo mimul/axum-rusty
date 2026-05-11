@@ -12,15 +12,16 @@ description: |
     /refactor [scope] --with-tests      characterization·regression·edge case 테스트 함께 작성
     /refactor [scope] --dry-run         실제 수정 없이 code smell·영향 범위·위험도 분석만 출력
 
-  실행 흐름 (3단계):
-    Preparation     목표 정의 → 변경 범위 식별 → 기존 테스트 확인 → Code Smell 분석(Rust 특화 포함)
-                    → 리팩토링 전략 선택 → 리스크 분석
-    Execute         coding-style.md §1~19 체크리스트 기반 일괄 점검 후 17개 항목 순차 수행
-                    (Naming·함수·Struct/Trait·조건문·데이터구조·에러처리·로깅·Dependency·
-                     Dead Code·Comments·pub 범위·DTO 경계·Usecase 책임·Async·Auth·문서화)
-                    브랜치: feature/refactor-{작업단위} / 각 항목마다 리팩토링→테스트→커밋 반복
-    Verification    cargo clippy·fmt → cargo test --all → /security-full-scan →
-                    아키텍처 리뷰(controller→usecase→domain←infra 방향) → complexity 측정 → diff 검토
+  실행 흐름 (6단계):
+    STEP 0 사전 조건   워킹 트리 clean·브랜치 확인·빌드+테스트 baseline
+    STEP 1 준비        목표·옵션·scope 정의
+    STEP 2 범위 식별   변경 범위·기존 테스트 확인
+    STEP 3 일괄 점검   coding-style.md §1~19 체크리스트·Code Smell 분석(Rust 특화 포함)
+    STEP 4 전략 수립   리스크 분석(High/Medium/Low 분기)·goal×level→항목 매핑으로 전략 선택
+    STEP 5 수행        선택 항목 순서대로 리팩토링→테스트→커밋 반복
+                       브랜치: feature/refactor-{모듈명} / --dry-run 시 이 단계 없이 종료
+    STEP 6 검증        cargo clippy --fix→-D warnings→fmt → cargo test --all →
+                       /security-full-scan(옵션)→ 아키텍처 리뷰→ complexity 측정→ diff 검토
 
   피드백 분류:
     🚫 Blocking     behavior change·transaction 손상·architecture 위반·security regression 등 즉시 수정 필수
@@ -135,11 +136,11 @@ Claude는 scope를 기반으로 영향 범위와 의존성을 분석한다.
 
 ## Test 정책
 
-`--with-tests` 옵션이 있으면 Claude는 5.2.2 `/test-align` 명령을 수행한다.
+`--with-tests` 옵션이 있으면 Claude는 6.2.2 `/test-align` 명령을 수행한다.
 
 ## 보안 정책
 
-`--with-security` 옵션이 있으면 Claude는: 5.3 Security Scan을 수행한다.
+`--with-security` 옵션이 있으면 Claude는: 6.3 Security Scan을 수행한다.
 
 **전제 조건으로 [claude-security-scan](https://github.com/mimul/claude-security-scan)** 이 설치되어야 한다.
 
@@ -160,24 +161,80 @@ Claude는 scope를 기반으로 영향 범위와 의존성을 분석한다.
 
 옵션이 없더라도 Claude는 본 가이드의:
 
-- Refactoring Principles (섹션 2)
-- Preparation 절차 (섹션 3.1)
-- Execute Refactoring 절차 (섹션 3.2)
-- Verification & Cleanup 절차 (섹션 3.3)
-- 피드백 작성 가이드라인 (섹션 4)
-- PR 준비 정책 (섹션 5)
+- 사전 조건 체크 (STEP 0)
+- Refactoring 준비 (STEP 1)
+- 변경 범위 식별과 기존 테스트 확인 (STEP 2)
+- coding-style.md 기준 일괄 점검 (STEP 3)
+- 리스크 분석과 리팩토링 전략 선택 (STEP 4)
+- 리팩토링 수행 (STEP 5)
+- Verification & Cleanup (섹션 6)
+- 피드백 작성 가이드라인 (섹션 7)
+- PR 준비 정책 (섹션 8)
 
 을 자동으로 적용한다.
 
 ---
 
+# STEP 0 사전 조건 체크
+
+리팩토링 시작 전 아래를 순서대로 확인한다. 하나라도 실패하면 사용자에게 보고하고 중단한다.
+
+```bash
+git status --short          # 워킹 트리 클린 여부 확인 (untracked·modified 없어야 함)
+git branch --show-current   # 현재 브랜치 확인 (main이면 중단 — CLAUDE.md: main 직접 커밋 금지)
+cargo build                 # 빌드 통과 여부 확인
+cargo test --all            # 기존 테스트 baseline 확인
+```
+
+확인 항목:
+- [ ] 워킹 트리 clean (변경 파일 없음)
+- [ ] 현재 브랜치가 main이 아님
+- [ ] `cargo build` 통과
+- [ ] `cargo test --all` 통과 (리팩토링 전 baseline 확보)
+
+scope가 명시되지 않아 프로젝트 전체가 대상인 경우:
+파일 수와 예상 작업량을 사용자에게 보고하고 계속 진행 여부를 확인한다.
+
 # STEP 1 Refactoring 준비
 
 커맨드 옵션을 파악해 리팩토링의 목표를 명확히 정의한다.
 
-# STEP 2 coding-style.md 기준 일괄 점검
+**STEP 1 산출물** (다음 단계로 전달):
+- 적용 goal: `<readability|maintainability|testability|domain-model|complexity>` (기본값: `readability`)
+- 적용 level: `<safe|moderate|aggressive>` (기본값: `safe`)
+- scope: `<전체|모듈명|파일경로>`
+- 활성 옵션: `--with-tests` / `--with-security` / `--dry-run` 여부
 
-## 2.1 `.claude/rules/coding-style.md`의 19개 섹션 체크리스트를 기준으로 전체 코드를 점검한다. 각 체크리스트 항목의 위반 사항을 식별한다.
+# STEP 2 변경 범위 식별과 기존 테스트 확인
+
+## 2.1 변경 범위 식별
+
+STEP 1의 scope를 기반으로 아래 관점에서 영향 범위를 식별한다.
+
+- 영향받는 모듈
+- 의존 관계
+- API 계약
+- 데이터 흐름
+- 상태 변경 지점
+- 트랜잭션 경계
+- 동시성 영향
+- 외부 시스템 영향
+
+## 2.2 기존 테스트 확인
+
+변경 범위 내 테스트 현황을 확인한다.
+
+```bash
+cargo test --all 2>&1 | tail -20   # 테스트 통과 현황
+```
+
+테스트가 부족한 경우:
+- behavior preserving verification을 위해 characterization test를 먼저 작성한다.
+- `--with-tests` 옵션이 없더라도, 테스트 전무 파일을 리팩토링할 때는 최소 smoke test를 확보한다.
+
+# STEP 3 coding-style.md 기준 일괄 점검
+
+## 3.1 `.claude/rules/coding-style.md`의 19개 섹션 체크리스트를 기준으로 전체 코드를 점검한다. 각 체크리스트 항목의 위반 사항을 식별한다.
 
 | 섹션 | 주요 체크 |
 |---|---|
@@ -201,7 +258,7 @@ Claude는 scope를 기반으로 영향 범위와 의존성을 분석한다.
 | §18 Testing Philosophy | business behavior 테스트, implementation coupling 낮음 |
 | §19 AI Coding Alignment | 예측 가능한 패턴, architecture consistency |
 
-## 2.2 Code Smell 분석
+## 3.2 Code Smell 분석
 
 **Bloaters**
 - Long Method
@@ -244,22 +301,9 @@ Claude는 scope를 기반으로 영향 범위와 의존성을 분석한다.
 - `String` 파라미터 — `&str` / `&[T]` 로 대체 가능한 경우
 - 금지 접두사 함수명 — `handle_`, `process_`, `run_`, `do_` 로 시작하는 함수
 
-# STEP 3 변경 범위 식별과 리스크 분석
+# STEP 4 리스크 분석과 리팩토링 전략 선택
 
-## 3.1 변경 범위 식별
-
-- 영향받는 모듈
-- 의존 관계
-- API 계약
-- 데이터 흐름
-- 상태 변경 지점
-- 트랜잭션 경계
-- 동시성 영향
-- 외부 시스템 영향
-
-관점에서 영향범위를 식별한다.
-
-## 3.2 리스크 분석
+## 4.1 리스크 분석
 
 - Public API 변경 여부
 - Backward Compatibility
@@ -269,17 +313,51 @@ Claude는 scope를 기반으로 영향 범위와 의존성을 분석한다.
 - Lock/Concurrency 영향
 - Security 영향
 
-위 사항의 리스트를 식별해 리스크 해결하거나 회피 전략을 수립해야 한다.
+**리스크 대응 분기**:
 
-# STEP 4 리팩토링 수행
+| 리스크 수준 | 판단 기준 | 대응 |
+|---|---|---|
+| 🔴 High | Public API 파괴적 변경 / Migration 필요 / data 손상 가능 | 사용자에게 보고 후 중단. 별도 마이그레이션 계획 필요 |
+| 🟡 Medium | 내부 API 변경 / 성능 영향 / concurrency 주의 | 사용자에게 보고 후 계속. 해당 항목에 별도 테스트 추가 |
+| 🟢 Low | 명명 개선 / 로깅 포맷 / 가시성 조정 | 그대로 진행 |
 
-STEP 2와 STEP 3의 점검과 변경 범위 식별과 리스크 분석을 기반으로 아래 4.1의 작업 기준으로 4.2 ~ 4.17 중 우선 수행할 항목을 결정해 리팩토링 전체가 완료될 때까지 진행한다.
+## 4.2 리팩토링 전략 선택
 
-## 4.1 작은 단위로 진행
+STEP 1의 goal·level과 STEP 3의 위반 목록을 기반으로, 아래 표에서 수행할 항목과 순서를 결정한다.
 
-작업 단위를 작게 쪼개고, 브랜치는 `feature/refactor-{작업단위}` 형태로 만든다. 각 단위마다 리팩토링 → 테스트 → 커밋을 반복한다.
+**goal → 우선 수행 항목 매핑**:
 
-## 4.2 Naming 개선
+| goal | 우선 수행 항목 (STEP 5에서 먼저 실행) |
+|---|---|
+| `readability` | 5.2 Naming → 5.3 함수 → 5.12 pub 범위 → 5.11 Comments |
+| `maintainability` | 5.9 Dependency → 5.3 함수 → 5.4 Struct/Trait → 5.10 Dead Code |
+| `testability` | 5.9 Dependency → 5.4 Struct/Trait → 5.14 Usecase 책임 → 5.3 함수 |
+| `domain-model` | 5.6 데이터구조 → 5.4 Struct/Trait → 5.14 Usecase 책임 → 5.13 DTO Boundary |
+| `complexity` | 5.5 조건문 → 5.3 함수 → 5.10 Dead Code → 5.4 Struct/Trait |
+
+**level → 허용 범위**:
+
+| level | 허용 범위 |
+|---|---|
+| `safe` | rename / extract method / 로깅 포맷 / pub 범위 조정. Public API 변경 금지 |
+| `moderate` | 내부 struct 분리 / dependency 정리 / 내부 API 개선. Public API 변경 금지 |
+| `aggressive` | architecture 개선 / domain restructuring / legacy 추상화 제거. behavior verification 필수 유지 |
+
+# STEP 5 리팩토링 수행
+
+STEP 3과 STEP 4의 분석 결과를 기반으로, STEP 4.2에서 선택한 항목과 순서로 리팩토링을 진행한다.
+
+**실행 원칙**:
+- 브랜치는 `feature/refactor-{모듈명 또는 작업 내용}` 형태로 만든다. (예: `feature/refactor-todo-domain`, `feature/refactor-error-handling`)
+- 각 항목마다 리팩토링 → 테스트 → 커밋을 반복한다.
+- 커밋 메시지는 `refactor(scope): [R-R-XX] 내용` 형태를 따른다. (CLAUDE.md 커밋 컨벤션)
+- 기능 추가와 리팩토링을 같은 커밋에 혼합 금지.
+- behavior change 발생 시 즉시 중단.
+
+**`--dry-run` 옵션 시**: STEP 0~4 분석 결과를 출력하고, STEP 5 실행 없이 종료한다. 출력 형식: 발견된 위반 목록, 예상 수행 항목, 리스크 수준.
+
+## 5.2 Naming 개선
+
 다음을 개선한다.
 
 - 의미 없는 변수명 제거
@@ -308,7 +386,7 @@ remove_expired_sessions()
 - `data` → `order_items`
 - `flag` → `is_expired`
 
-## 4.3 함수 리팩토링
+## 5.3 함수 리팩토링
 
 목표:
 - 단일 책임
@@ -321,7 +399,7 @@ remove_expired_sessions()
 - depth가 깊은가?
 - mutable state가 많은가?
 
-## 4.4 Struct / Impl / Trait 리팩토링
+## 5.4 Struct / Impl / Trait 리팩토링
 
 체크:
 - 하나의 impl block이 여러 책임을 지는가?
@@ -335,7 +413,7 @@ remove_expired_sessions()
 - trait 추출로 의존성 역전
 - composition 우선 (Rust는 상속이 없다)
 
-## 4.5 조건문 리팩토링
+## 5.5 조건문 리팩토링
 
 다음을 우선 제거한다.
 
@@ -349,7 +427,7 @@ remove_expired_sessions()
 - State Pattern
 - Lookup Table
 
-## 4.6 데이터 구조 개선
+## 5.6 데이터 구조 개선
 
 다음을 제거한다.
 
@@ -362,7 +440,7 @@ remove_expired_sessions()
 - Enum
 - Domain Type (`Id<T>` Newtype, `enum Status`)
 
-## 4.7 에러 처리 리팩토링
+## 5.7 에러 처리 리팩토링
 
 체크:
 - `unwrap()` / `expect()` 남용 여부
@@ -395,7 +473,7 @@ controller: UsecaseError     → AppError (HTTP 응답용)
 let re = Regex::new(r"^\d{4}-\d{2}-\d{2}$").expect("always valid literal");
 ```
 
-## 4.8 로깅 리팩토링
+## 5.8 로깅 리팩토링
 
 체크:
 - format string 방식 로깅 사용 여부
@@ -412,7 +490,7 @@ error!("authorization failed: {:?}", err);
 error!(error = ?err, user_id = %user.id, "authorization failed");
 ```
 
-## 4.9 Dependency 정리
+## 5.9 Dependency 정리
 
 체크:
 - 순환 참조
@@ -425,7 +503,7 @@ error!(error = ?err, user_id = %user.id, "authorization failed");
 - Trait Boundary 분리
 - Layer 명확화
 
-## 4.10 Dead Code 제거
+## 5.10 Dead Code 제거
 
 제거 대상:
 - 사용되지 않는 함수 / struct / trait
@@ -433,7 +511,7 @@ error!(error = ?err, user_id = %user.id, "authorization failed");
 - obsolete comment
 - commented-out code
 
-## 4.11 Comments 관리
+## 5.11 Comments 관리
 
 **제거 대상** — 코드 자체로 이해 가능한 것:
 - 내부 구현 "what" 주석
@@ -455,14 +533,13 @@ pub fn complete(&mut self) -> Result<(), DomainError> { ... }
 self.status = TodoStatus::Done;
 ```
 
-## 4.12 가시성(pub) 범위 점검
+## 5.12 가시성(pub) 범위 점검
 
 (coding-style.md §2, §3 연계)
 
 체크:
 - `pub`이 외부 공개가 실제 필요한 경우에만 사용되는가?
 - 내부 공유 시 `pub(crate)` / `pub(super)` 로 범위를 제한했는가?
-- `pub fn` / `pub struct` / `pub trait` 에 `///` doc 주석이 존재하는가?
 
 개선:
 
@@ -474,7 +551,7 @@ pub fn internal_helper() { ... }
 pub(crate) fn internal_helper() { ... }
 ```
 
-## 4.13 API / DTO Boundary 점검
+## 5.13 API / DTO Boundary 점검
 
 (coding-style.md §14 연계)
 
@@ -499,7 +576,7 @@ pub struct CreateTodoRequest { ... }
 pub struct TodoResponse { ... }
 ```
 
-## 4.14 Usecase / Controller 책임 분리 점검
+## 5.14 Usecase / Controller 책임 분리 점검
 
 (coding-style.md §8 연계)
 
@@ -519,7 +596,7 @@ async fn execute(Json(req): Json<CreateTodoRequest>) { ... }
 async fn execute(command: CreateTodoCommand) { ... }
 ```
 
-## 4.15 Async / Concurrency 패턴 점검
+## 5.15 Async / Concurrency 패턴 점검
 
 (coding-style.md §12 연계)
 
@@ -543,7 +620,7 @@ struct Service {
 }
 ```
 
-## 4.16 Authentication & Middleware 점검
+## 5.16 Authentication & Middleware 점검
 
 (coding-style.md §16 연계)
 
@@ -570,7 +647,7 @@ async fn auth_middleware(req: Request, next: Next) -> Response {
 }
 ```
 
-## 4.17 문서화 점검
+## 5.17 문서화 점검
 
 (coding-style.md §15 연계)
 
@@ -592,32 +669,35 @@ pub fn complete(&mut self) -> Result<(), DomainError> { ... }
 
 ---
 
-# 5 Verification & Cleanup
+# 6 Verification & Cleanup
 
-## 5.1 Linter & Formatter 실행
+## 6.1 Linter & Formatter 실행
 
 아래를 순서대로 실행하고 결과를 개선한다.
 
 ```bash
-cargo clippy -- -D warnings          # 경고를 오류로 처리
 cargo clippy --fix --allow-dirty     # 자동 수정 가능한 항목 수정
+cargo clippy -- -D warnings          # 잔존 경고 확인 (경고를 오류로 처리)
 cargo fmt                            # 포맷 자동 적용
-cargo fmt --check                    # 포맷 위반 확인 (CI용)
 ```
 
-## 5.2 전체 테스트 실행
+## 6.2 전체 테스트 실행
 
-### 5.2.1 반드시 수행:
+### 6.2.1 반드시 수행:
+
 - Unit Test
 - Integration Test
 - E2E Test
 - Regression Test
 
 실패 시:
-- 원인 분석
-- behavior change 여부 확인
+1. 원인 분석: 어느 변경이 테스트를 깨뜨렸는지 특정한다.
+2. behavior change 판단:
+   - **의도하지 않은 behavior change** → 해당 커밋을 `git revert`하고 STEP 5로 돌아간다.
+   - **의도한 behavior change** → 사용자에게 보고하고 확인을 받은 뒤 테스트를 갱신한다.
+3. 재실행: 수정 후 `cargo test --all`을 다시 실행해 통과를 확인한다.
 
-### 5.2.2 `/test-align` 명령을 실행(옵션 : `--with-tests` 옵션이 있을 경우 수행함)
+### 6.2.2 `/test-align` 명령을 실행(옵션 : `--with-tests` 옵션이 있을 경우 수행함)
 
 - characterization test
 - regression test
@@ -630,16 +710,12 @@ cargo fmt --check                    # 포맷 위반 확인 (CI용)
 - 기존 동작을 먼저 캡처한다
 - behavior preserving verification을 우선한다
 
-위 테스트 수행 후 `/test-align` 명령을 실행하고 피드백을 자동 수정한다.
-
-### 5.2.3 테스트 커버리지 확인
-
 ```bash
 cargo test --all
 cargo tarpaulin --out Html --output-dir coverage/   # 커버리지 확인
 ```
 
-## 5.3 Security Scan(옵션 : `--with-security` 옵션이 있을 경우 수행함)
+## 6.3 Security Scan(옵션 : `--with-security` 옵션이 있을 경우 수행함)
 
 1. `/security-full-scan` 명령을 실행해 정적 분석을 진행하고 결과 피드백을 반영한다.
 2. `/security-scan` 명령으로 동적 분석을 진행한다. 서버가 구동되지 않은 경우 `cargo run`으로 서버를 실행한 뒤 `/security-scan`을 다시 실행한다.
@@ -648,7 +724,7 @@ cargo tarpaulin --out Html --output-dir coverage/   # 커버리지 확인
 cargo audit                          # 의존성 보안 취약점 확인
 ```
 
-## 5.4 Static Analysis 수행
+## 6.4 Static Analysis 수행
 
 확인:
 - unused code
@@ -657,7 +733,7 @@ cargo audit                          # 의존성 보안 취약점 확인
 - unreachable code
 - complexity 증가 여부
 
-## 5.5 Architecture Review
+## 6.5 Architecture Review
 
 검증:
 - `controller → usecase → domain ← infra` 의존 방향 유지
@@ -669,7 +745,7 @@ cargo audit                          # 의존성 보안 취약점 확인
 - Transaction boundary 위치 (usecase가 소유하는가?)
 - validation 로직이 controller 경계에 있는가?
 
-## 5.6 Complexity Review
+## 6.6 Complexity Review
 
 측정:
 - Cyclomatic Complexity
@@ -680,16 +756,16 @@ cargo audit                          # 의존성 보안 취약점 확인
 
 리팩토링 후 감소했는지 확인한다.
 
-### 5.7 Diff Review
+## 6.7 Diff Review
 
 확인:
 - 불필요한 formatting noise 제거
 - 기능 변경 섞이지 않았는가?
 - rename-only commit 분리 가능한가?
 
-# 6. 리팩토링 피드백 작성 가이드라인
+# 7. 리팩토링 피드백 작성 가이드라인
 
-## 6.1 리팩토링 피드백 분류
+## 7.1 리팩토링 피드백 분류
 
 위 체크사항들을 모두 점검하고 실제 작업단위를 나누어수 래팩토링 작업을 한 결과에 대해 아래 4가지 카테고리로 분류한다.
 
@@ -700,7 +776,7 @@ cargo audit                          # 의존성 보안 취약점 확인
 | 💡 Refactoring Suggestions | 선택적 개선 아이디어 및 리팩토링 기회 | 향후 개선 후보로 고려 |
 | 📝 Refactoring Tech Debt | 현재 수정 범위를 넘어서는 구조적 부채 | 별도 이슈로 추적 |
 
-## 6.2 리팩터링 피드백 분류 기준
+## 7.2 리팩터링 피드백 분류 기준
 
 **1. 🚫 Blocking Refactoring Issues**
 
@@ -765,12 +841,12 @@ cargo audit                          # 의존성 보안 취약점 확인
 - inconsistent domain modeling
 - duplicated business logic across modules
 
-## 6.3 리팩토링 결과 피드백 가이드라인
+## 7.3 리팩토링 결과 피드백 가이드라인
 
 리팩토링 결과 피드백은 코드 냄새 유형 + Before/After 비교 형식으로 작성한다:
 
 - 코드 위치: 파일명과 라인 번호를 명시 (예: `src/domain/order/service.rs:42`)
-- 냄새 유형: 3.1.4 Code Smell 분석의 유형을 표시
+- 냄새 유형: STEP 3.2 Code Smell 분석의 유형을 표시
 - 문제 설명(Problem): 왜 문제가 되는가, 어떤 위험이 있는가, 어떤 영향(API 영향, transaction 영향, concurrency 영향, rollback risk, migration 필요 여부)이 있는지 구체적으로 기술
 - 개선 방향(Recommendation): refactoring strategy, pattern, extraction 방향, dependency 개선 방향을 포함
 - Before/After: 리팩토링 전후 코드 예시 제공
@@ -778,21 +854,25 @@ cargo audit                          # 의존성 보안 취약점 확인
 
 ---
 
-# 7. PR 준비 및 제출
+# 8. PR 준비 및 제출
 
-## 7.1 PR 제목 규칙
+## 8.1 PR 제목 규칙
 
 ```
 refactor([모듈명]): [핵심 변경 내용 한 줄 요약]
+
+예시:
+  refactor(todo): [R-R-01] complete() clone() 제거
+  refactor(auth): [R-R-05] handle_auth → validate_access_token 개명
 ```
 
-## 7.2 PR 본문
+## 8.2 PR 본문
 
 주요 변경 사항 단락에 리팩토링 결과 피드백의 내용 전체를 간략한 버전으로 정리해서 기술한다.
 
 검증 내용에 테스트 결과와 security scan 결과를 기술한다.
 
-## 7.3 최종 완료 조건
+## 8.3 최종 완료 조건
 
 다음을 만족해야 완료로 간주한다.
 
