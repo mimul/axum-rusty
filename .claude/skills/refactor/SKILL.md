@@ -632,6 +632,8 @@ cargo fmt --check                    # 포맷 위반 확인 (CI용)
 
 위 테스트 수행 후 `/test-align` 명령을 실행하고 피드백을 자동 수정한다.
 
+### 5.2.3 테스트 커버리지 확인
+
 ```bash
 cargo test --all
 cargo tarpaulin --out Html --output-dir coverage/   # 커버리지 확인
