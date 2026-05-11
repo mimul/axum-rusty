@@ -761,9 +761,9 @@ cargo audit                          # 의존성 보안 취약점 확인
 - 기능 변경 섞이지 않았는가?
 - rename-only commit 분리 가능한가?
 
-# 7. 리팩토링 피드백 작성 가이드라인
+# 7. 리팩토링 결과 피드백 작성 가이드라인
 
-## 7.1 리팩토링 피드백 분류
+## 7.1 리팩토링 결과 피드백 분류
 
 위 체크사항들을 모두 점검하고 실제 작업단위를 나누어수 래팩토링 작업을 한 결과에 대해 아래 4가지 카테고리로 분류한다.
 
@@ -774,7 +774,7 @@ cargo audit                          # 의존성 보안 취약점 확인
 | 💡 Refactoring Suggestions | 선택적 개선 아이디어 및 리팩토링 기회 | 향후 개선 후보로 고려 |
 | 📝 Refactoring Tech Debt | 현재 수정 범위를 넘어서는 구조적 부채 | 별도 이슈로 추적 |
 
-## 7.2 리팩터링 피드백 분류 기준
+## 7.2 리팩터링 결과 피드백 분류 기준
 
 **1. 🚫 Blocking Refactoring Issues**
 
@@ -844,7 +844,7 @@ cargo audit                          # 의존성 보안 취약점 확인
 리팩토링 결과 피드백은 코드 냄새 유형 + Before/After 비교 형식으로 작성한다:
 
 - 코드 위치: 파일명과 라인 번호를 명시 (예: `src/domain/order/service.rs:42`)
-- 냄새 유형: STEP 3.2 Code Smell 분석의 유형을 표시
+- 유형: STEP 3.1 .claude/rules/coding-style.md의 19개 섹션 체크리스트를 기준 위반 및 STEP 3.2 Code Smell 분석의 유형을 표시
 - 문제 설명(Problem): 왜 문제가 되는가, 어떤 위험이 있는가, 어떤 영향(API 영향, transaction 영향, concurrency 영향, rollback risk, migration 필요 여부)이 있는지 구체적으로 기술
 - 개선 방향(Recommendation): refactoring strategy, pattern, extraction 방향, dependency 개선 방향을 포함
 - Before/After: 리팩토링 전후 코드 예시 제공
