@@ -36,11 +36,11 @@ description: |
     - aggressive 레벨에서도 behavior verification 반드시 유지
 ---
 
-# Claude용 리팩토링 가이드
+# `/refactor` 커맨드 스킬
 
 본 문서는 Axum Rusty 프로젝트의 코딩 철학과 표준을 반영한 리팩토링 실행 절차 및 지침을 제공한다.
 
-# 커맨드 문법
+## 커맨드 문법
 
 권장 명령은 아래 수준으로 단순하게 유지한다.
 
