@@ -25,15 +25,16 @@ Readable Test
 > Behavior Verification
 > Property Verification
 > Architecture-Aligned Test
-> Implementation-Coupled Test
+≠ Implementation-Coupled Test   ← 지양
 ```
 
 즉:
 
-- 읽기 쉬운 테스트
+- 읽기 쉬운 테스트 우선
 - 비즈니스 동작 검증
 - invariant/property 검증
-- 리팩토링에 강한 테스트
+- architecture에 정렬된 테스트 구조
+- implementation coupling은 지양
 
 를 우선한다.
 
@@ -127,7 +128,7 @@ assert_eq!(todo.status(), TodoStatus::Done)
 |------|-----------|-----------|
 | 프로세스 경계 | 외부 HTTP API, OAuth, 결제 | 반드시 대체 (wiremock-rs) |
 | 시간/환경 경계 | SystemTime, 난수, 파일시스템 | 주입 가능한 인터페이스로 교체 |
-| 논리적 경계 | 같은 crate 내 협력자 | 의도와 범위에 따라 결정 |
+| 논리적 경계 | 같은 crate 내 협력자 | Fake 우선. side-effect 검증이 비즈니스 요구사항인 경우만 Mock 허용 |
 
 ## 3.2 반드시 모킹할 대상
 
@@ -148,18 +149,18 @@ Mock::given(method("POST"))
 
 ```rust
 // ❌ DB/Repository를 mock으로 대체
-let mut mock_repo = MockOrderRepository::new();
+let mut mock_repo = MockTodoRepository::new();
 mock_repo.expect_save().returning(|_| Ok(()));
 
 // ✅ in-memory Fake 또는 실제 DB(sqlx::test) 사용
-struct InMemoryOrderRepository {
-    store: Mutex<HashMap<OrderId, Order>>,
+struct InMemoryTodoRepository {
+    store: Mutex<HashMap<TodoId, Todo>>,
 }
 
 // ✅ sqlx::test로 실제 DB 사용
 #[sqlx::test]
-async fn save_persists_order(pool: PgPool) {
-    let repo = PostgresOrderRepository::new(pool);
+async fn save_persists_todo(pool: PgPool) {
+    let repo = PostgresTodoRepository::new(pool);
     // ...
 }
 ```
@@ -214,6 +215,16 @@ pub struct OrderService<C: Clock> {
 
 axum-rusty는 Classicist TDD 관점을 기본 철학으로 사용한다.
 
+## 4.0 Red-Green-Refactor
+
+TDD 사이클을 명시적으로 따른다.
+
+1. **Red**: 실패하는 테스트를 먼저 작성한다.
+2. **Green**: 테스트를 통과시키는 최소한의 구현을 작성한다.
+3. **Refactor**: 동작을 유지하면서 코드를 개선한다.
+
+이 사이클은 구현보다 설계를 먼저 생각하게 강제한다.
+
 ## 4.1 Prefer State Verification
 
 좋은 예:
@@ -225,7 +236,8 @@ fn completed_todo_changes_status_to_done() {
         TodoTitle::new("write test".to_string()).unwrap()
     );
 
-    todo.complete().unwrap();
+    todo.start().unwrap();    // Todo → Doing
+    todo.complete().unwrap(); // Doing → Done
 
     assert_eq!(
         todo.status(),
@@ -251,14 +263,14 @@ fn todo_title_cannot_be_empty() {
 
 ## 4.3 Mock at Infrastructure Boundary
 
-mock은 외부 시스템 boundary에만 사용한다.
+외부 시스템 boundary에서는 Test Double을 사용한다.
+단, Repository는 Fake(in-memory) 또는 실제 DB(sqlx::test)를 우선하고,
+Mock은 side-effect가 비즈니스 요구사항인 경우(EmailSender, External API 등)에만 사용한다.
 
-- TodoRepository
-- EmailSender
-- JwtProvider
-- External API
-
-등을 mock 한다.
+- TodoRepository → Fake 또는 sqlx::test
+- EmailSender → Mock (발송 여부가 비즈니스 요구사항)
+- JwtProvider → Stub 또는 Fake
+- External API → wiremock-rs Fake
 
 ## 요약 체크리스트
 
@@ -309,16 +321,17 @@ proptest! {
 ```rust
 proptest! {
     #[test]
-    fn completed_todo_never_returns_to_todo(
+    fn completed_todo_cannot_restart(
         title in ".{1,50}"
     ) {
         let mut todo = Todo::new(
             TodoTitle::new(title).unwrap()
         );
 
-        todo.complete().unwrap();
+        todo.start().unwrap();    // Todo → Doing
+        todo.complete().unwrap(); // Doing → Done
 
-        let result = todo.start();
+        let result = todo.start(); // Done → Doing 전이 불가
 
         prop_assert!(result.is_err());
     }
@@ -413,9 +426,10 @@ fn todo_cannot_complete_twice() {
         TodoTitle::new("write docs".to_string()).unwrap()
     );
 
-    todo.complete().unwrap();
+    todo.start().unwrap();    // Todo → Doing
+    todo.complete().unwrap(); // Doing → Done
 
-    let result = todo.complete();
+    let result = todo.complete(); // 이미 Done 상태에서 재완료 불가
 
     assert!(result.is_err());
 }
@@ -477,6 +491,20 @@ async fn create_todo_returns_201() {
 ## 7.1 AAA Structure
 
 테스트 코드를 Arrange(준비), Act(실행), Assert(확인)의 세 단계로 나누어 작성한다.
+
+```rust
+#[test]
+fn create_todo_fails_when_title_is_empty() {
+    // Arrange
+    let title = "";
+
+    // Act
+    let result = TodoTitle::new(title.to_string());
+
+    // Assert
+    assert!(result.is_err());
+}
+```
 
 ## 7.2 Prefer Explicitness
 
@@ -614,6 +642,35 @@ async fn ignored_without_reason() { }
 - oversized payload
 - invalid UUID
 
+```rust
+#[tokio::test]
+async fn create_todo_returns_400_when_title_is_empty() {
+    let app = test_app().await;
+
+    let response = app
+        .post("/api/todos")
+        .json(&json!({ "title": "" }))
+        .send()
+        .await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn create_todo_returns_422_when_body_is_malformed() {
+    let app = test_app().await;
+
+    let response = app
+        .post("/api/todos")
+        .body("not json")
+        .header("content-type", "application/json")
+        .send()
+        .await;
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+```
+
 ## 9.2 Unauthorized Access
 
 ```text
@@ -650,7 +707,8 @@ let response = client
     .post("/todos")
     .json(&payload)
     .send()
-    .await?;
+    .await
+    .unwrap();
 ```
 
 ## 요약 체크리스트
@@ -673,10 +731,56 @@ let response = client
 - expired token
 - missing auth header
 
+```rust
+#[tokio::test]
+async fn returns_401_when_auth_header_is_missing() {
+    let app = test_app().await;
+
+    let response = app
+        .get("/api/todos")
+        .send()
+        .await;
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn returns_401_when_token_is_expired() {
+    let app = test_app().await;
+    let expired_token = create_expired_test_token();
+
+    let response = app
+        .get("/api/todos")
+        .header("Authorization", format!("Bearer {}", expired_token))
+        .send()
+        .await;
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+```
+
 ## 11.2 Authorization Testing
 
 ```text
 사용자는 자신의 Todo만 수정 가능
+```
+
+```rust
+#[tokio::test]
+async fn returns_403_when_accessing_another_users_todo() {
+    let app = test_app().await;
+    let (user_a_token, todo_id) = setup_todo_for_user_a(&app).await;
+    let user_b_token = create_test_token_for_user_b();
+
+    let response = app
+        .put(&format!("/api/todos/{}", todo_id))
+        .header("Authorization", format!("Bearer {}", user_b_token))
+        .json(&json!({ "title": "hijacked" }))
+        .send()
+        .await;
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
 ```
 
 ## 요약 체크리스트
@@ -734,16 +838,20 @@ AI-generated test도 동일한 품질 기준을 따라야 한다.
 
 # 14. Recommended Tooling
 
-| Category | Tool |
-|---|---|
-| unit/integration | cargo test |
-| property testing | proptest |
-| async test | tokio::test |
-| HTTP test | reqwest |
-| coverage | cargo llvm-cov |
-| benchmark | criterion |
-| lint | clippy |
-| formatting | cargo fmt |
+| Category | Tool | 비고 |
+|---|---|---|
+| unit/integration | `cargo test` | |
+| property testing | `proptest` | |
+| async test | `tokio::test` | 내장 |
+| DB 통합 테스트 | `sqlx::test` | |
+| 외부 HTTP 모킹 | `wiremock-rs` | 프로세스 경계 |
+| 앱 내부 HTTP 테스트 | `axum::test` + `tower::ServiceExt` | |
+| 단순 Mock/Stub | `mockall` | 최소한으로 |
+| coverage | `cargo llvm-cov` | |
+| benchmark | `criterion` | |
+| lint | `clippy` | |
+| formatting | `cargo fmt` | |
+| Assertion 보강 | `pretty_assertions` | |
 
 CI 최소 권장:
 
@@ -751,7 +859,7 @@ CI 최소 권장:
 cargo fmt --check
 cargo clippy -- -D warnings
 cargo test
-cargo llvm-cov
+cargo llvm-cov --summary-only
 cargo audit
 ```
 
@@ -778,6 +886,9 @@ cargo audit
 | DB/HTTP API 테스트 | `{crate}/tests/` 하위 | 실제 인프라 필요 |
 
 ```
+domain/
+  src/
+    todo.rs                          # Todo 도메인 모델 + #[cfg(test)] 단위 테스트
 controller/
   src/
     routes/
@@ -847,7 +958,7 @@ mod tests {
 3. `mod tests` 외부에서 `pub(super)` 등으로 내부 구현에 직접 접근
 4. `SystemTime::now()`, LLM 응답 등 비결정적 출력을 고정값처럼 사용
 5. 이슈 링크·담당자·기한 없이 단순 `#[ignore]`
-6. 테스트 이름이 함수명이나 내부 구현 구조를 그대로 반영
+6. 테스트 이름이 함수명이나 내부 구현 구조를 그대로 반영 (→ §7.3 참조)
 7. 기존 도구로 충분한데 새 모킹 크레이트 추가
 8. **Assertion이 없는 테스트**
 9. 의미 없는 Assertion (`assert!(result.is_some())` 단독 사용)
@@ -861,19 +972,9 @@ mod tests {
 
 # 18. Rust 관례
 
-## 18.1 테스트 모듈 위치 요약
+## 18.1 테스트 모듈 위치
 
-```rust
-// 단위 테스트: 같은 파일 하단
-#[cfg(test)]
-mod tests {
-    use super::*;
-    // ...
-}
-
-// 통합 테스트: tests/ 디렉토리 (별도 크레이트처럼 컴파일)
-// tests/integration/order_api.rs
-```
+→ §15 테스트 파일 구조 참조.
 
 ## 18.2 테스트 헬퍼 크레이트
 
@@ -894,15 +995,7 @@ pub fn create_test_token(user_id: i64) -> String { /* ... */ }
 
 ## 18.4 추천 크레이트
 
-| 목적 | 크레이트 |
-|------|---------|
-| 비동기 테스트 | `tokio::test` (내장) |
-| DB 통합 테스트 | `sqlx::test` |
-| HTTP 모킹 | `wiremock-rs` |
-| Property-Based | `proptest` |
-| 단순 Mock/Stub | `mockall` (최소한으로) |
-| HTTP 클라이언트 테스트 | `axum::test` + `tower::ServiceExt` |
-| Assertion 보강 | `pretty_assertions` |
+→ §14 Recommended Tooling 참조.
 
 ---
 
@@ -950,3 +1043,4 @@ pub fn create_test_token(user_id: i64) -> String { /* ... */ }
 13. AI-generated test도 동일한 기준을 따른다.
 14. readable test가 좋은 테스트다.
 15. 유지보수 가능한 테스트가 가장 좋은 테스트다.
+16. 테스트 커버리지 80% 이상을 목표로 한다.
