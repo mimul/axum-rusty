@@ -98,18 +98,13 @@ main                              배포 기준 (직접 커밋 금지)
 ### 커밋 메시지 규칙
 
 ```
-형식: <type>(<scope>): [코드] <50자 이내 요약>
+형식: <type>(<scope>): <50자 이내 요약>
 
 type: feat | fix | refactor | test | docs | chore
 
-코드:
-  [R-R-XX]  /refactor-rust 카탈로그 항목
-  [C-CR-XX] /code-review-rust 카테고리 항목
-  [Claude]  GitHub Actions Claude 자동 수정
-
 예시:
-  refactor(order): [R-R-01] process_order clone() 제거
-  fix(auth):       [C-CR-05] std::Mutex → tokio::Mutex 교체
+  refactor(order): process_order clone() 제거
+  fix(auth):       std::Mutex → tokio::Mutex 교체
   feat(payment):   결제 취소 API 추가
 ```
 
