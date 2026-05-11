@@ -186,7 +186,7 @@ cargo test --all            # 기존 테스트 baseline 확인
 ```
 
 확인 항목:
-- [ ] 현재 브랜치가 main이 아님
+- [ ] 최신 브랜치 확인
 - [ ] `cargo build` 통과
 - [ ] `cargo test --all` 통과 (리팩토링 전 baseline 확보)
 
