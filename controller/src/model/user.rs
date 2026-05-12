@@ -12,7 +12,7 @@ static SPECIAL_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"[^\da-zA-Z]").expect("always valid literal"));
 static LENGTH_REGEX: Lazy<Regex> =
     // fancy_regex::Regex::is_match returns Result; these patterns cannot produce backtrack errors
-    Lazy::new(|| Regex::new(r".{7,}").expect("always valid literal"));
+    Lazy::new(|| Regex::new(r".{8,}").expect("always valid literal"));
 fn validate_password(value: &str) -> Result<(), ValidationError> {
     if DIGIT_REGEX.is_match(value).unwrap_or(false)
         && SPECIAL_REGEX.is_match(value).unwrap_or(false)
@@ -189,5 +189,53 @@ mod tests {
         };
         let condition: SearchUserCondition = query.into();
         assert_eq!(condition.username, Some("bob@example.com".to_string()));
+    }
+
+    #[test]
+    fn create_user_try_from_without_username_returns_err() {
+        let jcu = JsonCreateUser {
+            username: None,
+            password: Some("Secret1!".to_string()),
+            fullname: Some("Alice".to_string()),
+        };
+        assert!(CreateUser::try_from(jcu).is_err());
+    }
+
+    #[test]
+    fn create_user_try_from_without_password_returns_err() {
+        let jcu = JsonCreateUser {
+            username: Some("alice@example.com".to_string()),
+            password: None,
+            fullname: Some("Alice".to_string()),
+        };
+        assert!(CreateUser::try_from(jcu).is_err());
+    }
+
+    #[test]
+    fn create_user_try_from_without_fullname_returns_err() {
+        let jcu = JsonCreateUser {
+            username: Some("alice@example.com".to_string()),
+            password: Some("Secret1!".to_string()),
+            fullname: None,
+        };
+        assert!(CreateUser::try_from(jcu).is_err());
+    }
+
+    #[test]
+    fn login_user_try_from_without_username_returns_err() {
+        let jcu = JsonLoginUser {
+            username: None,
+            password: Some("Secret1!".to_string()),
+        };
+        assert!(LoginUser::try_from(jcu).is_err());
+    }
+
+    #[test]
+    fn login_user_try_from_without_password_returns_err() {
+        let jcu = JsonLoginUser {
+            username: Some("alice@example.com".to_string()),
+            password: None,
+        };
+        assert!(LoginUser::try_from(jcu).is_err());
     }
 }
