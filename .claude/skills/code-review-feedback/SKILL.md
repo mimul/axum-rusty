@@ -108,7 +108,7 @@ gh pr view --json number,url,baseRefName,headRefName 2>/dev/null
 
 ---
 
-## STEP 2 — coding-style.md · security-style.md 기준 분석
+## STEP 2 — 코딩 지침 · 보안 지침 · 테스트 지침의 기준 분석
 
 > **역할**: 내부 분석용 리포트. 이 결과를 바탕으로 STEP 3에서 GitHub 게시용 코멘트 초안을 생성한다.
 
