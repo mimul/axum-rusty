@@ -3,7 +3,7 @@ name: PR 분류 — One-Way / Two-Way Door
 # ──────────────────────────────────────────────────────────────────
 # PR이 열리면 즉시 변경 파일을 분석해 One-Way / Two-Way Door로 분류한다.
 #
-# One-Way Door (인간 리뷰 필수):
+# One-Way Door (사용자 리뷰 필수):
 #   되돌려도 피해가 잔존하는 변경 — DB 마이그레이션, 인증, 의존성, CI/CD 등
 #
 # Two-Way Door (Claude 자동 리뷰 + 병합):
@@ -49,7 +49,7 @@ jobs:
         with:
           script: |
             const labels = [
-              { name: 'one-way-door',    color: 'D93F0B', description: '되돌리기 어려운 변경 — 인간 리뷰 필요' },
+              { name: 'one-way-door',    color: 'D93F0B', description: '되돌리기 어려운 변경 — 사용자 리뷰 필요' },
               { name: 'two-way-door',    color: '0075CA', description: '자동 리뷰 가능 — Claude 처리' },
               { name: 'claude-reviewed', color: '6E5494', description: 'Claude 자동 리뷰 완료' },
             ];
@@ -177,7 +177,7 @@ jobs:
       # ────────────────────────────────────────────────────────────
       # One-Way Door: PR 코멘트 + Slack 리뷰어 알림
       # ────────────────────────────────────────────────────────────
-      - name: "[One-Way] PR 코멘트 — 인간 리뷰 필요"
+      - name: "[One-Way] PR 코멘트 — 사용자 리뷰 필요"
         if: steps.door.outputs.type == 'one-way'
         uses: actions/github-script@v7
         with:
@@ -187,7 +187,7 @@ jobs:
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: context.issue.number,
               body: [
-                '## 🚪 One-Way Door — 인간 리뷰 필요',
+                '## 🚪 One-Way Door — 사용자 리뷰 필요',
                 '',
                 `**분류 이유**: ${reason}`,
                 '',
@@ -210,7 +210,7 @@ jobs:
               "blocks": [
                 {
                   "type": "header",
-                  "text": { "type": "plain_text", "text": "🚪 One-Way Door PR — 인간 리뷰 필요" }
+                  "text": { "type": "plain_text", "text": "🚪 One-Way Door PR — 사용자 리뷰 필요" }
                 },
                 {
                   "type": "section",
