@@ -159,6 +159,275 @@ gh pr view --json number,url,baseRefName,headRefName 2>/dev/null
 
 > **보안 체크**: security-style.md 이슈는 심각도 등급(🚫 Critical / ⚠️ High / ⚡ Medium / ℹ️ Low)에 상관없이 리뷰에서 항상 **🚫 Blocking**으로 분류한다.
 
+## 2-3 .claude/rules/test-style.md 기반 테스트 품질 점검
+
+`.claude/rules/test-style.md` 기준으로 변경된 코드의 테스트 품질을 점검한다. 이 섹션은 코드 수정 없이 PR 코멘트로 피드백을 출력하는 **읽기 전용** 단계다.
+
+| 섹션 | 점검 내용 | 판정 기준 |
+|------|-----------|-----------|
+| §2 Behavior First | implementation coupling 없이 observable behavior 검증 여부 | 상호작용만 검증 시 🚫 Blocking |
+| §3 모킹 경계 | Repository Mock 사용 여부, 프로세스 경계 외부 API 처리 방식 | MockRepository 사용 시 ⚠️ Recommended |
+| §4 Classicist TDD | state verification 사용 여부, 실제 domain object 사용 여부 | interaction-only 검증 시 ⚠️ Recommended |
+| §7 Readability | AAA 구조 준수, `<행동>_<기대결과>_when_<조건>` 네이밍 패턴 | generic 네이밍 시 💡 Suggestion |
+| §8 Flaky & Deterministic | 이슈 링크·담당자·기한 없는 `#[ignore]`, 타이밍 의존 패턴 | 이유 없는 ignore 시 🚫 Blocking |
+| §15 파일 구조 | 단위 테스트 위치(`src/` 내), 통합·DB 테스트 위치(`tests/`) | 피라미드 역전 시 ⚠️ Recommended |
+| §16 불필요 테스트 | 로직 없는 CRUD·프레임워크 배선·getter 단독 테스트 존재 여부 | 삭제 권장 시 💡 Suggestion |
+| §17.1 PR 거절 신호 | 5개 Blocking 패턴(Assertion 없음, Mock chain, Mock DB 등) 탐지 | 해당 시 🚫 Blocking |
+
+---
+
+### §2 Behavior First — 탐지 방법
+
+**Implementation Coupling 탐지**
+
+```rust
+// 🚫 Blocking — 상호작용만 검증, 결과 상태 없음
+mock_repo.expect_save().times(1).returning(|_| Ok(()));
+// assert가 전혀 없음
+
+// ✅ 정상 — observable behavior 검증
+let result = usecase.create(command).await.unwrap();
+assert_eq!(result.status, TodoStatus::Todo);
+```
+
+PR 코멘트 예시:
+```
+🚫 **[Blocking] Behavior First 위반 — 상태 검증 누락**
+
+현재 테스트는 `save()` 호출 횟수만 검증하고, 결과 상태를 확인하지 않습니다.
+test-style.md §2.1은 mock 상호작용이 아닌 observable behavior 검증을 요구합니다.
+
+**현재 코드**
+```rust
+mock_repo.expect_save().times(1).returning(|_| Ok(()));
+// assert 없음
+```
+
+**개선 방향**
+```rust
+let created = usecase.create(command).await.unwrap();
+assert_eq!(created.title, "write guide");
+assert_eq!(created.status, TodoStatus::Todo);
+```
+```
+
+---
+
+### §3 모킹 경계 — 경계별 판정
+
+| 경계 유형 | 탐지 패턴 | 판정 | PR 코멘트 안내 |
+|-----------|-----------|------|----------------|
+| Repository Mock | `MockTodoRepository`, `mock_repo.expect_find` | ⚠️ Recommended | in-memory Fake 또는 `sqlx::test` 전환 권장 |
+| 외부 HTTP API Mock | `reqwest::Client` 직접 Mock | ⚠️ Recommended | `wiremock-rs`로 HTTP 레벨 Fake 전환 권장 |
+| Domain Object Mock | `MockTodo`, `MockOrder` 등 | 🚫 Blocking | 자체 소유 도메인 객체는 절대 Mock 금지 |
+| 순수 함수 Mock | 유틸·변환 함수 Mock | 🚫 Blocking | 순수 함수는 Mock 대상이 아님 |
+| 외부 결제·OAuth | HTTP 직접 의존 | ⚠️ Recommended | `wiremock-rs` 사용 권장 |
+
+PR 코멘트 예시 (Repository Mock):
+```
+⚠️ **[Recommended] MockRepository 사용 — Fake 또는 실제 DB 전환 권장**
+
+test-style.md §3.2는 Repository에 Mock 대신 in-memory Fake 또는
+`sqlx::test`를 사용할 것을 요구합니다. Mock은 실제 쿼리 동작을 검증하지 못합니다.
+
+**전환 방법**
+```rust
+// in-memory Fake
+let repo = InMemoryTodoRepository::new();
+
+// 또는 실제 DB (권장)
+#[sqlx::test]
+async fn create_todo_persists(pool: PgPool) {
+    let repo = PostgresTodoRepository::new(pool);
+    // ...
+}
+```
+```
+
+---
+
+### §4 Classicist TDD — 체크리스트
+
+탐지 기준:
+
+- `expect_xxx().times(n)` 호출이 `assert_eq!` / `assert!` 보다 많으면 → ⚠️ Recommended
+- `unwrap()` 이후 assertion 없으면 → ⚠️ Recommended
+- 도메인 객체를 `Mock*` 으로 대체하면 → 🚫 Blocking
+
+PR 코멘트 예시:
+```
+⚠️ **[Recommended] Classicist TDD — state verification 누락**
+
+`expect_save().times(1)` 외에 결과 상태를 검증하는 assert가 없습니다.
+test-style.md §4.1은 상호작용 검증보다 상태 검증을 우선합니다.
+
+**현재 코드**
+```rust
+mock_repo.expect_save().times(1).returning(|_| Ok(()));
+usecase.create(cmd).await.unwrap();
+// assert 없음
+```
+
+**개선 방향**: `create()` 반환값 또는 저장된 엔티티의 필드를 `assert_eq!`로 검증하세요.
+```
+
+---
+
+### §7 Readability — AAA 구조 및 네이밍 패턴
+
+**AAA 구조 탐지**
+
+```rust
+// 💡 Suggestion — AAA 구분 없음
+#[test]
+fn test_complete() {
+    let mut t = Todo::new(TodoTitle::new("x".to_string()).unwrap());
+    t.start().unwrap(); t.complete().unwrap();
+    assert!(t.complete().is_err());
+}
+
+// ✅ 정상 — AAA 명확
+#[test]
+fn complete_todo_returns_error_when_already_done() {
+    // Arrange
+    let mut todo = Todo::new(TodoTitle::new("x".to_string()).unwrap());
+    todo.start().unwrap();
+    todo.complete().unwrap();
+
+    // Act
+    let result = todo.complete();
+
+    // Assert
+    assert!(result.is_err());
+}
+```
+
+**네이밍 패턴 탐지**
+
+| 나쁜 패턴 (탐지) | 판정 | 권장 패턴 |
+|-----------------|------|-----------|
+| `test_complete()` | 💡 Suggestion | `complete_todo_returns_error_when_already_done()` |
+| `test_save()` | 💡 Suggestion | `save_todo_persists_title_and_status()` |
+| `handle_auth()` | 💡 Suggestion | `returns_401_when_auth_header_is_missing()` |
+| `process_request()` | 💡 Suggestion | `create_todo_returns_201_when_valid_input()` |
+
+PR 코멘트 예시:
+```
+💡 **[Suggestion] 테스트 네이밍 — behavior 기반 패턴 권장**
+
+`test_complete`는 구현 구조를 그대로 반영한 이름입니다.
+test-style.md §7.3은 `<행동>_<기대결과>_when_<조건>` 패턴을 권장합니다.
+
+**예시**
+- `test_complete` → `complete_todo_returns_error_when_already_done`
+- `test_save` → `save_todo_persists_when_title_is_valid`
+```
+
+---
+
+### §8 Flaky & Deterministic — 탐지 패턴
+
+| 탐지 패턴 | 판정 | PR 코멘트 안내 |
+|-----------|------|----------------|
+| `#[ignore]` 이유·이슈 링크 없음 | 🚫 Blocking | 이슈 링크·담당자·기한 추가 필수 |
+| `SystemTime::now()` 테스트 내 직접 사용 | ⚠️ Recommended | `Clock` 인터페이스 주입으로 교체 |
+| `tokio::time::sleep` 타이밍 조정 | ⚠️ Recommended | 채널 동기화 또는 상태 기반 대기로 교체 |
+| `rand::random()` 시드 없이 사용 | ⚠️ Recommended | 결정적 시드 사용 또는 인터페이스 주입 |
+| 공유 전역 상태(`static`) 테스트 간 공유 | ⚠️ Recommended | 테스트마다 독립 인스턴스 생성 |
+
+Quarantine 기준 — PR 코멘트 예시:
+```
+🚫 **[Blocking] Flaky 테스트 격리 규칙 위반**
+
+`#[ignore]` 에 이슈 링크·담당자·기한이 없습니다.
+test-style.md §8.4는 아래 형식을 요구합니다.
+
+**현재 코드**
+```rust
+#[ignore]
+#[tokio::test]
+async fn some_flaky_test() { }
+```
+
+**필수 형식**
+```rust
+#[ignore = "Flaky: race condition in async setup. Issue: #123, Owner: @mimul, Due: 2024-03-01"]
+#[tokio::test]
+async fn some_flaky_test() { }
+```
+```
+
+---
+
+### §15 파일 구조 — 테스트 위치 점검
+
+| 테스트 종류 | 올바른 위치 | 잘못된 위치 | 판정 |
+|-------------|------------|------------|------|
+| 단위 테스트 | `src/` 내 `#[cfg(test)]` | `tests/` 최상위 | ⚠️ Recommended |
+| DB/HTTP 통합 테스트 | `{crate}/tests/` | `src/` 내 `#[cfg(test)]` | ⚠️ Recommended |
+| 통합 테스트가 전체의 70%+ | — | — | ⚠️ Recommended (단위 테스트 보강 권장) |
+
+PR 코멘트 예시:
+```
+⚠️ **[Recommended] 테스트 파일 구조 — 위치 불일치**
+
+DB 쿼리를 포함한 통합 테스트가 `src/` 내 `#[cfg(test)]`에 위치합니다.
+test-style.md §15.2는 DB/HTTP 테스트를 `{crate}/tests/` 하위에 배치할 것을 권장합니다.
+
+**권장 구조**
+```
+infra/
+  src/repository/user.rs          # 구현체
+  tests/user_repository_test.rs  # DB 통합 테스트
+```
+```
+
+---
+
+### §16 불필요 테스트 — 삭제 권장 기준
+
+삭제를 권장하는 경우:
+
+- 로직 없는 순수 CRUD (E2E 1개로 충분)
+- axum 라우팅·shaku DI 배선 검증
+- 타입 시스템이 보장하는 정적 상수
+- 단순 getter/setter
+
+PR 코멘트 예시:
+```
+💡 **[Suggestion] 불필요 테스트 — 삭제 검토 권장**
+
+이 테스트는 axum 라우팅 등록만 검증하며, 비즈니스 동작이 없습니다.
+test-style.md §16은 프레임워크 배선 테스트를 불필요 테스트로 분류합니다.
+
+삭제하거나, HTTP contract를 검증하는 통합 테스트로 대체하는 것을 권장합니다.
+```
+
+---
+
+### §17.1 PR 거절 신호 (Blocking Issues)
+
+아래 5개 패턴을 탐지하면 **모두 🚫 Blocking**으로 분류한다.
+
+| 패턴 | 탐지 조건 | PR 코멘트 안내 |
+|------|-----------|----------------|
+| Assertion 없는 테스트 | `#[test]` 함수 내 `assert` 계열 없음 | assert 추가 필수 |
+| 의미 없는 Assertion | `assert!(result.is_some())` 단독 | 구체적 필드 값 검증으로 교체 |
+| 통합 테스트에서 Mock DB | `MockRepository` in `tests/` | in-memory Fake 또는 `sqlx::test` 전환 |
+| 내부 구현 직접 접근 | `pub(super)` 로 테스트 외부에서 내부 접근 | public API를 통한 black-box 테스트로 전환 |
+| `#[ignore]` 이유 없음 | annotation만, 이슈 링크 없음 | 이슈 링크·담당자·기한 추가 |
+
+PR 코멘트 예시 (Assertion 없음):
+```
+🚫 **[Blocking] Assertion 없는 테스트**
+
+테스트 함수에 `assert` 계열 구문이 없습니다.
+test-style.md §17.1은 이를 즉시 반려 사유로 명시합니다.
+
+검증할 상태나 결과가 없다면 해당 테스트 자체를 삭제하거나,
+실제 business behavior를 검증하는 assert를 추가하세요.
+```
+
 분석 리포트는 아래와 같다:
 
 ```
