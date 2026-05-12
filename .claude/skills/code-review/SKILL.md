@@ -92,7 +92,7 @@ git diff --cached               # staged 전체 diff
 
 ---
 
-# STEP 2 coding-style.md · security-style.md 기준 분석
+# STEP 2 코딩 지침 · 보안 지침 · 테스트 지침의 기준 분석
 
 ## 2-1 `.claude/rules/coding-style.md` 기준 분석
 
