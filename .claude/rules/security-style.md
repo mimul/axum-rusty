@@ -1,5 +1,7 @@
 # Security Checklist (Source-Level)
 
+이 문서는 최신 기준으로 보안 검사 항목을 현행화하기 힘들다는 것을 인지하고 기능 구현, 리팩토링, 코드리뷰 등의 코드 수정사항에 대해 보안검사를 사전에 하는 것을 목표로 하고 있다. 딥다이브하고 최신 보안 트린드를 반영한 보안 검사는 [claude-security-scan](https://github.com/mimul/claude-security-scan)을 설치해 `/security-full-scan`의 정적 검사와 `/security-scan`의 동적 검사를 수행한다.
+
 ## 1. Authentication & Identity
 
 ### 1.1 Authentication Flow
