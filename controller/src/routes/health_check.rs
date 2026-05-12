@@ -3,9 +3,9 @@ use crate::module::usecase_module::AppState;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use tracing::{debug, error};
 use shaku::HasComponent;
 use std::sync::Arc;
+use tracing::{debug, error};
 use usecase::usecase::health_check::IHealthCheckUseCase;
 
 pub async fn hc(_: ApiVersion) -> impl IntoResponse {

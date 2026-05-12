@@ -27,13 +27,18 @@ pub struct SecurityAddon;
 impl Modify for SecurityAddon {
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
         // utoipa derive macro가 components를 항상 Some으로 설정함
-        openapi.components.as_mut().expect("utoipa always sets components").add_security_scheme(
-            "Authorization",
-            SecurityScheme::Http(
-                HttpBuilder::new()
-                    .scheme(HttpAuthScheme::Bearer)
-                    .bearer_format("JWT")
-                    .build(),
-            ),
-        );
+        openapi
+            .components
+            .as_mut()
+            .expect("utoipa always sets components")
+            .add_security_scheme(
+                "Authorization",
+                SecurityScheme::Http(
+                    HttpBuilder::new()
+                        .scheme(HttpAuthScheme::Bearer)
+                        .bearer_format("JWT")
+                        .build(),
+                ),
+            );
+    }
 }
