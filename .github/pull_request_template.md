@@ -48,11 +48,11 @@ cargo test --test order_tests
 | Door 타입 | 해당 변경 | 병합 방식 |
 |-----------|-----------|-----------|
 | **Two-Way Door** | 일반 기능·버그수정·리팩토링 | Claude 자동 리뷰 → 수정 커밋 → **자동 병합(squash)** |
-| **One-Way Door** | DB 마이그레이션, 인증, CI/CD, 의존성 변경 등 | **인간 리뷰어 승인 필수** |
+| **One-Way Door** | DB 마이그레이션, 인증, CI/CD, 의존성 변경 등 | **사용자 리뷰어 승인 필수** |
 
 ---
 
-## 👤 인간 리뷰어 체크포인트 (One-Way Door 전용)
+## 👤 사용자 리뷰어 체크포인트 (One-Way Door 전용)
 
 > **리뷰어 안내**: `one-way-door` 라벨이 붙은 PR에만 해당합니다.
 > `two-way-door` PR은 Claude가 자동으로 리뷰·병합합니다.
@@ -79,4 +79,4 @@ cargo test --test order_tests
 - [ ] 위 체크포인트 모두 확인 완료
 
 > 🚪 **Two-Way Door** → Claude 리뷰 & 수정 완료 후 **자동 병합(squash)** 됩니다.
-> ⚠️ **One-Way Door** → 인간 리뷰어의 최종 승인 없이는 Merge가 되지 않습니다.
+> ⚠️ **One-Way Door** → 사용자 리뷰어의 최종 승인 없이는 Merge가 되지 않습니다.
