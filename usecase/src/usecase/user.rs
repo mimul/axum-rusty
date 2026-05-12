@@ -4,9 +4,9 @@ use async_trait::async_trait;
 use domain::model::user::User;
 use infra::db::IDatabasePool;
 use infra::repository::user::IUserRepository;
-use tracing::{error, info};
 use shaku::Component;
 use std::sync::Arc;
+use tracing::{error, info};
 
 /// bcrypt 해시 cost factor (OWASP 권고: 10 이상)
 /// cost=10: ~80~150ms / cost=12: ~400~1000ms (2의 지수 증가)

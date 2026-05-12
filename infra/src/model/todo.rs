@@ -25,7 +25,11 @@ impl TryFrom<StoredTodo> for Todo {
             id: t.id.try_into()?,
             title: t.title,
             description: t.description,
-            status: TodoStatus::new(t.status_id.try_into()?, TodoStatusCode::try_from(t.status_code.as_str())?, t.status_name),
+            status: TodoStatus::new(
+                t.status_id.try_into()?,
+                TodoStatusCode::try_from(t.status_code.as_str())?,
+                t.status_name,
+            ),
             created_at: t.created_at,
             updated_at: t.updated_at,
         })

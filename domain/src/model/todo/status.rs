@@ -73,7 +73,10 @@ mod tests {
 
     #[test]
     fn todo_status_code_try_from_valid_str() {
-        assert_eq!(TodoStatusCode::try_from("new").unwrap(), TodoStatusCode::New);
+        assert_eq!(
+            TodoStatusCode::try_from("new").unwrap(),
+            TodoStatusCode::New
+        );
         assert_eq!(
             TodoStatusCode::try_from("done").unwrap(),
             TodoStatusCode::Done

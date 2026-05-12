@@ -12,7 +12,7 @@ static SPECIAL_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"[^\da-zA-Z]").expect("always valid literal"));
 static LENGTH_REGEX: Lazy<Regex> =
     // fancy_regex::Regex::is_match returns Result; these patterns cannot produce backtrack errors
-    Lazy::new(|| Regex::new(r".{7,}").expect("always valid literal"));
+    Lazy::new(|| Regex::new(r".{8,}").expect("always valid literal"));
 fn validate_password(value: &str) -> Result<(), ValidationError> {
     if DIGIT_REGEX.is_match(value).unwrap_or(false)
         && SPECIAL_REGEX.is_match(value).unwrap_or(false)
@@ -189,5 +189,73 @@ mod tests {
         };
         let condition: SearchUserCondition = query.into();
         assert_eq!(condition.username, Some("bob@example.com".to_string()));
+    }
+
+    #[test]
+    fn create_user_try_from_returns_err_when_username_is_none() {
+        let jcu = JsonCreateUser {
+            username: None,
+            password: Some("Secret1!".to_string()),
+            fullname: Some("Alice".to_string()),
+        };
+        let err = CreateUser::try_from(jcu).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("username"),
+            "expected username error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn create_user_try_from_returns_err_when_password_is_none() {
+        let jcu = JsonCreateUser {
+            username: Some("alice@example.com".to_string()),
+            password: None,
+            fullname: Some("Alice".to_string()),
+        };
+        let err = CreateUser::try_from(jcu).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("password"),
+            "expected password error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn create_user_try_from_returns_err_when_fullname_is_none() {
+        let jcu = JsonCreateUser {
+            username: Some("alice@example.com".to_string()),
+            password: Some("Secret1!".to_string()),
+            fullname: None,
+        };
+        let err = CreateUser::try_from(jcu).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("fullname"),
+            "expected fullname error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn login_user_try_from_returns_err_when_username_is_none() {
+        let jcu = JsonLoginUser {
+            username: None,
+            password: Some("Secret1!".to_string()),
+        };
+        let err = LoginUser::try_from(jcu).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("username"),
+            "expected username error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn login_user_try_from_returns_err_when_password_is_none() {
+        let jcu = JsonLoginUser {
+            username: Some("alice@example.com".to_string()),
+            password: None,
+        };
+        let err = LoginUser::try_from(jcu).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("password"),
+            "expected password error, got: {err}"
+        );
     }
 }
