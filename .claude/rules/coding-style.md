@@ -961,11 +961,43 @@ DI 구조는 테스트 가능성을 높인다.
 
 ---
 
-# 19. AI Coding Style Alignment
+# 19. 금지하는 Anti-Patterns
+
+## 19.1 코드 레벨에서 강력히 금지하는 Anti-Patterns
+
+- Anemic Domain Model — 데이터만 있고 행동(비즈니스 규칙)이 거의 없는 객체
+- DB-First / UI-First Domain Modeling — 데이터베이스 구조나 화면 설계에서 도메인 모델을 역으로 유도하는 것
+- Technical Naming Dominance — 기술적 이름이 도메인 개념을 압도하는 것
+- God Class / God Object — 하나의 클래스가 너무 많은 책임을 가져 이해와 유지보수가 매우 어려워지는 클래스
+- Primitive Obsession — 도메인 개념을 String, int, boolean 등의 기본 타입으로만 표현하는 것
+- Feature Envy — 메서드가 자신의 데이터보다 다른 클래스의 데이터에 과도하게 의존하는 코드
+- Long-lived Duplicated Logic & Deep Nesting — 중복 로직 방치와 과도하게 깊은 코드 중첩
+- Shared Mutable State — 공유 가변 상태로 인한 암묵적 의존과 예측 불가능한 버그
+- Silent Failure — 예외를 잡아서 무시하거나 의미 없는 기본값으로 대체하는 행위
+- Magic Numbers & Magic Strings — 의미 없는 리터럴 값을 직접 코드에 사용하는 것
+- Excessive Null Checking / Null Propagation Hell — Null을 기본값으로 남용하고 과도한 null 체크가 난무하는 설계
+- Giant Files / Oversized Modules — 하나의 파일이나 모듈이 지나치게 커져 책임이 모호해지는 것
+- Utility Dumping Grounds — 의미 없는 Utils, Helper, Common 클래스에 로직을 마구 dump하는 행위
+
+## 19.1 설계 / 아키텍처 레벨 Anti-Patterns
+
+- Big-bang Rewrite — 점진적 리팩토링 대신 한 번에 대규모 재작성을 시도하는 것
+- Speculative Abstraction — 실제 필요하지 않은 미래를 위한 과도한 추상화
+- Excessive Layering / Meaningless Layering — 불필요하게 많은 레이어로 인한 복잡도 증가
+- Hidden Side Effects — 숨겨진 부수효과 (action at a distance)
+- Cyclic Dependencies — 순환 의존성
+- Deep Inheritance — 과도한 상속 계층 구조
+- Framework-driven Design — 도메인보다 프레임워크 구조에 맞추는 설계
+- Meta-programming Abuse — 과도한 메타프로그래밍과 리플렉션 남용
+- Inconsistent Naming — 일관성 없는 명명 규칙
+- Context-heavy Architecture — 지나치게 많은 컨텍스트를 요구하는 복잡한 아키텍처
+- Prompt-dependent Code Understanding — AI 프롬프트에 의존해야만 이해 가능한 코드
+
+# 20. AI Coding Style Alignment
 
 이 프로젝트는 AI-assisted coding 시대에도 유지 가능한 구조를 목표로 한다. AI가 코드를 생성하더라도 architecture consistency가 유지되어야 한다.
 
-## 19.1 Enforce Structure over Prompting
+## 20.1 Enforce Structure over Prompting
 
 "좋은 코드를 써줘"보다:
 
@@ -976,11 +1008,11 @@ DI 구조는 테스트 가능성을 높인다.
 
 같은 구조적 제약이 더 중요하다.
 
-## 19.2 Make Invalid Architecture Hard
+## 20.2 Make Invalid Architecture Hard
 
 Rust의 강점은 compile-time restriction이다. workspace dependency, trait boundary, ownership system을 활용해 잘못된 구조를 어렵게 만든다.
 
-## 19.3 Readability for Humans and AI
+## 20.3 Readability for Humans and AI
 
 AI도 결국 기존 코드 패턴을 학습한다.
 
