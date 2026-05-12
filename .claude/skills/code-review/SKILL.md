@@ -31,7 +31,8 @@ description: >
 --with-security   리뷰 후 /security-full-scan + /security-scan 보안 스캔 수행해 갭 분석 및 보완 수행
 ```
 
-`--with-security` 전제 조건: [claude-security-scan](https://github.com/mimul/claude-security-scan) 이 설치되어 있어야 한다.
+- `--with-tests ` 명령은 `! ls ~/.claude/skills/`` 또는 `! ls .claude/skills/`를 입력해 `/test-align` 명령이 있는지 확인해 없으면 사용자에게 확인한다.
+- `--with-security` 전제 조건: [claude-security-scan](https://github.com/mimul/claude-security-scan) 이 설치되어 있어야 한다. `! ls ~/.claude/skills/`` 또는 `! ls .claude/skills/`를 입력해 `/security-full-scan`, `/security-scan`이 있는지 확인해 없으면 사용자에게 확인한다.
 
 ---
 
