@@ -231,6 +231,26 @@ cargo test --all 2>&1 | tail -20   # 테스트 통과 현황
 - behavior preserving verification을 위해 characterization test를 먼저 작성한다.
 - `--with-tests` 옵션이 없더라도, 테스트 전무 파일을 리팩토링할 때는 최소 smoke test를 확보한다.
 
+### 기존 테스트 품질 확인 (test-style.md §17.1)
+
+리팩토링 전 기존 테스트에 다음 Blocking 신호가 있는지 확인한다. 발견 시 리팩토링과 함께 수정한다.
+
+| 신호 | 확인 방법 |
+|---|---|
+| Assertion 없는 테스트 | `#[test]` 함수 내 `assert!` / `assert_eq!` 없음 |
+| 의미 없는 assertion | `assert!(result.is_some())` 단독 사용 |
+| 이슈 링크 없는 `#[ignore]` | 이유·담당자·기한 없이 단순 `#[ignore]` |
+| 통합 테스트의 Mock DB | `MockRepository` 사용 (→ Fake 또는 `sqlx::test` 전환 필요) |
+| 비결정적 출력 고정 | `SystemTime::now()`, `tokio::time::sleep` 남용 |
+
+### 보안 테스트 커버리지 확인 (security-style.md §1, §2, §11)
+
+아래 보안 시나리오 테스트가 변경 범위 내에 존재하는지 확인한다. 없으면 리팩토링 후 회귀 방지용으로 추가한다.
+
+- 인증 실패(invalid token, expired token, missing header) → 401 반환 (§1.3)
+- 권한 없는 리소스 접근 → 403 반환 (§2.1)
+- 인증·인가 미적용 엔드포인트 없음 확인 (§2)
+
 # STEP 3 coding-style.md 기준 일괄 점검
 
 ## 3.1 `.claude/rules/coding-style.md`의 19개 섹션 체크리스트를 기준으로 전체 코드를 점검한다. 각 체크리스트 항목의 위반 사항을 식별한다.
@@ -318,6 +338,169 @@ cargo test --all 2>&1 | tail -20   # 테스트 통과 현황
 | §12 Business Logic | 상태 전이 검증 유지, race condition 방지, replay attack 대응, 금액·수량 클라이언트 신뢰 없음 |
 | §14 Secure Coding | dynamic code execution 없음, unsafe native call 없음, trust boundary 명확, 보안 로직 중앙화 |
 | §15 Rust 특화 | `unsafe` 블록 필요성 재검토 및 `// SAFETY:` 주석, panic 기반 DoS 가능 경로 없음, serde deserialize 시 입력 검증 존재 |
+
+## 3.4 `.claude/rules/test-style.md` 기반 테스트 코드 점검
+
+리팩토링 과정에서 변경 범위의 테스트 코드 품질을 아래 기준으로 점검한다.
+
+| 섹션 | 주요 체크 |
+|---|---|
+| §2 Behavior First | 상호작용 검증만 있고 상태 검증 없는 테스트 없음, 내부 구현에 의존하는 테스트 없음 |
+| §3 모킹 경계 | 프로세스 경계(외부 HTTP) → wiremock-rs, DB/Repository → Fake 또는 `sqlx::test` (Mock 금지) |
+| §4 Classicist TDD | 상태 검증 우선, 실제 domain object 사용, Mock은 외부 경계에만 |
+| §7 Readability | AAA 구조 준수, 테스트명 `<행동>_<기대결과>_when_<조건>` 패턴 |
+| §8 Flaky 패턴 | `tokio::time::sleep` · 공유 전역 상태 · `SystemTime::now()` 직접 사용 없음 |
+| §15 파일 구조 | 단위 테스트 `src/#[cfg(test)]`, 통합/DB/API 테스트 `{crate}/tests/` |
+| §16 불필요 테스트 | 로직 없는 getter/setter·순수 CRUD·프레임워크 배선 테스트 삭제 대상 |
+| §17.1 Blocking | Assertion 없는 테스트, 의미 없는 assertion, 이유 없는 `#[ignore]`, 통합 테스트의 Mock DB |
+
+### §2 — Behavior First 확인
+
+테스트가 내부 구현이 아닌 observable behavior를 검증하는지 확인한다.
+
+**확인 방법**:
+- `expect_xxx().times(n)` 호출이 실제 `assert_eq!` 보다 압도적으로 많은지 검색
+- 테스트 내에서 `pub(super)` 등으로 private 구현에 직접 접근하는지 확인
+
+```rust
+// ❌ 상호작용만 검증 — 리팩토링 후 테스트 의미 없음
+mock_repo.expect_save().once().returning(|_| Ok(()));
+
+// ✅ 상태 검증 — 동작 보존 여부를 직접 확인
+assert_eq!(todo.status(), TodoStatus::Done);
+```
+
+**리팩토링 시 처리**: 상호작용 검증 단독 테스트는 상태 검증으로 전환한다.
+
+### §3 — 모킹 경계 준수
+
+경계별 Test Double 선택 기준을 점검한다.
+
+| 경계 | 올바른 처리 | 잘못된 처리 |
+|---|---|---|
+| 외부 HTTP API | `wiremock-rs` Fake | 실제 HTTP 호출 |
+| DB/Repository | `InMemoryRepo` Fake 또는 `sqlx::test` | `MockRepository` |
+| 시간/난수 | `Clock` trait 주입 → `FakeClock` | `SystemTime::now()` 직접 사용 |
+| 순수 domain 객체 | 실제 객체 | Mock 금지 |
+
+**리팩토링 시 처리**: `MockRepository` 패턴 발견 시 `InMemoryRepo` 또는 `sqlx::test`로 전환을 제안한다.
+
+### §4 — Classicist TDD 원칙 확인
+
+Red-Green-Refactor 사이클 정합성과 Mock 사용 적절성을 확인한다.
+
+- [ ] domain 로직을 Mock하지 않는가?
+- [ ] Repository는 Fake 또는 실제 DB를 사용하는가?
+- [ ] `EmailSender`·`EventPublisher` 등 side-effect가 비즈니스 요구사항인 경우에만 `mockall`을 사용하는가?
+- [ ] 상태 검증(`assert_eq!`)이 호출 횟수 검증(`expect_xxx().times()`)보다 많은가?
+
+### §7 — 테스트 가독성 확인
+
+**AAA 구조**:
+
+```rust
+// ✅ Arrange / Act / Assert 명시
+#[test]
+fn complete_todo_returns_error_when_already_done() {
+    // Arrange
+    let mut todo = Todo::new(TodoTitle::new("test".to_string()).unwrap());
+    todo.start().unwrap();
+    todo.complete().unwrap();
+
+    // Act
+    let result = todo.complete();
+
+    // Assert
+    assert!(result.is_err());
+}
+```
+
+**테스트명 패턴**: `<행동>_<기대결과>_when_<조건>`
+
+```rust
+// ❌ 구현 구조 반영
+fn test_complete()
+fn test_todo_save()
+
+// ✅ 행동 기반
+fn complete_todo_returns_error_when_already_done()
+fn create_todo_fails_when_title_is_empty()
+```
+
+`handle_`, `process_`, `run_`, `do_` 접두사는 사용하지 않는다.
+
+### §8 — Flaky 패턴 제거
+
+다음 패턴을 grep으로 탐지하여 결정론적 방식으로 교체한다.
+
+| 패턴 | 탐지 방법 | 교체 방법 |
+|---|---|---|
+| `tokio::time::sleep` | grep `time::sleep` in `#[test]` / `#[tokio::test]` | 채널/상태 기반 대기(`rx.recv().await`) |
+| `SystemTime::now()` | grep `SystemTime::now` in test modules | `Clock` trait 주입 → `FakeClock` |
+| `rand::random()` 시드 없음 | grep `rand::random` in test modules | 고정 시드 또는 `proptest` |
+| 공유 `static` / `OnceCell` | grep `static` / `OnceCell` in test modules | 테스트마다 독립 인스턴스 |
+
+**Quarantine 규칙**: Flaky 테스트 발견 시 단순 `#[ignore]` 금지. 이슈 링크·담당자·기한을 포함해야 한다.
+
+```rust
+// ❌ 이유 없는 ignore
+#[ignore]
+#[tokio::test]
+async fn flaky_test() { }
+
+// ✅ 올바른 quarantine
+#[ignore = "Flaky: race condition in async setup. Issue: #123, Owner: @mimul, Due: 2024-06-01"]
+#[tokio::test]
+async fn flaky_test_with_context() { }
+```
+
+### §15 — 테스트 파일 구조 확인
+
+리팩토링 후 테스트 파일이 올바른 위치에 있는지 확인한다.
+
+| 테스트 종류 | 올바른 위치 | 잘못된 위치 |
+|---|---|---|
+| 단위 테스트 (private 함수 포함) | `src/` 내부 `#[cfg(test)]` 모듈 | `tests/` 최상위 |
+| 통합 테스트 (공개 API 기준) | `{crate}/tests/` 하위 | `src/` 내부 |
+| DB 테스트 (`sqlx::test`) | `{crate}/tests/` 하위 | `src/` 내부 |
+| HTTP API 테스트 | `{crate}/tests/` 하위 | `src/` 내부 |
+
+**이상적인 구조**:
+```
+domain/
+  src/todo.rs                           # Todo 도메인 + #[cfg(test)] 단위 테스트
+controller/
+  tests/api_test.rs                     # HTTP API 통합 테스트
+infra/
+  tests/user_repository_test.rs        # DB 구현체 통합 테스트
+```
+
+### §16 — 불필요 테스트 제거
+
+다음 카테고리에 해당하는 테스트는 삭제 대상이다.
+
+| 삭제 대상 | 판단 기준 |
+|---|---|
+| 로직 없는 getter/setter | 단순 필드 반환만 검증하는 테스트 |
+| 순수 CRUD | DB 연결 없이 `save` → `find` 반복만 검증 (통합 테스트 1개로 대체) |
+| 프레임워크 배선 | axum 라우팅, shaku DI 배선만 검증하는 테스트 |
+| 타입 시스템 보장 항목 | 컴파일러가 이미 보장하는 정적 설정·상수 |
+| 삭제 예정 코드 테스트 | 대상 코드가 dead code인 경우 함께 삭제 |
+
+> 판단 기준: "이 테스트가 보호하는 동작을 한 문장으로 설명할 수 없으면 삭제한다"
+
+### §17.1 — PR 거절 신호 (Blocking) 즉시 수정
+
+리팩토링 과정에서 다음 패턴을 발견하면 리팩토링과 함께 수정한다.
+
+| Blocking 신호 | 확인 방법 | 수정 방향 |
+|---|---|---|
+| Assertion 없는 테스트 | `#[test]` 함수 내 `assert!` 계열 없음 | 상태 검증 assertion 추가 또는 삭제 |
+| 의미 없는 assertion | `assert!(result.is_some())` 단독 | 구체적 값 비교(`assert_eq!`)로 교체 |
+| 이슈 링크 없는 `#[ignore]` | `#[ignore]`에 사유·담당자·기한 없음 | §8 Quarantine 규칙 적용 |
+| 통합 테스트의 Mock DB | `MockXxxRepository` 사용 | `InMemoryRepo` 또는 `sqlx::test` 전환 |
+| 비결정적 출력 고정 | `SystemTime::now()`, 시드 없는 난수 | `FakeClock`, 고정 시드 또는 proptest |
+| 테스트명이 구현 구조 반영 | `test_save()`, `test_complete()` 등 | `<행동>_<결과>_when_<조건>` 패턴으로 변경 |
 
 # STEP 4 리스크 분석과 리팩토링 전략 선택
 
