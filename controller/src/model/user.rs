@@ -192,50 +192,70 @@ mod tests {
     }
 
     #[test]
-    fn create_user_try_from_without_username_returns_err() {
+    fn create_user_try_from_returns_err_when_username_is_none() {
         let jcu = JsonCreateUser {
             username: None,
             password: Some("Secret1!".to_string()),
             fullname: Some("Alice".to_string()),
         };
-        assert!(CreateUser::try_from(jcu).is_err());
+        let err = CreateUser::try_from(jcu).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("username"),
+            "expected username error, got: {err}"
+        );
     }
 
     #[test]
-    fn create_user_try_from_without_password_returns_err() {
+    fn create_user_try_from_returns_err_when_password_is_none() {
         let jcu = JsonCreateUser {
             username: Some("alice@example.com".to_string()),
             password: None,
             fullname: Some("Alice".to_string()),
         };
-        assert!(CreateUser::try_from(jcu).is_err());
+        let err = CreateUser::try_from(jcu).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("password"),
+            "expected password error, got: {err}"
+        );
     }
 
     #[test]
-    fn create_user_try_from_without_fullname_returns_err() {
+    fn create_user_try_from_returns_err_when_fullname_is_none() {
         let jcu = JsonCreateUser {
             username: Some("alice@example.com".to_string()),
             password: Some("Secret1!".to_string()),
             fullname: None,
         };
-        assert!(CreateUser::try_from(jcu).is_err());
+        let err = CreateUser::try_from(jcu).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("fullname"),
+            "expected fullname error, got: {err}"
+        );
     }
 
     #[test]
-    fn login_user_try_from_without_username_returns_err() {
+    fn login_user_try_from_returns_err_when_username_is_none() {
         let jcu = JsonLoginUser {
             username: None,
             password: Some("Secret1!".to_string()),
         };
-        assert!(LoginUser::try_from(jcu).is_err());
+        let err = LoginUser::try_from(jcu).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("username"),
+            "expected username error, got: {err}"
+        );
     }
 
     #[test]
-    fn login_user_try_from_without_password_returns_err() {
+    fn login_user_try_from_returns_err_when_password_is_none() {
         let jcu = JsonLoginUser {
             username: Some("alice@example.com".to_string()),
             password: None,
         };
-        assert!(LoginUser::try_from(jcu).is_err());
+        let err = LoginUser::try_from(jcu).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("password"),
+            "expected password error, got: {err}"
+        );
     }
 }

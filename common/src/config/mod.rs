@@ -1,6 +1,6 @@
-use tracing::info;
 use std::env;
 use std::fmt;
+use tracing::info;
 
 // ---------------------------------------------------------------------------
 // ConfigError

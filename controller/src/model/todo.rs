@@ -243,50 +243,79 @@ mod tests {
     }
 
     #[test]
-    fn json_create_todo_try_from_without_title_returns_err() {
+    fn json_create_todo_try_from_returns_err_when_title_is_none() {
         let jc = JsonCreateTodo {
             title: None,
             description: Some("desc".to_string()),
         };
-        assert!(CreateTodo::try_from(jc).is_err());
+        let err = CreateTodo::try_from(jc).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("title"),
+            "expected title error, got: {err}"
+        );
     }
 
     #[test]
-    fn json_create_todo_try_from_without_description_returns_err() {
+    fn json_create_todo_try_from_returns_err_when_description_is_none() {
         let jc = JsonCreateTodo {
             title: Some("title".to_string()),
             description: None,
         };
-        assert!(CreateTodo::try_from(jc).is_err());
+        let err = CreateTodo::try_from(jc).err().expect("expected Err");
+        assert!(
+            err.to_string().contains("description"),
+            "expected description error, got: {err}"
+        );
     }
 
     #[test]
-    fn json_upsert_try_to_view_without_title_returns_err() {
+    fn json_upsert_try_to_view_returns_err_when_title_is_none() {
         let jc = JsonUpsertTodoContents {
             title: None,
             description: Some("desc".to_string()),
             status_code: Some("NEW".to_string()),
         };
-        assert!(jc.try_to_view("id1".to_string()).is_err());
+        let err = jc
+            .try_to_view("id1".to_string())
+            .err()
+            .expect("expected Err");
+        assert!(
+            err.to_string().contains("title"),
+            "expected title error, got: {err}"
+        );
     }
 
     #[test]
-    fn json_upsert_try_to_view_without_description_returns_err() {
+    fn json_upsert_try_to_view_returns_err_when_description_is_none() {
         let jc = JsonUpsertTodoContents {
             title: Some("title".to_string()),
             description: None,
             status_code: Some("NEW".to_string()),
         };
-        assert!(jc.try_to_view("id1".to_string()).is_err());
+        let err = jc
+            .try_to_view("id1".to_string())
+            .err()
+            .expect("expected Err");
+        assert!(
+            err.to_string().contains("description"),
+            "expected description error, got: {err}"
+        );
     }
 
     #[test]
-    fn json_upsert_try_to_view_without_status_code_returns_err() {
+    fn json_upsert_try_to_view_returns_err_when_status_code_is_none() {
         let jc = JsonUpsertTodoContents {
             title: Some("title".to_string()),
             description: Some("desc".to_string()),
             status_code: None,
         };
-        assert!(jc.try_to_view("id1".to_string()).is_err());
+        let err = jc
+            .try_to_view("id1".to_string())
+            .err()
+            .expect("expected Err");
+        assert!(
+            err.to_string().contains("statusCode"),
+            "expected statusCode error, got: {err}"
+        );
     }
 }

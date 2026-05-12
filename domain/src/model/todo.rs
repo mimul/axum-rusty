@@ -78,7 +78,11 @@ mod tests {
     use ulid::Ulid;
 
     fn make_status() -> TodoStatus {
-        TodoStatus::new(Id::new(Ulid::new()), TodoStatusCode::New, "신규".to_string())
+        TodoStatus::new(
+            Id::new(Ulid::new()),
+            TodoStatusCode::New,
+            "신규".to_string(),
+        )
     }
 
     #[test]
