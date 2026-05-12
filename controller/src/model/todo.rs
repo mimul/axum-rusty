@@ -241,4 +241,52 @@ mod tests {
         let list = JsonTodoList::new(vec![]);
         assert!(list.todos.is_empty());
     }
+
+    #[test]
+    fn json_create_todo_try_from_without_title_returns_err() {
+        let jc = JsonCreateTodo {
+            title: None,
+            description: Some("desc".to_string()),
+        };
+        assert!(CreateTodo::try_from(jc).is_err());
+    }
+
+    #[test]
+    fn json_create_todo_try_from_without_description_returns_err() {
+        let jc = JsonCreateTodo {
+            title: Some("title".to_string()),
+            description: None,
+        };
+        assert!(CreateTodo::try_from(jc).is_err());
+    }
+
+    #[test]
+    fn json_upsert_try_to_view_without_title_returns_err() {
+        let jc = JsonUpsertTodoContents {
+            title: None,
+            description: Some("desc".to_string()),
+            status_code: Some("NEW".to_string()),
+        };
+        assert!(jc.try_to_view("id1".to_string()).is_err());
+    }
+
+    #[test]
+    fn json_upsert_try_to_view_without_description_returns_err() {
+        let jc = JsonUpsertTodoContents {
+            title: Some("title".to_string()),
+            description: None,
+            status_code: Some("NEW".to_string()),
+        };
+        assert!(jc.try_to_view("id1".to_string()).is_err());
+    }
+
+    #[test]
+    fn json_upsert_try_to_view_without_status_code_returns_err() {
+        let jc = JsonUpsertTodoContents {
+            title: Some("title".to_string()),
+            description: Some("desc".to_string()),
+            status_code: None,
+        };
+        assert!(jc.try_to_view("id1".to_string()).is_err());
+    }
 }
