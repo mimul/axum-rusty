@@ -300,6 +300,25 @@ cargo test --all 2>&1 | tail -20   # 테스트 통과 현황
 - `String` 파라미터 — `&str` / `&[T]` 로 대체 가능한 경우
 - 금지 접두사 함수명 — `handle_`, `process_`, `run_`, `do_` 로 시작하는 함수
 
+## 3.3 `.claude/rules/security-style.md` 기반 Security 점검
+
+리팩토링 과정에서 보안 속성이 유지되는지, 취약점이 새로 노출되는지 확인한다.
+
+| 섹션 | 주요 체크 |
+|---|---|
+| §1 Authentication | JWT signature·expiration 검증 존재, credential 하드코딩 없음, 로그에 token 미출력, logout 후 세션 무효화 |
+| §2 Authorization | 인가 검증 누락 API 없음, IDOR(입력 기반 리소스 소유권 미검증) 없음, 수평·수직 권한 상승 불가, multi-tenant 격리 |
+| §3 Input Validation | Prepared Statement 사용, 사용자 입력 기반 OS command 없음, HTML escaping 적용, 신뢰되지 않은 역직렬화 없음, LDAP·NoSQL operator injection 없음 |
+| §4 File Handling | 파일 확장자·MIME 검증, path traversal(`../`) 차단, canonical path 검증, 실행 가능 파일 업로드 차단 |
+| §5 API Security | 인증 없는 엔드포인트 없음, excessive data exposure 없음, rate limiting 존재, pagination 제한 |
+| §6 Cryptography & Secrets | API key·password 하드코딩 없음, 약한 난수·ECB mode·hardcoded IV 미사용, TLS 검증 비활성화 없음 |
+| §7 Logging | 비밀번호·token·개인정보 로그 미출력, log forging 불가, structured logging 적용 |
+| §8 Error Handling | stack trace·내부 경로·SQL 오류·framework 버전 외부 미노출, 인증 실패 시 deny-default, 예외 발생 시 보안 우회 불가 |
+| §11 Concurrency | 대용량 payload 제한, ReDoS 가능 regex 패턴 없음, connection·file descriptor leak 없음, unbounded queue 없음 |
+| §12 Business Logic | 상태 전이 검증 유지, race condition 방지, replay attack 대응, 금액·수량 클라이언트 신뢰 없음 |
+| §14 Secure Coding | dynamic code execution 없음, unsafe native call 없음, trust boundary 명확, 보안 로직 중앙화 |
+| §15 Rust 특화 | `unsafe` 블록 필요성 재검토 및 `// SAFETY:` 주석, panic 기반 DoS 가능 경로 없음, serde deserialize 시 입력 검증 존재 |
+
 # STEP 4 리스크 분석과 리팩토링 전략 선택
 
 ## 4.1 리스크 분석
@@ -398,6 +417,10 @@ remove_expired_sessions()
 - depth가 깊은가?
 - mutable state가 많은가?
 
+보안 체크:
+- 함수 추출 과정에서 인증·인가 검증 로직이 누락되지 않는가? (§2 Authorization)
+- security-sensitive 경계(validation, auth check, sanitization)가 함수 분리 후에도 유지되는가? (§3 Input Validation)
+
 ## 5.4 Struct / Impl / Trait 리팩토링
 
 체크:
@@ -439,6 +462,10 @@ remove_expired_sessions()
 - Enum
 - Domain Type (`Id<T>` Newtype, `enum Status`)
 
+보안 체크:
+- Newtype 도입 시 생성자에 validation 로직을 포함하여 invalid input이 타입 시스템에서 차단되는가? (§3 Input Validation)
+- Magic Number 제거 시 보안 관련 상수(max payload size, token TTL, rate limit 등)가 명시적 상수로 정의되는가? (§11.1 DoS)
+
 ## 5.7 에러 처리 리팩토링
 
 체크:
@@ -472,6 +499,10 @@ controller: UsecaseError     → AppError (HTTP 응답용)
 let re = Regex::new(r"^\d{4}-\d{2}-\d{2}$").expect("always valid literal");
 ```
 
+보안 체크:
+- 에러 메시지에 stack trace·내부 경로·SQL 오류·framework 버전이 포함되지 않는가? (§8.1 Error Handling)
+- 인증 실패 시 deny-default가 유지되는가? 예외 처리 과정에서 보안 우회 경로가 생기지 않는가? (§8.2 Fail Safe)
+
 ## 5.8 로깅 리팩토링
 
 체크:
@@ -489,6 +520,10 @@ error!("authorization failed: {:?}", err);
 error!(error = ?err, user_id = %user.id, "authorization failed");
 ```
 
+보안 체크:
+- 비밀번호·token·session ID·개인정보(이메일, 전화번호 등)가 로그에 출력되지 않는가? (§7.1 Logging)
+- 사용자 입력이 그대로 로그에 포함되어 log forging이 가능하지 않는가? (§7.1 Log forging)
+
 ## 5.9 Dependency 정리
 
 체크:
@@ -501,6 +536,10 @@ error!(error = ?err, user_id = %user.id, "authorization failed");
 - Dependency Injection (constructor injection 우선)
 - Trait Boundary 분리
 - Layer 명확화
+
+보안 체크:
+- `cargo audit`으로 알려진 취약점 dependency가 없는지 확인한다. (§9.1 Dependency Management)
+- 사용하지 않는 dependency 제거로 공격 표면을 줄인다. (§9.1)
 
 ## 5.10 Dead Code 제거
 
@@ -575,6 +614,10 @@ pub struct CreateTodoRequest { ... }
 pub struct TodoResponse { ... }
 ```
 
+보안 체크:
+- password hash·내부 ID·시스템 경로 등 민감 정보가 response DTO에 포함되지 않는가? (§5.1 Excessive data exposure)
+- `#[validate]` 어노테이션으로 입력 검증이 controller boundary에서 수행되는가? (§3 Input Validation)
+
 ## 5.14 Usecase / Controller 책임 분리 점검
 
 (coding-style.md §8 연계)
@@ -594,6 +637,10 @@ async fn execute(Json(req): Json<CreateTodoRequest>) { ... }
 // After: Command Object로 분리
 async fn execute(command: CreateTodoCommand) { ... }
 ```
+
+보안 체크:
+- 인증·인가 검증 로직이 usecase 분리 과정에서 controller 밖으로 밀려나지 않았는가? (§2 Authorization)
+- middleware로 분리된 인증 로직이 usecase에서 재중복되지 않는가? (coding-style.md §16)
 
 ## 5.15 Async / Concurrency 패턴 점검
 
@@ -618,6 +665,11 @@ struct Service {
     cache: Arc<RwLock<HashMap<String, Value>>>,
 }
 ```
+
+보안 체크:
+- 무제한 request 처리 또는 대용량 payload 허용으로 인한 DoS 가능성이 없는가? (§11.1 Denial of Service)
+- ReDoS 가능한 regex 패턴이 사용자 입력을 받는 경로에 존재하지 않는가? (§11.1)
+- connection·file descriptor leak으로 resource exhaustion이 발생하지 않는가? (§11.2 Resource Management)
 
 ## 5.16 Authentication & Middleware 점검
 

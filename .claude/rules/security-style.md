@@ -1,3 +1,8 @@
+---
+name: Security Checklist (Source-Level)
+description: 소스 코드 수정(기능 구현·리팩토링·코드리뷰) 시 사전 보안 검사 체크리스트. 인증·인가·입력검증·파일처리·API 보안·암호화·로깅·에러처리·의존성·인프라·DoS·비즈니스 로직·클라우드·언어별(Rust 포함) 등 15개 섹션을 체크 항목으로 정의. 심층 정적·동적 감사는 /security-full-scan 및 /security-scan 커맨드를 참조.
+---
+
 # Security Checklist (Source-Level)
 
 이 문서는 최신 기준으로 보안 검사 항목을 현행화하기 힘들다는 것을 인지하고 기능 구현, 리팩토링, 코드리뷰 등의 코드 수정사항에 대해 보안검사를 사전에 하는 것을 목표로 하고 있다. 딥다이브하고 최신 보안 트린드를 반영한 보안 검사는 [claude-security-scan](https://github.com/mimul/claude-security-scan)을 설치해 `/security-full-scan`의 정적 검사와 `/security-scan`의 동적 검사를 수행한다.
