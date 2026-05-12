@@ -440,7 +440,7 @@ rx.recv().await.expect("이벤트 수신 실패");
 
 ---
 
-## STEP 3 — 수정 적용 (Before/After → 인간 확인 → 커밋)
+## STEP 3 — 수정 적용 (Before/After → 사용자 확인 → 커밋)
 
 **대응 / 부분 대응** 판정을 받은 지적에 대해서만 이 단계를 수행한다.
 Claude는 **절대 먼저 코드를 변경하지 않는다.** Before/After를 제시하고 승인 후에만 적용한다.
