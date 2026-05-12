@@ -136,14 +136,14 @@ Claude는 scope를 기반으로 영향 범위와 의존성을 분석한다.
 
 ## Test 정책
 
-`--with-tests` 옵션이 있으면 6.2.2 `/test-align` 명령을 수행해 테스트 갭 분석 및 보완을 진행한다.
-`--with-tests ` 명령은 `! ls ~/.claude/skills/`` 또는 `! ls .claude/skills/`를 입력해 `/test-align` 명령이 있는지 확인해 없으면 사용자에게 확인한다.
+- `--with-tests` 옵션이 있으면 6.2.2 `/test-align` 명령을 수행해 테스트 갭 분석 및 보완을 진행한다.
+- `--with-tests ` 명령은 `! ls ~/.claude/skills/`` 또는 `! ls .claude/skills/`를 입력해 `/test-align` 명령이 있는지 확인해 없으면 사용자에게 확인한다.
 
 
 ## 보안 정책
 
-`--with-security` 옵션이 있으면 6.3 Security Scan을 수행해 보안 갭 분석 및 보완을 진행한다.
-`--with-security` 전제 조건: [claude-security-scan](https://github.com/mimul/claude-security-scan) 이 설치되어 있어야 한다. `! ls ~/.claude/skills/`` 또는 `! ls .claude/skills/`를 입력해 `/security-full-scan`, `/security-scan`이 있는지 확인해 없으면 사용자에게 확인한다.
+- `--with-security` 옵션이 있으면 6.3 Security Scan을 수행해 보안 갭 분석 및 보완을 진행한다.
+- `--with-security` 전제 조건: [claude-security-scan](https://github.com/mimul/claude-security-scan) 이 설치되어 있어야 한다. `! ls ~/.claude/skills/`` 또는 `! ls .claude/skills/`를 입력해 `/security-full-scan`, `/security-scan`이 있는지 확인해 없으면 사용자에게 확인한다.
 
 ## Dry Run 정책
 
