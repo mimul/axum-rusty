@@ -243,6 +243,19 @@ mod tests {
     }
 
     #[test]
+    fn json_create_todo_try_from_succeeds_when_all_fields_present() {
+        let jc = JsonCreateTodo {
+            title: Some("My Todo".to_string()),
+            description: Some("Some description".to_string()),
+        };
+        let result = CreateTodo::try_from(jc);
+        assert!(result.is_ok());
+        let todo = result.unwrap();
+        assert_eq!(todo.title, "My Todo");
+        assert_eq!(todo.description, "Some description");
+    }
+
+    #[test]
     fn json_create_todo_try_from_returns_err_when_title_is_none() {
         let jc = JsonCreateTodo {
             title: None,
