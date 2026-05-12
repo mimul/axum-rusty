@@ -109,7 +109,7 @@ STEP 0에서 수집한 리뷰 내용을 구조화하고, 언급된 파일을 Rea
 2. `.claude/rules/security-style.md` — **2차 판단 기준** (보안 점검 기준)
 3. `.claude/rules/test-style.md` — 보완 기준 (테스트 관련 지적 시)
 
-각 지적에 대해 아래 5가지 기준으로 독립적으로 평가한다.
+각 지적에 대해 아래 6가지 기준으로 독립적으로 평가한다.
 **리뷰어 의견에 동조하지 않고 coding-style.md 원칙과 코드·프로젝트 정책을 직접 확인하여 판단한다.**
 
 ---
@@ -183,14 +183,200 @@ STEP 0에서 수집한 리뷰 내용을 구조화하고, 언급된 파일을 Rea
 
 ---
 
-### ③ 기술적 타당성
+### ③ test-style.md 3차 테스트 품질 판단
+
+테스트 관련 지적이 포함된 경우, test-style.md의 아래 섹션을 기준으로 독립적으로 평가한다.
+
+> 판정 우선순위: §17.1 Blocking 신호 → §8 Flaky·비결정성 → §3 모킹 경계 → §2·§4 Behavior/Classicist → §7 가독성 → §15·§16 구조·불필요
+
+| 섹션 | 주요 체크 | 판정 기준 |
+|------|-----------|-----------|
+| §2 Behavior First | observable behavior 검증, implementation coupling 없음 | 상호작용만 검증 시 🚫 |
+| §3 모킹 경계 | Repository Mock 사용 여부, 외부 HTTP API 처리 방식 | MockRepository 사용 시 ⚠️ |
+| §4 Classicist TDD | state verification 우선, 실제 domain object 사용 | interaction-only 검증 시 ⚠️ |
+| §7 Readability | AAA 구조 준수, `<행동>_<기대결과>_when_<조건>` 네이밍 | generic 네이밍 시 💡 |
+| §8 Flaky & Deterministic | 이유 없는 `#[ignore]`, 타이밍 의존 패턴 | 이유 없는 ignore 시 🚫 |
+| §15 파일 구조 | 단위 테스트 `src/` 내, 통합·DB 테스트 `tests/` | 피라미드 역전 시 ⚠️ |
+| §16 불필요 테스트 | 로직 없는 CRUD·프레임워크 배선·getter 단독 테스트 | 삭제 권장 시 💡 |
+| §17.1 PR 거절 신호 | Assertion 없음, Mock chain, Mock DB, `#[ignore]` 이유 없음 | 해당 시 🚫 |
+
+---
+
+#### §2 Behavior First — 타당성 판단 기준
+
+| 지적 내용 | 타당한 경우 | 타당하지 않은 경우 |
+|-----------|------------|------------------|
+| "mock 상호작용만 검증, 결과 상태 없음" | `expect_save().times(1)` 외 `assert_eq!` 없음 | 실제 결과 상태를 검증하는 assertion이 존재 |
+| "implementation에 결합된 테스트" | 내부 private 필드·메서드에 직접 의존 | public API를 통한 black-box 검증 |
+| "business rule이 아닌 구현 검증" | 함수 호출 순서·횟수만 검증 | 도메인 상태 전이 결과 검증 |
+
+수정 방향 (✅ 대응 시):
+```rust
+// Before — 상호작용만 검증
+mock_repo.expect_save().times(1).returning(|_| Ok(()));
+usecase.create(cmd).await.unwrap();
+
+// After — observable behavior 검증
+let result = usecase.create(cmd).await.unwrap();
+assert_eq!(result.status, TodoStatus::Todo);
+assert_eq!(result.title.as_ref(), "write guide");
+```
+
+---
+
+#### §3 모킹 경계 — 타당성 판단 기준
+
+| 경계 유형 | 타당한 지적 | 타당하지 않은 지적 |
+|-----------|------------|------------------|
+| Repository Mock | `MockTodoRepository` in `tests/` | `InMemoryFake` 또는 `sqlx::test` 사용 중 |
+| 외부 HTTP API Mock | `reqwest::Client`를 직접 Mock | `wiremock-rs`로 HTTP 레벨 Fake 사용 중 |
+| 도메인 객체 Mock | `MockTodo`, `MockOrder` 등 자체 소유 객체 Mock | 실제 도메인 객체를 생성·사용 중 |
+| 순수 함수 Mock | 변환 유틸리티·순수 함수 Mock | 실제 함수를 그대로 호출 중 |
+
+수정 방향 (✅ 대응 시):
+```rust
+// Before — MockRepository
+let mut mock_repo = MockTodoRepository::new();
+mock_repo.expect_find_by_id().returning(|_| Ok(None));
+
+// After — in-memory Fake
+let repo = InMemoryTodoRepository::new();
+
+// 또는 실제 DB (권장)
+#[sqlx::test]
+async fn create_todo_persists(pool: PgPool) {
+    let repo = PostgresTodoRepository::new(pool);
+    // ...
+}
+```
+
+---
+
+#### §4 Classicist TDD — 타당성 판단 기준
+
+| 지적 내용 | 타당한 경우 | 타당하지 않은 경우 |
+|-----------|------------|------------------|
+| "interaction verification만 존재" | `expect_xxx().times(n)` > `assert_eq!` 수 | state assertion이 interaction보다 많음 |
+| "도메인 객체를 Mock으로 대체" | `MockTodo`, `MockOrder` 등 자체 도메인 Mock | 실제 `Todo::new()`, `Order::create()` 사용 |
+| "Result의 에러 케이스 미검증" | happy path만 존재, `unwrap()` 이후 assertion 없음 | 에러 케이스 별도 테스트 존재 |
+
+수정 방향 (✅ 대응 시):
+```rust
+// Before — interaction only
+mock_repo.expect_save().times(1).returning(|_| Ok(()));
+usecase.create(cmd).await.unwrap();
+
+// After — state verification
+let todo = usecase.create(cmd).await.unwrap();
+assert_eq!(todo.status(), TodoStatus::Todo);
+
+// 에러 케이스도 추가
+let result = usecase.create(invalid_cmd).await;
+assert!(result.is_err());
+```
+
+---
+
+#### §7 Readability — 타당성 판단 기준
+
+**AAA 구조 판단**
+
+| 지적 내용 | 타당한 경우 | 타당하지 않은 경우 |
+|-----------|------------|------------------|
+| "AAA 구분이 없음" | Arrange·Act·Assert가 섞여 있고 주석 없음 | 논리적 흐름이 명확하여 주석 없이도 읽힘 |
+| "테스트 함수가 너무 김" | 한 테스트가 여러 Act를 포함 | 긴 Arrange(복잡한 픽스처)지만 Act·Assert는 명확 |
+
+**네이밍 패턴 판단**
+
+| 나쁜 패턴 (지적 타당) | 권장 패턴 |
+|----------------------|-----------|
+| `test_complete()` | `complete_todo_returns_error_when_already_done()` |
+| `test_save()` | `save_todo_persists_title_and_status()` |
+| `handle_auth()` | `returns_401_when_auth_header_is_missing()` |
+| `fn process_request()` | `create_todo_returns_201_when_valid_input()` |
+
+`handle_` / `process_` / `run_` 접두사는 의미가 약하다 → 지적 타당.
+`test_` 접두사만 붙이고 행동·기대결과 없음 → 지적 타당.
+
+---
+
+#### §8 Flaky & Deterministic — 타당성 판단 기준
+
+| 탐지 패턴 | 타당한 지적 | 타당하지 않은 지적 |
+|-----------|------------|------------------|
+| `#[ignore]` 이유 없음 | annotation만 있고 이슈·담당자·기한 없음 | `#[ignore = "Flaky: ..., Issue: #N, Owner: @x, Due: ..."]` 형식 |
+| `SystemTime::now()` 직접 사용 | 테스트 내에서 현재 시각을 직접 비교 | `Clock` 인터페이스 주입으로 결정적 처리 |
+| `tokio::time::sleep` 타이밍 조정 | `sleep(Duration::from_secs(1))` 로 동기화 | 채널 수신(`rx.recv().await`) 또는 상태 기반 대기 |
+| 공유 전역 상태 | `static COUNTER` 등 테스트 간 공유 | 테스트마다 독립 인스턴스 생성 |
+
+수정 방향 (✅ 대응 시):
+```rust
+// Before — 이유 없는 ignore
+#[ignore]
+#[tokio::test]
+async fn some_flaky_test() { }
+
+// After — Quarantine 형식 준수
+#[ignore = "Flaky: race condition in async setup. Issue: #123, Owner: @mimul, Due: 2024-03-01"]
+#[tokio::test]
+async fn some_flaky_test() { }
+
+// Before — 타이밍 의존
+sleep(Duration::from_secs(1)).await;
+
+// After — 상태 기반 대기
+rx.recv().await.expect("이벤트 수신 실패");
+```
+
+---
+
+#### §15 파일 구조 — 타당성 판단 기준
+
+| 지적 내용 | 타당한 경우 | 타당하지 않은 경우 |
+|-----------|------------|------------------|
+| "DB 쿼리 테스트가 src/ 내에 있음" | `#[sqlx::test]` 가 `src/` 내 `#[cfg(test)]`에 존재 | `{crate}/tests/` 하위에 분리됨 |
+| "통합 테스트가 70%+" | 단위 테스트 거의 없고 통합 테스트만 존재 | 피라미드 비율(단위 70·통합 20·E2E 10) 준수 |
+| "단위 테스트가 tests/ 에 있음" | public API 외 비공개 함수를 `tests/`에서 접근 시도 | `src/` 내 `#[cfg(test)]` 모듈로 비공개 접근 필요 |
+
+---
+
+#### §16 불필요 테스트 — 타당성 판단 기준
+
+삭제를 권장하는 경우 (지적 타당):
+
+- 로직 없는 순수 CRUD 단독 테스트 (E2E 1개로 충분)
+- axum 라우팅·shaku DI 배선만 검증하는 테스트
+- 타입 시스템이 보장하는 정적 상수 테스트
+- 단순 getter/setter 검증
+
+❌ 대응 불필요 판단 기준:
+- "이 테스트가 보호하는 동작을 한 문장으로 설명할 수 없으면, 작성하지 말 것" (test-style.md §16)
+- 위 기준으로 설명 가능하면 불필요 테스트가 아님
+
+---
+
+#### §17.1 PR 거절 신호 — 타당성 판단 기준
+
+아래 5개 패턴을 탐지하면 **모두 🚫 Blocking**으로 판정하여 ✅ 대응 처리한다.
+
+| 패턴 | 탐지 조건 | 수정 방향 |
+|------|-----------|-----------|
+| Assertion 없는 테스트 | `#[test]` 함수 내 `assert` 계열 없음 | observable behavior assert 추가 |
+| 의미 없는 Assertion | `assert!(result.is_some())` 단독 | 구체적 필드 값 `assert_eq!`로 교체 |
+| 통합 테스트 Mock DB | `MockRepository` in `tests/` | `InMemoryFake` 또는 `sqlx::test` 전환 |
+| 내부 구현 직접 접근 | `pub(super)` 로 `tests/`에서 내부 접근 | public API black-box 테스트로 전환 |
+| `#[ignore]` 이유 없음 | annotation만, 이슈 링크·담당자·기한 없음 | Quarantine 형식 추가 |
+
+---
+
+### ④ 기술적 타당성
 
 - 지적된 코드가 실제로 버그·성능·보안 문제를 일으키는가?
 - Rust 언어 규칙 및 관용 표현에 비추어 맞는 지적인가?
 
 ---
 
-### ④ 프로젝트 정책 적합성 (보완 기준)
+### ⑤ 프로젝트 정책 적합성 (보완 기준)
 
 해당 카테고리에만 적용하는 보완 기준:
 
@@ -206,7 +392,7 @@ STEP 0에서 수집한 리뷰 내용을 구조화하고, 언급된 파일을 Rea
 
 ---
 
-### ⑤ 구현 트레이드오프 타당성
+### ⑥ 구현 트레이드오프 타당성
 
 - 수정 시 다른 코드에 미치는 영향 범위는 적절한가?
 - 성능·가독성·유지보수성 간 균형이 맞는가?
