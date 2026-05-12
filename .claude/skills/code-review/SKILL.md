@@ -139,6 +139,151 @@ git diff --cached               # staged 전체 diff
 | §14 Secure Coding | dynamic code execution 없음, unsafe native call 없음, trust boundary 명확 |
 | §15 Rust 특화 | unsafe 블록 SAFETY 주석, panic 기반 DoS 없음, serde 입력 검증 존재 |
 
+## 2-3 `.claude/rules/test-style.md` 기반 테스트 코드 점검
+
+변경 범위의 테스트 코드(또는 테스트 부재)를 아래 기준으로 점검한다.
+
+| 섹션 | 주요 체크 |
+|---|---|
+| §2 Behavior First | 상호작용 검증만 있고 상태 검증 없는 테스트 없음, 내부 구현에 의존하는 테스트 없음 |
+| §3 모킹 경계 | 프로세스 경계(외부 HTTP) → wiremock-rs, DB/Repository → Fake 또는 `sqlx::test` (Mock 금지) |
+| §4 Classicist TDD | 상태 검증 우선, 실제 domain object 사용, Mock은 외부 경계에만 |
+| §7 Readability | AAA 구조 준수, 테스트명 `<행동>_<기대결과>_when_<조건>` 패턴 |
+| §8 Flaky 패턴 | `tokio::time::sleep` · 공유 전역 상태 · `SystemTime::now()` 직접 사용 없음 |
+| §15 파일 구조 | 단위 테스트 `src/#[cfg(test)]`, 통합/DB/API 테스트 `{crate}/tests/` |
+| §16 불필요 테스트 | 로직 없는 getter/setter · 순수 CRUD · 프레임워크 배선 테스트 삭제 대상 |
+| §17.1 Blocking | Assertion 없는 테스트, 의미 없는 assertion, 이유 없는 `#[ignore]`, 통합 테스트의 Mock DB |
+
+### §2 — Behavior First 확인
+
+테스트가 내부 구현이 아닌 observable behavior를 검증하는지 확인한다.
+
+**탐지 방법**:
+- `expect_xxx().times(n)` 호출이 `assert_eq!` 보다 압도적으로 많은 파일 확인
+- `pub(super)` 등으로 private 구현에 직접 접근하는 테스트 확인
+
+```rust
+// ❌ 상호작용만 검증 — 리팩토링 내성 없음
+mock_repo.expect_save().once().returning(|_| Ok(()));
+
+// ✅ 상태 검증 — 동작 보존 여부를 직접 확인
+assert_eq!(todo.status(), TodoStatus::Done);
+```
+
+**판정**: 상호작용 검증 단독 테스트 → **⚠️ Recommended Changes** (상태 검증으로 전환 권고).
+
+### §3 — 모킹 경계 준수
+
+경계별 Test Double 선택이 올바른지 점검한다.
+
+| 경계 | 올바른 처리 | 잘못된 처리 | 판정 |
+|---|---|---|---|
+| 외부 HTTP API | `wiremock-rs` Fake | 실제 HTTP 호출 | 🚫 Blocking |
+| DB/Repository | `InMemoryRepo` Fake 또는 `sqlx::test` | `MockRepository` | ⚠️ Recommended |
+| 시간/난수 | `Clock` trait 주입 → `FakeClock` | `SystemTime::now()` 직접 사용 | ⚠️ Recommended |
+| 순수 domain 객체 | 실제 객체 사용 | Mock 처리 | ⚠️ Recommended |
+
+### §4 — Classicist TDD 원칙 확인
+
+- [ ] domain 로직을 Mock하지 않는가?
+- [ ] Repository는 Fake 또는 실제 DB(`sqlx::test`)를 사용하는가?
+- [ ] `mockall`을 `EmailSender`·`EventPublisher` 등 side-effect가 비즈니스 요구사항인 경우에만 사용하는가?
+- [ ] `expect_xxx().times()` 호출보다 `assert_eq!`·`assert!` 계열이 많은가?
+
+### §7 — 테스트 가독성 확인
+
+**AAA 구조**: Arrange / Act / Assert 세 단계가 구분되는지 확인한다.
+
+```rust
+// ✅ AAA 구조 명시
+#[test]
+fn complete_todo_returns_error_when_already_done() {
+    // Arrange
+    let mut todo = Todo::new(TodoTitle::new("test".to_string()).unwrap());
+    todo.start().unwrap();
+    todo.complete().unwrap();
+
+    // Act
+    let result = todo.complete();
+
+    // Assert
+    assert!(result.is_err());
+}
+```
+
+**테스트명 패턴**: `<행동>_<기대결과>_when_<조건>` — `test_`, `handle_`, `process_` 접두사는 **⚠️ Recommended Changes**.
+
+```rust
+// ❌ 구현 구조 반영
+fn test_complete()
+fn test_todo_save()
+
+// ✅ 행동 기반
+fn complete_todo_returns_error_when_already_done()
+fn create_todo_fails_when_title_is_empty()
+```
+
+### §8 — Flaky 패턴 탐지
+
+다음 패턴이 있으면 **⚠️ Recommended Changes** 이상으로 분류한다.
+
+| 패턴 | 탐지 방법 | 권고 교체 |
+|---|---|---|
+| `tokio::time::sleep` | `#[test]` / `#[tokio::test]` 내부 검색 | 채널/상태 기반 대기(`rx.recv().await`) |
+| `SystemTime::now()` | test 모듈 내 `SystemTime::now` 검색 | `Clock` trait 주입 → `FakeClock` |
+| 시드 없는 `rand::random()` | test 모듈 내 `rand::random` 검색 | 고정 시드 또는 `proptest` |
+| 공유 `static` / `OnceCell` | test 모듈 내 `static` / `OnceCell` 검색 | 테스트마다 독립 인스턴스 |
+
+**Quarantine 미준수**: 이슈 링크·담당자·기한 없이 단순 `#[ignore]`는 **🚫 Blocking Issues**.
+
+```rust
+// ❌ 즉시 Blocking 처리
+#[ignore]
+#[tokio::test]
+async fn some_test() { }
+
+// ✅ 올바른 quarantine
+#[ignore = "Flaky: race condition. Issue: #123, Owner: @mimul, Due: 2024-06-01"]
+#[tokio::test]
+async fn some_test() { }
+```
+
+### §15 — 테스트 파일 구조 확인
+
+변경된 테스트 코드가 올바른 위치에 배치되어 있는지 확인한다.
+
+| 테스트 종류 | 올바른 위치 | 잘못된 위치 | 판정 |
+|---|---|---|---|
+| 단위 테스트 (private 함수 포함) | `src/` 내부 `#[cfg(test)]` 모듈 | `tests/` 최상위 | 💡 Suggestion |
+| 통합 테스트 (공개 API 기준) | `{crate}/tests/` 하위 | `src/` 내부 | 💡 Suggestion |
+| DB 테스트 (`sqlx::test`) | `{crate}/tests/` 하위 | `src/` 내부 | 💡 Suggestion |
+| HTTP API 테스트 | `{crate}/tests/` 하위 | `src/` 내부 | 💡 Suggestion |
+
+### §16 — 불필요 테스트 탐지
+
+아래 카테고리에 해당하면 **📝 Tech Debt**로 분류하고 삭제를 권고한다.
+
+| 삭제 대상 | 판단 기준 |
+|---|---|
+| 로직 없는 getter/setter | 단순 필드 반환만 검증 |
+| 순수 CRUD | DB 없이 `save` → `find` 반복 검증만 수행 |
+| 프레임워크 배선 | axum 라우팅, shaku DI 배선만 검증 |
+| 타입 시스템 보장 항목 | 컴파일러가 이미 보장하는 정적 설정·상수 |
+
+> 판단 기준: "이 테스트가 보호하는 동작을 한 문장으로 설명할 수 없으면 삭제를 권고한다"
+
+### §17.1 — Blocking 신호 즉시 검출
+
+아래 패턴은 발견 즉시 **🚫 Blocking Issues**로 분류한다.
+
+| Blocking 신호 | 확인 방법 |
+|---|---|
+| Assertion 없는 테스트 | `#[test]` 함수 내 `assert!` 계열 없음 |
+| 의미 없는 assertion | `assert!(result.is_some())` 단독 사용 |
+| 이슈 링크 없는 `#[ignore]` | 사유·담당자·기한 없이 단순 `#[ignore]` |
+| 통합 테스트의 Mock DB | `MockXxxRepository` 사용 |
+| 비결정적 출력 고정 | `SystemTime::now()`, 시드 없는 난수 |
+
 ---
 
 # STEP 3 리뷰 분석 리포트 작성
