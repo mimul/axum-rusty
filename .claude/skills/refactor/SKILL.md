@@ -136,11 +136,11 @@ Claude는 scope를 기반으로 영향 범위와 의존성을 분석한다.
 
 ## Test 정책
 
-`--with-tests` 옵션이 있으면 Claude는 6.2.2 `/test-align` 명령을 수행한다.
+`--with-tests` 옵션이 있으면 Claude는 6.2.2 `/test-align` 명령을 수행해 테스트 갭 분석 및 보완을 진행한다.
 
 ## 보안 정책
 
-`--with-security` 옵션이 있으면 Claude는: 6.3 Security Scan을 수행한다.
+`--with-security` 옵션이 있으면 Claude는: 6.3 Security Scan을 수행해 보안 갭 분석 및 보완을 진행한다.
 
 **전제 조건으로 [claude-security-scan](https://github.com/mimul/claude-security-scan)** 이 설치되어야 한다.
 
