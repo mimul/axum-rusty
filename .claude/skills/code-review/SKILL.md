@@ -28,7 +28,7 @@ description: >
 
 ```
 --with-tests      리뷰 후 /test-align 명령으로 테스트 갭 분석 및 보완 수행
---with-security   리뷰 후 /security-full-scan + /security-scan 보안 스캔 수행
+--with-security   리뷰 후 /security-full-scan + /security-scan 보안 스캔 수행해 갭 분석 및 보완 수행
 ```
 
 `--with-security` 전제 조건: [claude-security-scan](https://github.com/mimul/claude-security-scan) 이 설치되어 있어야 한다.
