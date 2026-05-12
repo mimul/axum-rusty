@@ -86,64 +86,39 @@ migrations/   테이블, 기초 데이터, 인덱스
  예) 리팩토링을 한 경우 리팩토링 전후에 테스트가 통과하는지 확인한다.
 - 명확한 성공 기준은 LLM이 독립적으로 반복할 수 있도록 한다. 약한 기준(작동하게 만들기)은 지속적인 명확화가 필요하다.
 
-## 브랜치 전략
+## 코드 설명 규칙
 
-```
-main                              배포 기준 (직접 커밋 금지)
-├── feature/{작업-내용}           신규 기능 개발
-├── feature/refactor-{module}     /refactor 전용
-└── fix/cr-{module}               /code-review-rust 수정 전용
-```
+### 지적 대응시
+지적 내용의 설명과 타당성의 평가를 실시하고, 변경 전의 문제점·변경 내용·변경 후의 코드의 의도와 내용을 설명한다.
 
-### 커밋 메시지 규칙
+### 코드 변경시
+변경 전과 변경 후에 무엇이 바뀌는지 각 코드의 의도와 내용을 설명한다.
 
-```
-형식: <type>(<scope>): <50자 이내 요약>
+### 신규 코드 작성시
+코드가 없는 상태와 어느 상태로 무엇이 바뀌는지(무슨 문제를 해결하는지), 코드의 의도와 내용을 설명한다.
 
-type: feat | fix | refactor | test | docs | chore
+## 브랜치 관리
 
-예시:
-  refactor(order): process_order clone() 제거
-  fix(auth):       std::Mutex → tokio::Mutex 교체
-  feat(payment):   결제 취소 API 추가
-```
+- 브랜치를 생성하기 전에 develop 브랜치에서 최신 상태 동기화
+- 서브모듈이 있는 경우 최신 상태로 동기화
+- 새 작업 브랜치는 develop 기준으로 생성
+- 의도하지 않은 변경사항(untracked/staged)이 있으면 작업 전에 사용자에게 확인
+- 작업 중 이미 병합된 로컬 브랜치를 발견하면 삭제를 제안
+- 오래된 원격 추적 브랜치 정리 제안
+- 충돌(conflict) 발생 시 자동 해결하지 말고 충돌 내용을 요약 후 사용자 확인 요청
+- 하나의 브랜치에서는 하나의 목적만 수행
+- 브랜치 네이밍 규칙 준수
+  - `feature/...`
+  - `fix/...`
+  - `refactor/...`
+  - `test/...`
+  - `docs/...`
+  - `chore/...`
 
 ## 코딩 컨벤션
 
 > 상세 원칙은 `.claude/rules/coding-style.md` 참조 (Domain First 철학, 19개 섹션).
 
-### 에러 처리
-- `unwrap()` — 라이브러리·핸들러 코드에서 **절대 금지**
-- `expect()` — 진입 불가능한 상태임을 증명할 수 있을 때만 허용, 이유 주석 필수
-- 에러 타입 정의 — `thiserror` (라이브러리), `anyhow` (바이너리 main)
-- 에러 전파 — `?` 연산자 우선
-- 에러 경계 — 각 레이어는 하위 에러를 자신의 타입으로 변환해 상위에 노출
-
-### 소유권
-- 파라미터 — `String` 대신 `&str`, `Vec<T>` 대신 `&[T]` 우선
-- `clone()` — 소유권 이전이 실제로 필요한 경우에만
-
-### 타입 설계
-- 도메인 식별자 (`UserId`, `OrderId`) — Newtype 패턴 필수
-- 상태·분류값 (`Status`, `Role`) — `String` 대신 `enum` 필수
-- `bool` 파라미터 — `enum`으로 대체
-
-### 네이밍
-- 함수명 — `<동사>_<대상>` 형태로 의도를 드러냄 (`complete_todo`, `authorize_user`)
-- 금지 접두사 — `handle_`, `process_`, `run_`, `do_` (의미 불명확)
-
-### 로깅
-- `tracing` 필드 기반 구조화 로깅 사용
-- 좋은 예: `error!(error = ?err, user_id = %id, "auth failed");`
-- 나쁜 예: `error!("auth failed: {:?}", err);`
-
-### 공개 범위
-- `pub` — 외부 공개가 실제 필요한 경우만
-- `pub(crate)` / `pub(super)` — 내부 공유 시
-
-### 문서화
-- `pub fn` / `pub struct` / `pub trait` — `///` 주석 필수
-- `unsafe` 블록 — `// SAFETY:` 주석 필수
 
 ## 금지 사항
 
@@ -164,11 +139,11 @@ type: feat | fix | refactor | test | docs | chore
 | 커맨드 | 용도 |
 |--------|------|
 | `/refactor` | 운영 코드 리팩토링 (Before/After 확인 후 적용) |
-| `/code-review-rust` | 로컬 변경 코드 품질 리뷰 (10개 카테고리) |
-| `/code-review-rust --pr [번호]` | GitHub PR 리뷰 (로컬 실행) |
-| `/code-review-feedback-rust` | PR에 리뷰 코멘트 직접 게시 |
-| `/address-review-rust` | 리뷰 지적 사항 대응 (대화 모드 / PR 번호 모드) |
-| `/reply-review-rust` | 리뷰 대응 완료 후 PR 코멘트에 회신 |
+| `/code-review` | 로컬 변경 코드 품질 리뷰 (10개 카테고리) |
+| `/code-review --pr [번호]` | GitHub PR 리뷰 (로컬 실행) |
+| `/code-review-feedback` | PR에 리뷰 코멘트 직접 게시 |
+| `/address-review` | 리뷰 지적 사항 대응 (대화 모드 / PR 번호 모드) |
+| `/reply-review` | 리뷰 대응 완료 후 PR 코멘트에 회신 |
 | `/test-align` | 테스트 작성 (단위: src/, 통합·DB·API: tests/) |
 | `/test-align --type [unit\|db\|integration\|api]` | 특정 종류 테스트만 작성 |
 | `/security-full-scan <대상 경로>` | 전체 소스 + 의존성 CVE + 시크릿 전수 보안 감사 |
