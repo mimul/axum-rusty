@@ -164,4 +164,22 @@ mod tests {
         let json = serde_json::to_value(&resp).unwrap();
         assert!(json["data"].is_null());
     }
+
+    #[test]
+    fn app_error_validation_returns_bad_request_with_field_message() {
+        use std::borrow::Cow;
+        use validator::{ValidationError, ValidationErrors};
+
+        // Arrange
+        let mut errors = ValidationErrors::new();
+        let mut err = ValidationError::new("length");
+        err.message = Some(Cow::from("`title` is empty."));
+        errors.add("title", err);
+
+        // Act
+        let response = AppError::Validation(errors).into_response();
+
+        // Assert
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
 }

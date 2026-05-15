@@ -120,6 +120,27 @@ fn test_config(database_url: String) -> ApplicationConfig {
     }
 }
 
+/// 유효하게 서명되었지만 DB에 존재하지 않는 유저 ID의 JWT를 생성한다.
+/// auth_resolver.rs L58 (`user not found` 경로) 테스트에 사용한다.
+pub fn create_jwt_for_nonexistent_user() -> String {
+    use controller::model::user::TokenClaims;
+    use jsonwebtoken::{encode, EncodingKey, Header};
+
+    let now = chrono::Utc::now();
+    let claims = TokenClaims {
+        sub: "000000000000000000000099".to_string(),
+        username: "ghost@example.com".to_string(),
+        exp: (now + chrono::Duration::minutes(60)).timestamp() as usize,
+        iat: now.timestamp() as usize,
+    };
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret("test-jwt-secret-key-for-testing".as_ref()),
+    )
+    .expect("test JWT encoding must succeed")
+}
+
 /// 각 테스트마다 독립된 풀을 생성한다.
 /// PostgreSQL 컨테이너는 Docker를 통해 자동으로 기동되고
 /// 프로세스 종료 시 `#[ctor::dtor]`가 명시적으로 삭제한다.
