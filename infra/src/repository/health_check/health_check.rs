@@ -1,14 +1,9 @@
+use super::interface::IHealthCheckRepository;
 use crate::db::IDatabasePool;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use shaku::Component;
 use std::sync::Arc;
-
-/// HealthCheck 레포지토리 인터페이스.
-#[async_trait]
-pub trait IHealthCheckRepository: shaku::Interface {
-    async fn check_connection(&self) -> anyhow::Result<()>;
-}
 
 /// PostgreSQL HealthCheck 레포지토리 구현체.
 #[derive(Component)]
