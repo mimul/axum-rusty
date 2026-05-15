@@ -1,5 +1,9 @@
 pub mod status;
 
+mod interface;
+
+pub use interface::ITodoRepository;
+
 use crate::db::IDatabasePool;
 use crate::model::todo::{InsertTodo, StoredTodo, UpdateStoredTodo, UpsertStoredTodo};
 use crate::repository::PgTx;
@@ -11,20 +15,6 @@ use domain::model::Id;
 use shaku::Component;
 use sqlx::{query, query_as};
 use std::sync::Arc;
-
-/// Todo 레포지토리 인터페이스.
-#[async_trait]
-pub trait ITodoRepository: shaku::Interface {
-    async fn get(&self, id: &Id<Todo>) -> anyhow::Result<Option<Todo>>;
-    async fn find(&self, status: Option<TodoStatus>) -> anyhow::Result<Vec<Todo>>;
-    async fn get_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>>;
-    async fn find_tx(&self, tx: &mut PgTx, status: Option<TodoStatus>)
-        -> anyhow::Result<Vec<Todo>>;
-    async fn insert_tx(&self, tx: &mut PgTx, todo: NewTodo) -> anyhow::Result<Todo>;
-    async fn update_tx(&self, tx: &mut PgTx, todo: UpdateTodo) -> anyhow::Result<Todo>;
-    async fn upsert_tx(&self, tx: &mut PgTx, todo: UpsertTodo) -> anyhow::Result<Todo>;
-    async fn delete_tx(&self, tx: &mut PgTx, id: &Id<Todo>) -> anyhow::Result<Option<Todo>>;
-}
 
 /// PostgreSQL Todo 레포지토리 구현체.
 #[derive(Component)]
