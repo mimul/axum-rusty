@@ -1,3 +1,7 @@
+mod interface;
+
+pub use interface::IUserUseCase;
+
 use crate::model::user::{CreateUser, LoginUser, SearchUserCondition, UserView};
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -11,18 +15,6 @@ use tracing::{error, info};
 /// bcrypt 해시 cost factor (OWASP 권고: 10 이상)
 /// cost=10: ~80~150ms / cost=12: ~400~1000ms (2의 지수 증가)
 const BCRYPT_COST: u32 = 10;
-
-/// User 유스케이스 인터페이스.
-#[async_trait]
-pub trait IUserUseCase: shaku::Interface {
-    async fn get_user(&self, id: String) -> anyhow::Result<Option<UserView>>;
-    async fn get_user_by_username(
-        &self,
-        condition: SearchUserCondition,
-    ) -> anyhow::Result<Option<UserView>>;
-    async fn create_user(&self, source: CreateUser) -> anyhow::Result<UserView>;
-    async fn login_user(&self, source: LoginUser) -> anyhow::Result<UserView>;
-}
 
 /// User 유스케이스 구현체.
 #[derive(Component)]
