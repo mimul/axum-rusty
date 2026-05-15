@@ -1,3 +1,7 @@
+mod interface;
+
+pub use interface::IUserRepository;
+
 use crate::db::IDatabasePool;
 use crate::model::user::{InsertUser, StoredUser};
 use crate::repository::PgTx;
@@ -7,20 +11,6 @@ use domain::model::Id;
 use shaku::Component;
 use sqlx::{query, query_as};
 use std::sync::Arc;
-
-/// User 레포지토리 인터페이스.
-#[async_trait]
-pub trait IUserRepository: shaku::Interface {
-    async fn get_user(&self, id: &Id<User>) -> anyhow::Result<Option<User>>;
-    async fn get_user_tx(&self, tx: &mut PgTx, id: &Id<User>) -> anyhow::Result<Option<User>>;
-    async fn get_user_by_username(&self, username: &str) -> anyhow::Result<Option<User>>;
-    async fn get_user_by_username_tx(
-        &self,
-        tx: &mut PgTx,
-        username: &str,
-    ) -> anyhow::Result<Option<User>>;
-    async fn insert_tx(&self, tx: &mut PgTx, source: NewUser) -> anyhow::Result<User>;
-}
 
 /// PostgreSQL User 레포지토리 구현체.
 #[derive(Component)]
