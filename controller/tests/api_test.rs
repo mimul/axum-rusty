@@ -770,3 +770,118 @@ async fn protected_route_with_cookie_token_returns_ok() {
     let json = body_json(resp.into_body()).await;
     assert_eq!(json["result"], true, "cookie auth must succeed: {json}");
 }
+
+// ─── JsonRejection: Content-Type 없이 POST → 400 ────────────────────────────
+
+#[tokio::test]
+async fn create_todo_without_content_type_returns_bad_request() {
+    // Arrange
+    let app = common::build_test_app().await;
+    let email = unique_email();
+    let token = create_user_and_login(&app, &email).await;
+
+    // Act: Content-Type 헤더 없이 요청 → AppError::JsonRejection → 400
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/todo")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .body(Body::from(r#"{"title":"Test","description":"desc"}"#))
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+
+    // Assert
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(json["result"], false);
+}
+
+// ─── update_todo: 빈 title → validation error → 200 result:false ─────────────
+
+#[tokio::test]
+async fn update_todo_with_empty_title_returns_error_result() {
+    // Arrange
+    let app = common::build_test_app().await;
+    let email = unique_email();
+    let token = create_user_and_login(&app, &email).await;
+
+    let body = json!({ "title": "Original", "description": "desc" });
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/todo")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let json = body_json(resp.into_body()).await;
+    let id = json["data"]["todoView"]["id"].as_str().unwrap().to_string();
+
+    // Act: 빈 title → JsonUpdateTodoContents.validate() → Err → AppError::Error
+    let update_body = json!({ "title": "" });
+    let req = Request::builder()
+        .method(Method::PATCH)
+        .uri(format!("/v1/todo/{id}"))
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(update_body.to_string()))
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+
+    // Assert: AppError::Error → 200, result: false, message에 "title" 포함
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(json["result"], false);
+    assert!(
+        json["message"]
+            .as_str()
+            .map(|m| m.contains("title"))
+            .unwrap_or(false),
+        "error message should mention 'title', got: {json}"
+    );
+}
+
+// ─── get_user_by_username: 다른 username → 403 ───────────────────────────────
+
+#[tokio::test]
+async fn get_user_by_username_with_different_username_returns_forbidden() {
+    // Arrange
+    let app = common::build_test_app().await;
+    let email = unique_email();
+    let token = create_user_and_login(&app, &email).await;
+    let other_email = unique_email();
+
+    // Act: current_user.username != query.username → AppError::Forbidden → 403
+    let req = Request::builder()
+        .method(Method::GET)
+        .uri(format!("/v1/user?username={other_email}"))
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+
+    // Assert
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
+
+// ─── auth: 유효 JWT이지만 DB에 유저 없음 → 401 ───────────────────────────────
+
+#[tokio::test]
+async fn protected_route_returns_unauthorized_when_user_not_in_db() {
+    // Arrange: 유효하게 서명되었지만 DB에 존재하지 않는 유저 ID의 JWT
+    let app = common::build_test_app().await;
+    let ghost_token = common::create_jwt_for_nonexistent_user();
+
+    // Act
+    let req = Request::builder()
+        .method(Method::GET)
+        .uri("/v1/todo")
+        .header(header::AUTHORIZATION, format!("Bearer {ghost_token}"))
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+
+    // Assert: auth_resolver.rs L58 → .ok_or_else(|| InvalidJwt("user not found")) → 401
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    let json = body_json(resp.into_body()).await;
+    assert_eq!(json["result"], false);
+}
