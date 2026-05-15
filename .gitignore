@@ -65,3 +65,4 @@ Temporary Items
 CLAUDE.local.md
 security-reports/
 security-agent.config.yml
+*.profraw

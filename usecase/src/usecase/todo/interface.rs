@@ -1,4 +1,6 @@
-use crate::model::todo::{CreateTodo, SearchTodoCondition, TodoView, UpdateTodoView, UpsertTodoView};
+use crate::model::todo::{
+    CreateTodo, SearchTodoCondition, TodoView, UpdateTodoView, UpsertTodoView,
+};
 use async_trait::async_trait;
 
 /// Todo 유스케이스 인터페이스.
